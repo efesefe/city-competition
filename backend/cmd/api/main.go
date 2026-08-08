@@ -71,10 +71,22 @@ func main() {
 	}
 	otp := &auth.OTPService{RDB: rdb, SMS: sms}
 	sessions := &auth.SessionService{RDB: rdb}
+	users := &auth.PoolUserStore{Pool: pool}
+	social := &auth.SocialService{
+		RDB: rdb,
+		Verifier: &auth.ProductionVerifier{
+			GoogleClientID: cfg.GoogleClientID,
+			AppleClientID:  cfg.AppleClientID,
+		},
+		Users:    users,
+		Sessions: sessions,
+		OTP:      otp,
+	}
 	authHandler := &auth.Handler{
 		OTP:      otp,
-		Users:    &auth.PoolUserStore{Pool: pool},
+		Users:    users,
 		Sessions: sessions,
+		Social:   social,
 	}
 	consentHandler := &consent.Handler{
 		Store: &consent.PoolStore{Pool: pool},
@@ -86,8 +98,12 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/otp/resend", authHandler.ResendOTP)
 	mux.HandleFunc("POST /v1/auth/otp/verify", authHandler.VerifyOTP)
 	mux.HandleFunc("POST /v1/auth/register", authHandler.Register)
+	mux.HandleFunc("POST /v1/auth/social/login", authHandler.SocialLogin)
+	mux.HandleFunc("POST /v1/auth/social/merge", authHandler.SocialMerge)
 	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, http.HandlerFunc(consentHandler.Status)))
 	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, http.HandlerFunc(consentHandler.Grant)))
+	// Stub until Epic 03 clan chat lands — enforces restricted_mode (01.7).
+	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(auth.ClanChatStub))))
 
 	handler := httpserver.CORS(httpserver.RequestID(logger)(mux))
 

@@ -18,8 +18,8 @@ This catalog is the upstream artifact from which individual Cursor Implementatio
 | 01.4 | Data residency disclosure banner (server region: TR or EU) | New User | Legal requirement to disclose cross-border transfer if applicable |
 | 01.5 | Consent withdrawal flow — user revokes location consent mid-session | Active User | Must immediately stop location writes, anonymize historical path data within SLA |
 | 01.6 | Right to erasure (KVKK Art. 7) — full account + territory + path data deletion request | Active User | Async job; must cascade across Postgres, Redis, object storage, analytics warehouse |
-| 01.7 | Underage user detection & restricted mode (social features disabled, no public leaderboard exposure) | New User | Age gate at registration |
-| 01.8 | Social login (Google/Apple) merge-with-existing-phone-account flow | New/Existing User | Conflict resolution UX for duplicate identity |
+| 01.7 | Underage user detection & restricted mode (social features disabled, no public leaderboard exposure) | New User | Age gate at registration. Persist `users.restricted_mode`. **Required for later sprints:** Epic 03 clan chat/DM and Epic 04 social endpoints must use `auth.RequireNotRestricted` (403 `error_restricted_mode`). Epic 05 public leaderboards must filter with `AND restricted_mode = false` (scores may still be tracked internally). See `LeaderboardExcludeRestrictedSQL` in `backend/internal/auth/agegate.go`. |
+| 01.8 | Social login (Google/Apple) merge-with-existing-phone-account flow | New/Existing User | Verify ID tokens server-side only. On email/phone match with an existing account return 409 + `merge_token`; complete link only after OTP on the existing phone (`POST /v1/auth/social/merge`). Never auto-merge. |
 | 01.9 | Turkish national ID / TCKN — explicitly OUT of scope, never collected | N/A | Guardrail note for architecture reviews |
 | 01.10 | Username validation respecting Turkish alphabet (İ/ı/Ğ/ğ/Ş/ş/Ç/ç/Ö/ö/Ü/ü) and casing bug avoidance | New User | Must NOT use `strings.ToLower/ToUpper` naively in Go; needs `golang.org/x/text/cases` with `tr` tag |
 

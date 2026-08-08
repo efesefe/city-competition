@@ -5,17 +5,41 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/city-competition-remastered/backend/internal/user"
 )
 
-// UserStore persists newly registered users.
+// UserStore persists users and supports age/social lookups.
 type UserStore interface {
-	CreateUser(ctx context.Context, phone, username string) (uuid.UUID, error)
+	CreateUser(ctx context.Context, in CreateUserInput) (uuid.UUID, error)
+	IsRestricted(ctx context.Context, userID uuid.UUID) (bool, error)
+	FindByEmail(ctx context.Context, email string) (MatchUser, bool, error)
+	FindByPhone(ctx context.Context, phone string) (MatchUser, bool, error)
+	FindSocialIdentity(ctx context.Context, provider, providerUserID string) (uuid.UUID, bool, error)
+	LinkSocialIdentity(ctx context.Context, userID uuid.UUID, provider, providerUserID string, email *string) error
+	SetUserEmail(ctx context.Context, userID uuid.UUID, email string) error
+}
+
+// CreateUserInput is the payload for inserting a users row.
+type CreateUserInput struct {
+	Phone          *string
+	Username       string
+	BirthDate      time.Time
+	Email          *string
+	RestrictedMode bool
+}
+
+// MatchUser is a minimal row used for social merge matching.
+type MatchUser struct {
+	ID    uuid.UUID
+	Phone *string
+	Email *string
 }
 
 // PoolUserStore implements UserStore with pgxpool.
@@ -24,20 +48,101 @@ type PoolUserStore struct {
 }
 
 // CreateUser inserts a user row and returns its id.
-func (s *PoolUserStore) CreateUser(ctx context.Context, phone, username string) (uuid.UUID, error) {
+func (s *PoolUserStore) CreateUser(ctx context.Context, in CreateUserInput) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := s.Pool.QueryRow(ctx,
-		`INSERT INTO users (phone, username) VALUES ($1, $2) RETURNING id`,
-		phone, username,
+		`INSERT INTO users (phone, username, birth_date, email, restricted_mode)
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		in.Phone, in.Username, in.BirthDate, in.Email, in.RestrictedMode,
 	).Scan(&id)
 	return id, err
 }
 
-// Handler exposes OTP and registration HTTP endpoints.
+// IsRestricted returns users.restricted_mode.
+func (s *PoolUserStore) IsRestricted(ctx context.Context, userID uuid.UUID) (bool, error) {
+	var restricted bool
+	err := s.Pool.QueryRow(ctx,
+		`SELECT restricted_mode FROM users WHERE id = $1`, userID,
+	).Scan(&restricted)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrUnauthorized
+	}
+	return restricted, err
+}
+
+// FindByEmail looks up a user by case-insensitive email.
+func (s *PoolUserStore) FindByEmail(ctx context.Context, email string) (MatchUser, bool, error) {
+	var u MatchUser
+	err := s.Pool.QueryRow(ctx,
+		`SELECT id, phone, email FROM users WHERE email IS NOT NULL AND lower(email) = lower($1)`,
+		email,
+	).Scan(&u.ID, &u.Phone, &u.Email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MatchUser{}, false, nil
+	}
+	if err != nil {
+		return MatchUser{}, false, err
+	}
+	return u, true, nil
+}
+
+// FindByPhone looks up a user by E.164 phone.
+func (s *PoolUserStore) FindByPhone(ctx context.Context, phone string) (MatchUser, bool, error) {
+	var u MatchUser
+	err := s.Pool.QueryRow(ctx,
+		`SELECT id, phone, email FROM users WHERE phone = $1`,
+		phone,
+	).Scan(&u.ID, &u.Phone, &u.Email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MatchUser{}, false, nil
+	}
+	if err != nil {
+		return MatchUser{}, false, err
+	}
+	return u, true, nil
+}
+
+// FindSocialIdentity returns the linked user id for a provider subject.
+func (s *PoolUserStore) FindSocialIdentity(ctx context.Context, provider, providerUserID string) (uuid.UUID, bool, error) {
+	var id uuid.UUID
+	err := s.Pool.QueryRow(ctx,
+		`SELECT user_id FROM social_identities WHERE provider = $1 AND provider_user_id = $2`,
+		provider, providerUserID,
+	).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return id, true, nil
+}
+
+// LinkSocialIdentity inserts a social_identities row.
+func (s *PoolUserStore) LinkSocialIdentity(ctx context.Context, userID uuid.UUID, provider, providerUserID string, email *string) error {
+	_, err := s.Pool.Exec(ctx,
+		`INSERT INTO social_identities (user_id, provider, provider_user_id, email)
+		 VALUES ($1, $2, $3, $4)`,
+		userID, provider, providerUserID, email,
+	)
+	return err
+}
+
+// SetUserEmail sets users.email when currently null or matching.
+func (s *PoolUserStore) SetUserEmail(ctx context.Context, userID uuid.UUID, email string) error {
+	_, err := s.Pool.Exec(ctx,
+		`UPDATE users SET email = $2 WHERE id = $1 AND (email IS NULL OR lower(email) = lower($2))`,
+		userID, email,
+	)
+	return err
+}
+
+// Handler exposes OTP, registration, and social auth HTTP endpoints.
 type Handler struct {
 	OTP      *OTPService
 	Users    UserStore
 	Sessions *SessionService
+	Social   *SocialService
 }
 
 type phoneBody struct {
@@ -50,8 +155,9 @@ type verifyBody struct {
 }
 
 type registerBody struct {
-	Phone    string `json:"phone"`
-	Username string `json:"username"`
+	Phone     string `json:"phone"`
+	Username  string `json:"username"`
+	BirthDate string `json:"birth_date"`
 }
 
 type errorBody struct {
@@ -120,12 +226,24 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	birthDate, err := ParseBirthDate(body.BirthDate)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, ErrInvalidBirthDate.Error())
+		return
+	}
+
 	if err := h.OTP.ConsumeVerified(r.Context(), phone); err != nil {
 		h.mapOTPError(w, err)
 		return
 	}
 
-	id, err := h.Users.CreateUser(r.Context(), phone, username)
+	restricted := RestrictedModeFromBirthDate(birthDate)
+	id, err := h.Users.CreateUser(r.Context(), CreateUserInput{
+		Phone:          &phone,
+		Username:       username,
+		BirthDate:      birthDate,
+		RestrictedMode: restricted,
+	})
 	if err != nil {
 		if isUniqueViolation(err) {
 			writeErr(w, http.StatusConflict, "error_user_conflict")
@@ -140,9 +258,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "error_internal")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{
-		"user_id":       id.String(),
-		"session_token": token,
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id":         id.String(),
+		"session_token":   token,
+		"restricted_mode": restricted,
 	})
 }
 
@@ -160,6 +279,8 @@ func (h *Handler) mapOTPError(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusBadGateway, ErrSMSFailed.Error())
 	case errors.Is(err, user.ErrInvalidUsername):
 		writeErr(w, http.StatusBadRequest, user.ErrInvalidUsername.Error())
+	case errors.Is(err, ErrInvalidBirthDate):
+		writeErr(w, http.StatusBadRequest, ErrInvalidBirthDate.Error())
 	default:
 		writeErr(w, http.StatusInternalServerError, "error_internal")
 	}
