@@ -16,4 +16,7 @@ coverage/
 vendor/
 frontend/.turbo/
 frontend/tsconfig.tsbuildinfo
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
 backend/api

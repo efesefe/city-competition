@@ -1,0 +1,3 @@
+DROP INDEX IF EXISTS users_username_key;
+DROP TABLE IF EXISTS users;
+DROP COLLATION IF EXISTS "tr-TR-x-icu";

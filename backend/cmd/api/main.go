@@ -9,15 +9,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/config"
+	"github.com/city-competition-remastered/backend/internal/consent"
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/httpserver"
-	"github.com/city-competition-remastered/backend/internal/i18n"
 	"github.com/city-competition-remastered/backend/internal/logging"
 	"github.com/city-competition-remastered/backend/internal/migrate"
+	"github.com/city-competition-remastered/backend/internal/user"
 )
-
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -27,8 +28,8 @@ func main() {
 	}
 
 	logger := logging.New(cfg.IsProduction())
-	// Keep golang.org/x/text in the module graph for Turkish casing (catalog 01.10).
-	_ = i18n.ToLower("İstanbul")
+	// Keep Turkish casing linked into the binary (catalog 01.10).
+	_ = user.FoldUsername("İstanbul")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -40,9 +41,9 @@ func main() {
 	logger.Info("migrations applied", "path", cfg.MigrationsPath)
 
 	pool, err := db.NewPool(ctx, db.PoolConfig{
-		DatabaseURL:      cfg.DatabaseURL,
-		MaxConns:         cfg.DBMaxConns,
-		MinConns:         cfg.DBMinConns,
+		DatabaseURL:     cfg.DatabaseURL,
+		MaxConns:        cfg.DBMaxConns,
+		MinConns:        cfg.DBMinConns,
 		MaxConnLifetime: cfg.DBMaxConnLifetime,
 	})
 	if err != nil {
@@ -63,10 +64,32 @@ func main() {
 		os.Exit(1)
 	}
 
+	sms := &auth.FailoverSMS{
+		Primary:  auth.NewStubSMSProvider("primary", nil),
+		Fallback: auth.NewStubSMSProvider("fallback", nil),
+		Logger:   logger,
+	}
+	otp := &auth.OTPService{RDB: rdb, SMS: sms}
+	sessions := &auth.SessionService{RDB: rdb}
+	authHandler := &auth.Handler{
+		OTP:      otp,
+		Users:    &auth.PoolUserStore{Pool: pool},
+		Sessions: sessions,
+	}
+	consentHandler := &consent.Handler{
+		Store: &consent.PoolStore{Pool: pool},
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", httpserver.Health(pool, rdb))
+	mux.HandleFunc("POST /v1/auth/otp/request", authHandler.RequestOTP)
+	mux.HandleFunc("POST /v1/auth/otp/resend", authHandler.ResendOTP)
+	mux.HandleFunc("POST /v1/auth/otp/verify", authHandler.VerifyOTP)
+	mux.HandleFunc("POST /v1/auth/register", authHandler.Register)
+	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, http.HandlerFunc(consentHandler.Status)))
+	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, http.HandlerFunc(consentHandler.Grant)))
 
-	handler := httpserver.RequestID(logger)(mux)
+	handler := httpserver.CORS(httpserver.RequestID(logger)(mux))
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

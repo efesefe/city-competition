@@ -1,0 +1,115 @@
+.page {
+  min-height: 100vh;
+  width: 100%;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, #1a3a4a 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, #2a1f14 0%, transparent 50%),
+    linear-gradient(160deg, #0c1418 0%, #152028 45%, #1a1712 100%);
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.panel {
+  width: min(100%, 26rem);
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0 0 1.5rem;
+  color: #a8b5b0;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.label {
+  font-size: 0.8rem;
+  color: #9aada6;
+}
+
+.input {
+  appearance: none;
+  border: 1px solid #3a4f4a;
+  background: rgba(8, 16, 18, 0.55);
+  color: #e8efe9;
+  border-radius: 0.4rem;
+  padding: 0.75rem 0.85rem;
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: 2px solid #5a9e88;
+  outline-offset: 1px;
+}
+
+.button {
+  margin-top: 0.35rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.8rem 1rem;
+  background: #3d8f74;
+  color: #06120e;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.linkBtn {
+  border: 0;
+  background: transparent;
+  color: #8fb5a8;
+  padding: 0.4rem 0;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.linkBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0 0 1rem;
+  color: #e8a090;
+  font-size: 0.9rem;
+}
+
+.done {
+  line-height: 1.5;
+}
+
+.meta {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #7a8f88;
+  word-break: break-all;
+}

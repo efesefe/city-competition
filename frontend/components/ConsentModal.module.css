@@ -1,0 +1,114 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  overflow: auto;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, #1a3a4a 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, #2a1f14 0%, transparent 50%),
+    linear-gradient(160deg, #0c1418 0%, #152028 45%, #1a1712 100%);
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.panel {
+  width: min(100%, 32rem);
+  max-height: min(92vh, 48rem);
+  overflow: auto;
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0 0 1.25rem;
+  color: #a8b5b0;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid #2e403c;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #d5e4de;
+}
+
+.body {
+  max-height: 9rem;
+  overflow: auto;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #3a4f4a;
+  border-radius: 0.4rem;
+  background: rgba(8, 16, 18, 0.55);
+  color: #c5d4ce;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.check {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: #d5e4de;
+  cursor: pointer;
+}
+
+.check input {
+  margin-top: 0.2rem;
+  accent-color: #3d8f74;
+}
+
+.button {
+  margin-top: 0.25rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.8rem 1rem;
+  background: #3d8f74;
+  color: #06120e;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0 0 0.75rem;
+  color: #e8a090;
+  font-size: 0.9rem;
+}
