@@ -26,6 +26,7 @@ var (
 type Handler struct {
 	Pool    *pgxpool.Pool
 	Actions *moderation.Actions
+	Appeals *moderation.Appeals
 }
 
 type errorBody struct {
@@ -165,6 +166,118 @@ func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.setUserStatus(w, r, h.Actions.Unban, moderation.StatusActive)
+}
+
+// ListAppeals handles GET /v1/admin/moderation/appeals.
+func (h *Handler) ListAppeals(w http.ResponseWriter, r *http.Request) {
+	if _, ok := auth.UserIDFromContext(r.Context()); !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Appeals == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+
+	status := strings.TrimSpace(r.URL.Query().Get("status"))
+	if status == "" {
+		status = "pending"
+	}
+	if !validQueueStatus(status) {
+		writeErr(w, http.StatusBadRequest, ErrInvalidStatus.Error())
+		return
+	}
+
+	rows, err := h.Appeals.List(r.Context(), status)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	if rows == nil {
+		rows = []moderation.Appeal{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"appeals": rows})
+}
+
+// ReviewAppeal handles POST /v1/admin/moderation/appeals/{id}/review.
+func (h *Handler) ReviewAppeal(w http.ResponseWriter, r *http.Request) {
+	h.resolveAppeal(w, r, moderation.AppealStatusReviewed, ActionAppealReviewed)
+}
+
+// DismissAppeal handles POST /v1/admin/moderation/appeals/{id}/dismiss.
+func (h *Handler) DismissAppeal(w http.ResponseWriter, r *http.Request) {
+	h.resolveAppeal(w, r, moderation.AppealStatusDismissed, ActionAppealDismissed)
+}
+
+// CreateAppeal handles POST /v1/appeals (player; ban-bypass auth at the mux).
+func (h *Handler) CreateAppeal(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Appeals == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	dec := json.NewDecoder(r.Body)
+	if err := dec.Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "error_invalid_body")
+		return
+	}
+
+	ap, err := h.Appeals.Create(r.Context(), userID, body.Reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, moderation.ErrEmptyAppealReason):
+			writeErr(w, http.StatusBadRequest, moderation.ErrEmptyAppealReason.Error())
+		case errors.Is(err, moderation.ErrAppealNotEligible):
+			writeErr(w, http.StatusForbidden, moderation.ErrAppealNotEligible.Error())
+		case errors.Is(err, moderation.ErrAppealAlreadyPending):
+			writeErr(w, http.StatusConflict, moderation.ErrAppealAlreadyPending.Error())
+		case errors.Is(err, moderation.ErrUserNotFound):
+			writeErr(w, http.StatusNotFound, moderation.ErrUserNotFound.Error())
+		default:
+			writeErr(w, http.StatusInternalServerError, "error_internal")
+		}
+		return
+	}
+	writeJSON(w, http.StatusCreated, ap)
+}
+
+func (h *Handler) resolveAppeal(w http.ResponseWriter, r *http.Request, newStatus, action string) {
+	actorID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Appeals == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "error_invalid_id")
+		return
+	}
+
+	ap, err := h.Appeals.Resolve(r.Context(), actorID, id, newStatus, action)
+	if err != nil {
+		switch {
+		case errors.Is(err, moderation.ErrAppealNotFound):
+			writeErr(w, http.StatusNotFound, ErrNotFound.Error())
+		case errors.Is(err, moderation.ErrAppealAlreadyResolved):
+			writeErr(w, http.StatusConflict, ErrAlreadyResolved.Error())
+		default:
+			writeErr(w, http.StatusInternalServerError, "error_internal")
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, ap)
 }
 
 func (h *Handler) setUserStatus(w http.ResponseWriter, r *http.Request, fn func(context.Context, uuid.UUID, uuid.UUID) error, status string) {

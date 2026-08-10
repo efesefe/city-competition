@@ -92,7 +92,10 @@ func (h *Handler) SendDM(ctx context.Context, from, to uuid.UUID, body string) (
 		}
 	}
 
-	flagged := moderation.ContainsProfanity(body)
+	flagged, err := moderation.Flagged(ctx, h.Classifier, body)
+	if err != nil {
+		return Message{}, err
+	}
 	toCopy := to
 	msg, err := h.Store.InsertMessage(ctx, Message{
 		Kind:        MessageKindDM,

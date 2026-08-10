@@ -14,6 +14,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/cache"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 )
 
 const (
@@ -472,6 +473,7 @@ type Handler struct {
 	Broadcaster          cache.Broadcaster
 	RestrictedDMDisabled bool
 	Referrals            *ReferralService
+	Classifier           moderation.ContentClassifier
 }
 
 type errorBody struct {

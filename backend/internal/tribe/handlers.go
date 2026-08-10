@@ -12,6 +12,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/cache"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 )
 
 var hexColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -22,6 +23,7 @@ type Handler struct {
 	Cooldown    time.Duration
 	Now         func() time.Time
 	Broadcaster cache.Broadcaster
+	Classifier  moderation.ContentClassifier
 }
 
 func (h *Handler) now() time.Time {

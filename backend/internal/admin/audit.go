@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/city-competition-remastered/backend/internal/moderation"
 )
 
 const (
@@ -15,10 +17,13 @@ const (
 	ActionReportDismissed   = "report_dismissed"
 	ActionFlagReviewed      = "flag_reviewed"
 	ActionFlagDismissed     = "flag_dismissed"
+	ActionAppealReviewed    = moderation.ActionAppealReviewed
+	ActionAppealDismissed   = moderation.ActionAppealDismissed
 	ActionDerbyForceResolve = "derby_force_resolve"
 
 	TargetTypeReport = "user_report"
 	TargetTypeFlag   = "flagged_user"
+	TargetTypeAppeal = moderation.TargetTypeAppeal
 	TargetTypeDerby  = "derby"
 )
 

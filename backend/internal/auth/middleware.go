@@ -41,6 +41,16 @@ type StatusLookup interface {
 // When users is non-nil, banned accounts are rejected with 403 earliest
 // (before the handler runs). Shadow-banned users pass through.
 func RequireSession(sessions *SessionService, users StatusLookup, next http.Handler) http.Handler {
+	return requireSession(sessions, users, false, next)
+}
+
+// RequireSessionAllowBanned is like RequireSession but permits banned accounts.
+// Use only for routes banned users must still reach (e.g. POST /v1/appeals).
+func RequireSessionAllowBanned(sessions *SessionService, users StatusLookup, next http.Handler) http.Handler {
+	return requireSession(sessions, users, true, next)
+}
+
+func requireSession(sessions *SessionService, users StatusLookup, allowBanned bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := bearerToken(r.Header.Get("Authorization"))
 		userID, err := sessions.Resolve(r.Context(), token)
@@ -48,7 +58,7 @@ func RequireSession(sessions *SessionService, users StatusLookup, next http.Hand
 			writeJSON(w, http.StatusUnauthorized, errorBody{Error: ErrUnauthorized.Error()})
 			return
 		}
-		if users != nil {
+		if users != nil && !allowBanned {
 			status, err := users.Status(r.Context(), userID)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, errorBody{Error: "error_internal"})

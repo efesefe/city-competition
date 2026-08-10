@@ -119,12 +119,14 @@ func main() {
 		Store:  &socialpkg.PoolStore{Pool: pools.Write},
 		Amount: cfg.ReferralCreditAmount,
 	}
+	contentClassifier := &moderation.Pipeline{ML: moderation.AllowAllML{}}
 	socialHandler := &socialpkg.Handler{
 		Store:                &socialpkg.PoolStore{Pool: pools.Write},
 		Users:                users,
 		Broadcaster:          cache.RedisBroadcaster{Client: rdb},
 		RestrictedDMDisabled: cfg.RestrictedDMDisabled,
 		Referrals:            referralSvc,
+		Classifier:           contentClassifier,
 	}
 	tribeStore := &tribe.PoolStore{Pool: pools.Write}
 	if err := tribe.EnsureSeeded(ctx, tribeStore); err != nil {
@@ -136,6 +138,7 @@ func main() {
 		Store:       tribeStore,
 		Cooldown:    cfg.TribeSwitchCooldown,
 		Broadcaster: cache.RedisBroadcaster{Client: rdb},
+		Classifier:  contentClassifier,
 	}
 	spendAnomaly := &moderation.SpendAnomalyDetector{Pool: pools.Write}
 	creditsHandler := &credits.Handler{
@@ -207,7 +210,8 @@ func main() {
 	}
 	auditWriter := &admin.PoolWriter{Pool: pools.Write}
 	moderationActions := &moderation.Actions{Pool: pools.Write}
-	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions}
+	appealsStore := &moderation.Appeals{Pool: pools.Write}
+	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions, Appeals: appealsStore}
 	derbyHandler := &derby.Handler{Service: derbyService, Audit: auditWriter}
 	lbHandler := &leaderboard.Handler{
 		Store:    lbStore,
@@ -273,13 +277,17 @@ func main() {
 	mux.Handle("POST /v1/admin/derbies/{id}/force-resolve", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.ForceResolve))))
 	mux.Handle("GET /v1/admin/moderation/reports", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListReports))))
 	mux.Handle("GET /v1/admin/moderation/flags", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListFlags))))
+	mux.Handle("GET /v1/admin/moderation/appeals", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListAppeals))))
 	mux.Handle("POST /v1/admin/moderation/reports/{id}/review", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewReport))))
 	mux.Handle("POST /v1/admin/moderation/reports/{id}/dismiss", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissReport))))
 	mux.Handle("POST /v1/admin/moderation/flags/{id}/review", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewFlag))))
 	mux.Handle("POST /v1/admin/moderation/flags/{id}/dismiss", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissFlag))))
+	mux.Handle("POST /v1/admin/moderation/appeals/{id}/review", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewAppeal))))
+	mux.Handle("POST /v1/admin/moderation/appeals/{id}/dismiss", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissAppeal))))
 	mux.Handle("POST /v1/admin/users/{id}/ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.BanUser))))
 	mux.Handle("POST /v1/admin/users/{id}/shadow-ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ShadowBanUser))))
 	mux.Handle("POST /v1/admin/users/{id}/unban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.UnbanUser))))
+	mux.Handle("POST /v1/appeals", auth.RequireSessionAllowBanned(sessions, users, http.HandlerFunc(moderationHandler.CreateAppeal)))
 	mux.Handle("GET /v1/derbies", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.List)))
 	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.Get)))
 	mux.Handle("GET /v1/credits/balance", auth.RequireSession(sessions, users, http.HandlerFunc(creditsHandler.Balance)))

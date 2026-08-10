@@ -69,7 +69,10 @@ func (h *Handler) SendTribeMessage(ctx context.Context, userID, tribeID uuid.UUI
 		return Message{}, err
 	}
 
-	flagged := moderation.ContainsProfanity(body)
+	flagged, err := moderation.Flagged(ctx, h.Classifier, body)
+	if err != nil {
+		return Message{}, err
+	}
 	inserter, ok := h.Store.(MessageInserter)
 	if !ok {
 		return Message{}, errors.New("error_internal")

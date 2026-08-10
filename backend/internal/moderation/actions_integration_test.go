@@ -94,6 +94,7 @@ func seedUser(t *testing.T, pool *pgxpool.Pool, tribeID *uuid.UUID, isAdmin bool
 		t.Fatalf("seed user: %v", err)
 	}
 	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM appeals WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM flagged_users WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM audit_log WHERE actor_id = $1 OR target_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM user_support_streaks WHERE user_id = $1`, id)
