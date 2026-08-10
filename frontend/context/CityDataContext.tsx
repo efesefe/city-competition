@@ -6,75 +6,76 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import {
-  fetchCities,
-  type City,
-  type CompetingTribe,
-} from "@/lib/cities-api";
+import { fetchCities, type City } from "@/lib/cities-api";
+import { patchCitySupport } from "@/context/cityDataPatch";
 import { useRealtime } from "@/context/RealtimeContext";
 import type { SupportAppliedMessage } from "@/lib/realtimeSocket";
+import { listTribes, type Tribe } from "@/lib/tribes-api";
 
 type CityDataStatus = "loading" | "ready" | "error";
 
 type CityDataContextValue = {
   cities: City[];
   citiesById: Record<string, City>;
+  tribesById: Record<string, Tribe>;
   status: CityDataStatus;
   getCity: (id: string) => City | undefined;
   applySupportDelta: (ilCode: string, tribeId: string, delta: number) => void;
+  /** Register an optimistic spend so the matching WS event is not double-applied. */
+  registerPendingSupport: (
+    ilCode: string,
+    tribeId: string,
+    delta: number,
+  ) => void;
+  /** Consume one matching pending entry; returns true if suppressed. */
+  consumePendingSupport: (
+    ilCode: string,
+    tribeId: string,
+    delta: number,
+  ) => boolean;
   refetch: () => Promise<void>;
 };
 
-const CityDataContext = createContext<CityDataContextValue | null>(null);
-
-function patchCitySupport(
-  city: City,
+function pendingSupportKey(
+  ilCode: string,
   tribeId: string,
   delta: number,
-): City {
-  const competing = [...(city.competing_tribes ?? [])];
-  const idx = competing.findIndex((c) => c.tribe_id === tribeId);
-  if (idx >= 0) {
-    const next: CompetingTribe = {
-      ...competing[idx],
-      committed_credits: competing[idx].committed_credits + delta,
-    };
-    competing[idx] = next;
-  } else {
-    competing.push({ tribe_id: tribeId, committed_credits: delta });
-  }
-  competing.sort((a, b) => b.committed_credits - a.committed_credits);
-
-  const leader = competing[0];
-  let controlling = city.controlling_tribe;
-  if (leader && leader.committed_credits > 0) {
-    controlling = {
-      tribe_id: leader.tribe_id,
-      primary_color: controlling?.tribe_id === leader.tribe_id
-        ? controlling.primary_color
-        : undefined,
-    };
-  }
-
-  return {
-    ...city,
-    competing_tribes: competing,
-    controlling_tribe: controlling,
-  };
+): string {
+  return `${ilCode}\0${tribeId}\0${delta}`;
 }
+
+const CityDataContext = createContext<CityDataContextValue | null>(null);
+
+export { patchCitySupport } from "@/context/cityDataPatch";
 
 export function CityDataProvider({ children }: { children: ReactNode }) {
   const { subscribe } = useRealtime();
   const [cities, setCities] = useState<City[]>([]);
+  const [tribesById, setTribesById] = useState<Record<string, Tribe>>({});
   const [status, setStatus] = useState<CityDataStatus>("loading");
+  const tribeColorsRef = useRef<Record<string, string>>({});
+  /** Counts of optimistic (il, tribe, delta) awaiting a matching support_applied. */
+  const pendingSupportRef = useRef<Map<string, number>>(new Map());
 
   const refetch = useCallback(async () => {
     try {
-      const res = await fetchCities();
-      setCities(res.cities);
+      const [citiesRes, tribesRes] = await Promise.all([
+        fetchCities(),
+        listTribes(),
+      ]);
+      const byId: Record<string, Tribe> = {};
+      const colors: Record<string, string> = {};
+      for (const tribe of tribesRes.tribes) {
+        byId[tribe.id] = tribe;
+        colors[tribe.id] = tribe.primary_color;
+      }
+      tribeColorsRef.current = colors;
+      setTribesById(byId);
+      setCities(citiesRes.cities);
       setStatus("ready");
     } catch {
       setStatus("error");
@@ -85,9 +86,38 @@ export function CityDataProvider({ children }: { children: ReactNode }) {
     (ilCode: string, tribeId: string, delta: number) => {
       setCities((prev) =>
         prev.map((c) =>
-          c.id === ilCode ? patchCitySupport(c, tribeId, delta) : c,
+          c.id === ilCode
+            ? patchCitySupport(c, tribeId, delta, tribeColorsRef.current)
+            : c,
         ),
       );
+    },
+    [],
+  );
+
+  const registerPendingSupport = useCallback(
+    (ilCode: string, tribeId: string, delta: number) => {
+      const key = pendingSupportKey(ilCode, tribeId, delta);
+      const map = pendingSupportRef.current;
+      map.set(key, (map.get(key) ?? 0) + 1);
+    },
+    [],
+  );
+
+  const consumePendingSupport = useCallback(
+    (ilCode: string, tribeId: string, delta: number) => {
+      const key = pendingSupportKey(ilCode, tribeId, delta);
+      const map = pendingSupportRef.current;
+      const count = map.get(key) ?? 0;
+      if (count <= 0) {
+        return false;
+      }
+      if (count === 1) {
+        map.delete(key);
+      } else {
+        map.set(key, count - 1);
+      }
+      return true;
     },
     [],
   );
@@ -100,9 +130,12 @@ export function CityDataProvider({ children }: { children: ReactNode }) {
     return subscribe((event) => {
       if (event.type !== "support_applied") return;
       const msg = event as SupportAppliedMessage;
+      if (consumePendingSupport(msg.il_code, msg.tribe_id, msg.delta)) {
+        return;
+      }
       applySupportDelta(msg.il_code, msg.tribe_id, msg.delta);
     });
-  }, [subscribe, applySupportDelta]);
+  }, [subscribe, applySupportDelta, consumePendingSupport]);
 
   const citiesById = useMemo(() => {
     const map: Record<string, City> = {};
@@ -121,12 +154,25 @@ export function CityDataProvider({ children }: { children: ReactNode }) {
     () => ({
       cities,
       citiesById,
+      tribesById,
       status,
       getCity,
       applySupportDelta,
+      registerPendingSupport,
+      consumePendingSupport,
       refetch,
     }),
-    [cities, citiesById, status, getCity, applySupportDelta, refetch],
+    [
+      cities,
+      citiesById,
+      tribesById,
+      status,
+      getCity,
+      applySupportDelta,
+      registerPendingSupport,
+      consumePendingSupport,
+      refetch,
+    ],
   );
 
   return (

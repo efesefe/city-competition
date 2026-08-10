@@ -1,0 +1,130 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(4, 10, 9, 0.55);
+  padding: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: min(85vh, 36rem);
+  background: rgba(10, 18, 16, 0.96);
+  border: 1px solid #3a524a;
+  border-bottom: 0;
+  border-radius: 0.75rem 0.75rem 0 0;
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  backdrop-filter: blur(8px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem 0.55rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #a8b5b0;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.searchWrap {
+  padding: 0 1rem 0.65rem;
+}
+
+.search {
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: rgba(6, 12, 11, 0.85);
+  color: #e8efe9;
+  font-size: 1rem;
+}
+
+.search::placeholder {
+  color: #7a8a84;
+}
+
+.list {
+  margin: 0;
+  padding: 0 0.5rem 0.75rem;
+  list-style: none;
+  overflow: auto;
+  flex: 1;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.65rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.row:hover,
+.row:focus-visible {
+  background: rgba(42, 107, 90, 0.28);
+  outline: none;
+}
+
+.rowName {
+  font-weight: 600;
+}
+
+.rowId {
+  color: #c4a35a;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
+.empty {
+  margin: 0.75rem 1rem 1.25rem;
+  color: #a8b5b0;
+  font-size: 0.9rem;
+}
+
+@media (min-width: 640px) {
+  .overlay {
+    align-items: center;
+    padding: 1.5rem;
+  }
+
+  .panel {
+    width: min(26rem, 100%);
+    max-height: min(70vh, 32rem);
+    border-radius: 0.55rem;
+    border-bottom: 1px solid #3a524a;
+  }
+}

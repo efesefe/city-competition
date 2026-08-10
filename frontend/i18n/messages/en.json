@@ -30,6 +30,35 @@
       "auto": "Auto",
       "on": "Perf on",
       "off": "Perf off"
+    },
+    "picker": {
+      "title": "Find a city",
+      "searchPlaceholder": "Search by name or code…",
+      "empty": "No cities match your search.",
+      "close": "Close city list",
+      "openAria": "Search cities"
+    },
+    "sheet": {
+      "close": "Close support sheet",
+      "unowned": "Not owned by anyone yet",
+      "ownershipBar": "Tribe ownership shares",
+      "chipsAria": "Credit amounts",
+      "clampWarning": "Amount clamped to your available balance.",
+      "remaining": "{n} credits will remain",
+      "derbiBadge": "2x Derbi bonus active"
+    },
+    "errors": {
+      "insufficient_credits": "Not enough credits.",
+      "unknown_region": "Unknown province.",
+      "tribe_required": "Join a tribe before supporting.",
+      "rate_limit_exceeded": "Too many requests. Try again shortly.",
+      "write_path_degraded": "Support is temporarily unavailable. Try again later.",
+      "invalid_credits": "Enter a valid credit amount.",
+      "error_unauthorized": "Sign-in required.",
+      "error_banned": "This account cannot spend credits.",
+      "idempotency_conflict": "This support was already recorded.",
+      "error_internal": "Something went wrong. Please try again.",
+      "emptyGeojson": "Province boundaries are missing in the database (empty admin_boundaries). Run make import-boundaries — see data/README-boundaries.md."
     }
   },
   "auth": {

@@ -1,0 +1,214 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(4, 10, 9, 0.45);
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-height: min(88vh, 34rem);
+  overflow: auto;
+  padding: 1rem 1.1rem 1.25rem;
+  background: rgba(10, 18, 16, 0.96);
+  border: 1px solid #3a524a;
+  border-bottom: 0;
+  border-radius: 0.85rem 0.85rem 0 0;
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  backdrop-filter: blur(8px);
+  transform: translateY(0);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #a8b5b0;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ownerRow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.crest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f2f7f4;
+}
+
+.ownerLabel {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #c5d0cb;
+}
+
+.bar {
+  display: flex;
+  height: 0.55rem;
+  margin-bottom: 0.85rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #2a3532;
+}
+
+.barSegment {
+  height: 100%;
+  min-width: 0;
+}
+
+.barEmpty {
+  width: 100%;
+  height: 100%;
+  background: #4b5563;
+}
+
+.derbi {
+  margin: 0 0 0.75rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.3rem;
+  background: rgba(196, 163, 90, 0.18);
+  border: 1px solid rgba(196, 163, 90, 0.45);
+  color: #e6d3a0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.65rem;
+}
+
+.chip {
+  padding: 0.4rem 0.7rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.3rem;
+  background: rgba(6, 12, 11, 0.85);
+  color: #e8efe9;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chipActive {
+  border-color: #2a6b5a;
+  background: rgba(42, 107, 90, 0.45);
+}
+
+.chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.manual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.label {
+  font-size: 0.78rem;
+  color: #8fb5a8;
+}
+
+.input {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.3rem;
+  background: rgba(6, 12, 11, 0.85);
+  color: #e8efe9;
+  font-size: 1rem;
+}
+
+.clampWarn {
+  margin: 0;
+  color: #e6d3a0;
+  font-size: 0.8rem;
+}
+
+.remaining {
+  margin: 0 0 0.65rem;
+  color: #a8b5b0;
+  font-size: 0.85rem;
+}
+
+.confirm {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: #2a6b5a;
+  color: #f2f7f4;
+  font-weight: 650;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.confirm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.success {
+  margin: 0.75rem 0 0;
+  color: #9ed4b8;
+  font-size: 0.85rem;
+}
+
+.error {
+  margin: 0.75rem 0 0;
+  color: #e8a090;
+  font-size: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .overlay {
+    align-items: center;
+    padding: 1.5rem;
+  }
+
+  .sheet {
+    width: min(24rem, 100%);
+    max-height: min(80vh, 32rem);
+    border-radius: 0.55rem;
+    border-bottom: 1px solid #3a524a;
+  }
+}

@@ -30,6 +30,35 @@
       "auto": "Otomatik",
       "on": "Açık",
       "off": "Kapalı"
+    },
+    "picker": {
+      "title": "İl ara",
+      "searchPlaceholder": "İsim veya kod ile ara…",
+      "empty": "Aramanızla eşleşen il yok.",
+      "close": "İl listesini kapat",
+      "openAria": "İl ara"
+    },
+    "sheet": {
+      "close": "Destek panelini kapat",
+      "unowned": "Henüz kimsenin değil",
+      "ownershipBar": "Kabile sahiplik payları",
+      "chipsAria": "Kredi miktarları",
+      "clampWarning": "Miktar mevcut bakiyenize göre sınırlandı.",
+      "remaining": "{n} kredi kalacak",
+      "derbiBadge": "2x Derbi bonusu aktif"
+    },
+    "errors": {
+      "insufficient_credits": "Yeterli krediniz yok.",
+      "unknown_region": "Bilinmeyen il.",
+      "tribe_required": "Desteklemek için önce bir kabileye katılın.",
+      "rate_limit_exceeded": "Çok fazla istek. Kısa süre sonra tekrar deneyin.",
+      "write_path_degraded": "Destek geçici olarak kullanılamıyor. Daha sonra tekrar deneyin.",
+      "invalid_credits": "Geçerli bir kredi miktarı girin.",
+      "error_unauthorized": "Oturum gerekli.",
+      "error_banned": "Bu hesap kredi harcayamaz.",
+      "idempotency_conflict": "Bu destek zaten kaydedildi.",
+      "error_internal": "Bir hata oluştu. Lütfen tekrar deneyin.",
+      "emptyGeojson": "Veritabanında il sınırları yok (admin_boundaries boş). make import-boundaries çalıştırın — data/README-boundaries.md."
     }
   },
   "auth": {

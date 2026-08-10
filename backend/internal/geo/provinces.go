@@ -78,7 +78,13 @@ func (s *Store) IlCodesIntersectingBBox(ctx context.Context, b BBox) ([]string, 
 	return codes, nil
 }
 
+// geoJSONSimplifyToleranceDegrees is ~1 km at mid-latitudes. City-granularity
+// map fills stay readable while cutting full-precision ADM1 vertex counts.
+const geoJSONSimplifyToleranceDegrees = 0.01
+
 // GeoJSON returns a FeatureCollection of all province polygons for MapLibre.
+// Geometries are simplified server-side (ST_SimplifyPreserveTopology) so clients
+// do not download full-precision admin_boundaries.
 func (s *Store) GeoJSON(ctx context.Context) (json.RawMessage, error) {
 	var raw []byte
 	err := s.Pool.QueryRow(ctx, `
@@ -93,13 +99,15 @@ func (s *Store) GeoJSON(ctx context.Context) (json.RawMessage, error) {
 						'name_tr', name_tr,
 						'name_en', name_en
 					),
-					'geometry', ST_AsGeoJSON(geom)::json
+					'geometry', ST_AsGeoJSON(
+						ST_SimplifyPreserveTopology(geom, $1)
+					)::json
 				)
 				ORDER BY il_code
 			), '[]'::json)
 		), '{"type":"FeatureCollection","features":[]}'::json)
 		FROM admin_boundaries
-	`).Scan(&raw)
+	`, geoJSONSimplifyToleranceDegrees).Scan(&raw)
 	if err != nil {
 		return nil, fmt.Errorf("province geojson: %w", err)
 	}

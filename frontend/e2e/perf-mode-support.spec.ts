@@ -30,18 +30,6 @@ function consentGrantedPayload() {
   };
 }
 
-const minimalStyle = {
-  version: 8,
-  sources: {},
-  layers: [
-    {
-      id: "background",
-      type: "background",
-      paint: { "background-color": "#1a2a24" },
-    },
-  ],
-};
-
 const minimalGeoJSON = {
   type: "FeatureCollection",
   features: [
@@ -79,18 +67,12 @@ async function seedSessionAndPerf(page: Page) {
 async function mockMapAPIs(page: Page) {
   let supportCalls = 0;
 
-  await page.route("**/styles/liberty**", async (route) => {
+  // Glyphs for the self-authored Türkiye style (labels); fills/crests work without them.
+  await page.route("**/fonts/**", async (route) => {
     await route.fulfill({
       status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(minimalStyle),
-    });
-  });
-  await page.route("**/style.json**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(minimalStyle),
+      contentType: "application/x-protobuf",
+      body: Buffer.alloc(0),
     });
   });
 
@@ -160,6 +142,14 @@ async function mockMapAPIs(page: Page) {
     });
   });
 
+  await page.route("**/v1/derbies", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ derbies: [] }),
+    });
+  });
+
   await page.route("**/v1/provinces/geojson", async (route) => {
     await route.fulfill({
       status: 200,
@@ -187,22 +177,22 @@ async function mockMapAPIs(page: Page) {
     });
   });
 
-  await page.route("**/v1/support", async (route) => {
+  await page.route("**/v1/region/*/support", async (route) => {
     if (route.request().method() !== "POST") {
       await route.fallback();
       return;
     }
     supportCalls += 1;
-    const body = route.request().postDataJSON() as {
-      il_code: string;
-      credits: number;
-    };
+    const url = new URL(route.request().url());
+    const parts = url.pathname.split("/");
+    const ilCode = decodeURIComponent(parts[parts.indexOf("region") + 1] ?? "34");
+    const body = route.request().postDataJSON() as { credits: number };
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         support_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-        il_code: body.il_code,
+        il_code: ilCode,
         credits_spent: body.credits,
         multiplier: 1,
         effective_support: body.credits,
@@ -227,19 +217,17 @@ test.describe("perf mode support", () => {
     await page.goto("/map?il=34");
 
     await expect(page.getByTestId("map-screen")).toBeVisible();
-    await expect(page.getByTestId("province-map")).toHaveAttribute(
-      "data-perf-mode",
-      "on",
-    );
-    await expect(page.getByTestId("province-map")).toHaveAttribute(
+    await expect(page.getByTestId("turkiye-map")).toHaveAttribute(
       "data-map-ready",
       "true",
       { timeout: 30_000 },
     );
 
-    await expect(page.getByText("İstanbul")).toBeVisible();
+    const sheet = page.getByTestId("city-support-sheet");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("heading", { name: "İstanbul" })).toBeVisible();
     await page.locator("#support-credits").fill("25");
-    await page.getByRole("button", { name: /Destekle|Support/ }).click();
+    await page.getByTestId("support-confirm").click();
 
     await expect(
       page.getByText(/İstanbul için 25 kredi|Supported İstanbul with 25/),

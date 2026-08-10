@@ -103,7 +103,7 @@ func main() {
 }
 
 func extractProps(props map[string]any) (ilCode, nameTR, nameEN string, err error) {
-	ilCode = firstString(props, "il_code", "IL_CODE", "plate", "PCODE", "pcode", "shapeID")
+	ilCode = firstString(props, "il_code", "IL_CODE", "plate", "PCODE", "pcode", "shapeISO", "shapeID")
 	ilCode = normalizeIlCode(ilCode)
 	if ilCode == "" {
 		return "", "", "", fmt.Errorf("missing il_code (tried il_code/plate/PCODE)")
@@ -144,8 +144,9 @@ func normalizeIlCode(raw string) string {
 	if raw == "" {
 		return ""
 	}
-	// Accept "34", "034", "TR34" → "34"
+	// Accept "34", "034", "TR34", "TR-34" → "34"
 	raw = strings.TrimPrefix(strings.ToUpper(raw), "TR")
+	raw = strings.TrimPrefix(raw, "-")
 	raw = strings.TrimLeft(raw, "0")
 	if raw == "" {
 		raw = "0"
