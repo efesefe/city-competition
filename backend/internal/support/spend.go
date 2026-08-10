@@ -50,6 +50,16 @@ type Service struct {
 	// OnSupportApplied is invoked after a successful spend + Pub/Sub publish (best-effort).
 	// Leaderboard ZSET updates subscribe here — do not put ZINCRBY in this package.
 	OnSupportApplied func(ctx context.Context, ev SupportAppliedEvent)
+	// OnStreakUpdated is invoked after a successful spend with the streak snapshot (best-effort).
+	OnStreakUpdated func(ctx context.Context, ev StreakUpdatedEvent)
+}
+
+// StreakUpdatedEvent is passed to OnStreakUpdated after support spend commits.
+type StreakUpdatedEvent struct {
+	UserID         uuid.UUID `json:"user_id"`
+	CurrentStreak  int       `json:"current_streak"`
+	LongestStreak  int       `json:"longest_streak"`
+	PreviousStreak int       `json:"previous_streak"`
 }
 
 func (s *Service) now() time.Time {
@@ -176,7 +186,7 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		return nil, fmt.Errorf("upsert tribe_province_scores: %w", err)
 	}
 
-	streak, err := s.Engagement.UpsertStreak(ctx, tx, userID, now)
+	prevStreak, streak, err := s.Engagement.UpsertStreak(ctx, tx, userID, now)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +225,14 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 
 	if s.OnSupportApplied != nil {
 		s.OnSupportApplied(ctx, ev)
+	}
+	if s.OnStreakUpdated != nil {
+		s.OnStreakUpdated(ctx, StreakUpdatedEvent{
+			UserID:         userID,
+			CurrentStreak:  streak.CurrentStreak,
+			LongestStreak:  streak.LongestStreak,
+			PreviousStreak: prevStreak.CurrentStreak,
+		})
 	}
 
 	// Best-effort retention alert; never fail the successful spend.

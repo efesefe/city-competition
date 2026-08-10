@@ -24,6 +24,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/middleware"
 	"github.com/city-competition-remastered/backend/internal/migrate"
 	"github.com/city-competition-remastered/backend/internal/notifications"
+	"github.com/city-competition-remastered/backend/internal/progression"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
 	"github.com/city-competition-remastered/backend/internal/realtime"
 	"github.com/city-competition-remastered/backend/internal/share"
@@ -159,16 +160,21 @@ func main() {
 	}
 	lbStore := &leaderboard.LeaderboardStore{RDB: rdb}
 	lbUpdater := &leaderboard.Updater{Store: lbStore, Logger: logger}
+	progEngine := &progression.Engine{Pool: pools.Write, Logger: logger}
 	supportService := &support.Service{
-		Pool:             pools.Write,
-		Wallet:           creditsWallet,
-		Provinces:        provinceStore,
-		RDB:              rdb,
-		Cache:            supportCache,
-		Engagement:       engagementHooks,
-		Achievements:     achievementStore,
-		Breaker:          writeBreaker,
-		OnSupportApplied: lbUpdater.OnSupportApplied,
+		Pool:         pools.Write,
+		Wallet:       creditsWallet,
+		Provinces:    provinceStore,
+		RDB:          rdb,
+		Cache:        supportCache,
+		Engagement:   engagementHooks,
+		Achievements: achievementStore,
+		Breaker:      writeBreaker,
+		OnSupportApplied: func(ctx context.Context, ev support.SupportAppliedEvent) {
+			lbUpdater.OnSupportApplied(ctx, ev)
+			progEngine.OnSupportApplied(ctx, ev)
+		},
+		OnStreakUpdated: progEngine.OnStreakUpdated,
 	}
 	summaryStore := &support.SummaryStore{Pool: pools.Write, Read: pools.Read}
 	historyStore := &support.HistoryStore{Pool: pools.Read}
@@ -182,14 +188,17 @@ func main() {
 	supportService.MultiplierFn = derbyResolver.ResolveSupportMultiplier
 	derbyNotifier := &derby.Notifier{Store: derbyStore, RDB: rdb}
 	derbyService := &derby.Service{
-		Store:           derbyStore,
-		Provinces:       provinceStore,
-		RDB:             rdb,
-		Notifier:        derbyNotifier,
-		Breaker:         writeBreaker,
-		ScoreTTL:        cfg.DerbyScoreTTL,
-		Logger:          logger,
-		OnDerbyResolved: lbUpdater.OnDerbyResolved,
+		Store:     derbyStore,
+		Provinces: provinceStore,
+		RDB:       rdb,
+		Notifier:  derbyNotifier,
+		Breaker:   writeBreaker,
+		ScoreTTL:  cfg.DerbyScoreTTL,
+		Logger:    logger,
+		OnDerbyResolved: func(ctx context.Context, ev derby.ResolvedEvent) {
+			lbUpdater.OnDerbyResolved(ctx, ev)
+			progEngine.OnDerbyResolved(ctx, ev)
+		},
 	}
 	derbyHandler := &derby.Handler{Service: derbyService}
 	lbHandler := &leaderboard.Handler{

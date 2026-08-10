@@ -23,7 +23,7 @@ func TestUpsertOnSupport_ConsecutiveDays_IncrementsAndSkipResets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.UpsertOnSupport(context.Background(), tx, userID, day1); err != nil {
+	if _, _, err := store.UpsertOnSupport(context.Background(), tx, userID, day1); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {
@@ -46,7 +46,7 @@ func TestUpsertOnSupport_ConsecutiveDays_IncrementsAndSkipResets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.UpsertOnSupport(context.Background(), tx, userID, day2); err != nil {
+	if _, _, err := store.UpsertOnSupport(context.Background(), tx, userID, day2); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {
@@ -65,7 +65,7 @@ func TestUpsertOnSupport_ConsecutiveDays_IncrementsAndSkipResets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.UpsertOnSupport(context.Background(), tx, userID, day4); err != nil {
+	if _, _, err := store.UpsertOnSupport(context.Background(), tx, userID, day4); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(context.Background()); err != nil {
