@@ -110,7 +110,9 @@ func (p *BKMExpress) ParseWebhook(body []byte) (WebhookEvent, error) {
 		return WebhookEvent{}, err
 	}
 	status := "failed"
-	if strings.EqualFold(event.Status, "SUCCESS") || strings.EqualFold(event.Status, "succeeded") {
+	if strings.EqualFold(event.Status, "CHARGEBACK") || strings.EqualFold(event.Status, "chargeback") {
+		status = "chargeback"
+	} else if strings.EqualFold(event.Status, "SUCCESS") || strings.EqualFold(event.Status, "succeeded") {
 		status = "succeeded"
 	}
 	return WebhookEvent{

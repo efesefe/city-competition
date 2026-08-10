@@ -27,13 +27,14 @@ const (
 // WebPurchaseService grants credits from the isolated payments service callback
 // and proxies checkout creation to that service.
 type WebPurchaseService struct {
-	Pool              *pgxpool.Pool
-	Wallet            *credits.Wallet
-	Packs             *PackStore
-	PaymentsURL       string
-	InternalToken     string
-	HTTP              *http.Client
-	DefaultReturnURL  string
+	Pool             *pgxpool.Pool
+	Wallet           *credits.Wallet
+	Packs            *PackStore
+	Invoices         *InvoiceWriter
+	PaymentsURL      string
+	InternalToken    string
+	HTTP             *http.Client
+	DefaultReturnURL string
 }
 
 func (s *WebPurchaseService) httpClient() *http.Client {
@@ -138,6 +139,15 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 	})
 	if err != nil {
 		return GrantResult{}, err
+	}
+	if !already {
+		writer := s.Invoices
+		if writer == nil {
+			writer = &InvoiceWriter{KDVRateBPS: DefaultKDVRateBPS}
+		}
+		if _, err := writer.WriteOnTx(ctx, tx, in.UserID, SourceWebPurchase, purchaseID, amountKurus); err != nil {
+			return GrantResult{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return GrantResult{}, fmt.Errorf("commit: %w", err)

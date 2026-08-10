@@ -51,6 +51,7 @@ func seedWebUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 		t.Fatalf("seed user: %v", err)
 	}
 	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM invoices WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM web_purchases WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_ledger WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_accounts WHERE user_id = $1`, id)

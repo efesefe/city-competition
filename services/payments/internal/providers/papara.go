@@ -119,12 +119,15 @@ func (p *Papara) ParseWebhook(body []byte) (WebhookEvent, error) {
 		ID          string `json:"id"`
 		ReferenceID string `json:"referenceId"`
 		Status      int    `json:"status"`
+		EventType   string `json:"eventType"`
 	}
 	if err := json.Unmarshal(body, &event); err != nil {
 		return WebhookEvent{}, err
 	}
 	status := "failed"
-	if event.Status == 1 {
+	if strings.EqualFold(event.EventType, "chargeback") || event.Status == 5 {
+		status = "chargeback"
+	} else if event.Status == 1 {
 		status = "succeeded"
 	}
 	return WebhookEvent{

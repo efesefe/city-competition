@@ -46,6 +46,7 @@ type Config struct {
 	PaymentsServiceURL             string
 	PaymentsInternalToken          string
 	PaymentsDefaultReturnURL       string
+	KDVRateBPS                     int
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -163,6 +164,15 @@ func Load() (Config, error) {
 	cfg.PaymentsServiceURL = os.Getenv("PAYMENTS_SERVICE_URL")
 	cfg.PaymentsInternalToken = os.Getenv("PAYMENTS_INTERNAL_TOKEN")
 	cfg.PaymentsDefaultReturnURL = getenv("PAYMENTS_DEFAULT_RETURN_URL", "http://localhost:3000/credits")
+
+	kdvBPS, err := optionalInt64("KDV_RATE_BPS", 2000)
+	if err != nil {
+		return Config{}, err
+	}
+	if kdvBPS < 0 {
+		return Config{}, fmt.Errorf("KDV_RATE_BPS must be >= 0")
+	}
+	cfg.KDVRateBPS = int(kdvBPS)
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {

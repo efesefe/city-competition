@@ -55,6 +55,7 @@ func seedUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM user_battle_pass_claims WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM user_battle_pass WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM user_cosmetics WHERE user_id = $1`, id)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM invoices WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM iap_purchases WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_ledger WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_accounts WHERE user_id = $1`, id)

@@ -166,12 +166,16 @@ func (p *Iyzico) ParseWebhook(body []byte) (WebhookEvent, error) {
 		IyziPaymentID         any    `json:"iyziPaymentId"`
 		PaymentConversationID string `json:"paymentConversationId"`
 		Status                string `json:"status"`
+		IyziEventType         string `json:"iyziEventType"`
 	}
 	if err := json.Unmarshal(body, &event); err != nil {
 		return WebhookEvent{}, err
 	}
 	status := "failed"
-	if strings.EqualFold(event.Status, "SUCCESS") || strings.EqualFold(event.Status, "success") {
+	if strings.EqualFold(event.Status, "CHARGEBACK") ||
+		strings.Contains(strings.ToUpper(event.IyziEventType), "CHARGEBACK") {
+		status = "chargeback"
+	} else if strings.EqualFold(event.Status, "SUCCESS") || strings.EqualFold(event.Status, "success") {
 		status = "succeeded"
 	}
 	pid := event.Token

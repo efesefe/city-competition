@@ -164,23 +164,33 @@ func main() {
 		Wallet:   creditsWallet,
 		Verifier: iapVerifier,
 		Packs:    packStore,
+		Invoices: &monetization.InvoiceWriter{KDVRateBPS: cfg.KDVRateBPS},
 	}
 	battlePassService := &monetization.BattlePassService{
 		Pool:   pools.Write,
 		Wallet: creditsWallet,
 	}
+	invoiceWriter := &monetization.InvoiceWriter{KDVRateBPS: cfg.KDVRateBPS}
 	webPurchaseService := &monetization.WebPurchaseService{
 		Pool:             pools.Write,
 		Wallet:           creditsWallet,
 		Packs:            packStore,
+		Invoices:         invoiceWriter,
 		PaymentsURL:      cfg.PaymentsServiceURL,
 		InternalToken:    cfg.PaymentsInternalToken,
 		DefaultReturnURL: cfg.PaymentsDefaultReturnURL,
+	}
+	refundService := &monetization.RefundService{
+		Pool:          pools.Write,
+		Wallet:        creditsWallet,
+		PaymentsURL:   cfg.PaymentsServiceURL,
+		InternalToken: cfg.PaymentsInternalToken,
 	}
 	monetizationHandler := &monetization.Handler{
 		IAP:           iapService,
 		BattlePass:    battlePassService,
 		WebPurchase:   webPurchaseService,
+		Refunds:       refundService,
 		Breaker:       writeBreaker,
 		InternalToken: cfg.PaymentsInternalToken,
 	}
@@ -324,6 +334,7 @@ func main() {
 	mux.Handle("POST /v1/admin/users/{id}/ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.BanUser))))
 	mux.Handle("POST /v1/admin/users/{id}/shadow-ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ShadowBanUser))))
 	mux.Handle("POST /v1/admin/users/{id}/unban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.UnbanUser))))
+	mux.Handle("POST /v1/admin/refunds", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(monetizationHandler.AdminRefund))))
 	mux.Handle("POST /v1/appeals", auth.RequireSessionAllowBanned(sessions, users, http.HandlerFunc(moderationHandler.CreateAppeal)))
 	mux.Handle("GET /v1/derbies", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.List)))
 	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.Get)))
@@ -333,6 +344,7 @@ func main() {
 	mux.Handle("POST /v1/iap/verify", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Verify))))
 	mux.Handle("POST /v1/payments/checkout", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Checkout))))
 	mux.HandleFunc("POST /internal/payments/credit-grant", monetizationHandler.CreditGrant)
+	mux.HandleFunc("POST /internal/payments/chargeback", monetizationHandler.Chargeback)
 	mux.Handle("GET /v1/battle-pass", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.BattlePassStatus)))
 	mux.Handle("POST /v1/battle-pass/claim", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.BattlePassClaim))))
 	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, users, http.HandlerFunc(geoHandler.GeoJSON)))

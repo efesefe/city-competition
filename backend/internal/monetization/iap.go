@@ -19,6 +19,7 @@ type Service struct {
 	Wallet   *credits.Wallet
 	Verifier ReceiptVerifier
 	Packs    *PackStore
+	Invoices *InvoiceWriter
 }
 
 // GrantResult is the outcome of a verified purchase grant.
@@ -148,6 +149,20 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 	})
 	if err != nil {
 		return GrantResult{}, err
+	}
+
+	if !already {
+		gross := pack.AmountKurus
+		if gross <= 0 {
+			gross = 1
+		}
+		writer := s.Invoices
+		if writer == nil {
+			writer = &InvoiceWriter{KDVRateBPS: DefaultKDVRateBPS}
+		}
+		if _, err := writer.WriteOnTx(ctx, tx, userID, SourceIAPPurchase, purchaseID, gross); err != nil {
+			return GrantResult{}, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {

@@ -58,7 +58,7 @@ type RefundResult struct {
 type WebhookEvent struct {
 	ProviderPaymentID string
 	ConversationID    string
-	Status            string // succeeded | failed
+	Status            string // succeeded | failed | chargeback
 }
 
 // PaymentProvider is the PCI-scoped PSP adapter.

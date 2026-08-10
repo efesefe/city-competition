@@ -40,11 +40,28 @@ func (c *Client) httpClient() *http.Client {
 
 // CreditGrant notifies the main API to GrantCredits.
 func (c *Client) CreditGrant(ctx context.Context, payload CreditGrantPayload) error {
+	return c.post(ctx, "/internal/payments/credit-grant", payload)
+}
+
+// ChargebackPayload notifies the main API of a PSP chargeback/dispute.
+type ChargebackPayload struct {
+	UserID            uuid.UUID `json:"user_id"`
+	Provider          string    `json:"provider"`
+	ProviderPaymentID string    `json:"provider_payment_id"`
+	PaymentIntentID   uuid.UUID `json:"payment_intent_id"`
+}
+
+// Chargeback notifies the main API to flag the account and reverse unspent credits.
+func (c *Client) Chargeback(ctx context.Context, payload ChargebackPayload) error {
+	return c.post(ctx, "/internal/payments/chargeback", payload)
+}
+
+func (c *Client) post(ctx context.Context, path string, payload any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	url := strings.TrimRight(c.BaseURL, "/") + "/internal/payments/credit-grant"
+	url := strings.TrimRight(c.BaseURL, "/") + path
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -53,12 +70,12 @@ func (c *Client) CreditGrant(ctx context.Context, payload CreditGrantPayload) er
 	req.Header.Set("X-Internal-Token", c.InternalToken)
 	res, err := c.httpClient().Do(req)
 	if err != nil {
-		return fmt.Errorf("credit-grant request: %w", err)
+		return fmt.Errorf("%s request: %w", path, err)
 	}
 	defer res.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 1<<16))
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return fmt.Errorf("credit-grant status %d", res.StatusCode)
+		return fmt.Errorf("%s status %d", path, res.StatusCode)
 	}
 	return nil
 }

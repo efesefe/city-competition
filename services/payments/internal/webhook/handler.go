@@ -52,6 +52,36 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_conversation_id"})
 		return
 	}
+	if event.Status == "chargeback" {
+		intent, err := h.Checkout.ByID(r.Context(), intentID)
+		if err != nil {
+			if errors.Is(err, checkout.ErrNotFound) {
+				writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "error_internal"})
+			return
+		}
+		if intent.Status == "succeeded" {
+			_ = h.Checkout.MarkRefunded(r.Context(), intentID)
+		}
+		if h.Emitter != nil {
+			if err := h.Emitter.Chargeback(r.Context(), emit.ChargebackPayload{
+				UserID:            intent.UserID,
+				Provider:          intent.Provider,
+				ProviderPaymentID: firstNonEmpty(event.ProviderPaymentID, intent.ProviderPaymentID),
+				PaymentIntentID:   intent.ID,
+			}); err != nil {
+				if h.Logger != nil {
+					h.Logger.Error("chargeback emit failed", "intent_id", intent.ID.String(), "err", err.Error())
+				}
+				writeJSON(w, http.StatusBadGateway, map[string]string{"error": "emit_failed"})
+				return
+			}
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "chargeback"})
+		return
+	}
 	if event.Status != "succeeded" {
 		_ = h.Checkout.MarkFailed(r.Context(), intentID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
@@ -87,6 +117,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" && v != "<nil>" {
+			return v
+		}
+	}
+	return ""
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

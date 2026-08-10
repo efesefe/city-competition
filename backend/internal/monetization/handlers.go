@@ -15,10 +15,11 @@ import (
 
 // Handler exposes IAP verify, credit packs, battle-pass, and web checkout endpoints.
 type Handler struct {
-	IAP         *Service
-	BattlePass  *BattlePassService
-	WebPurchase *WebPurchaseService
-	Breaker     *db.CircuitBreaker
+	IAP           *Service
+	BattlePass    *BattlePassService
+	WebPurchase   *WebPurchaseService
+	Refunds       *RefundService
+	Breaker       *db.CircuitBreaker
 	InternalToken string
 }
 
@@ -220,6 +221,99 @@ func (h *Handler) CreditGrant(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+type refundRequest struct {
+	WebPurchaseID  string `json:"web_purchase_id"`
+	IdempotencyKey string `json:"idempotency_key"`
+}
+
+// AdminRefund handles POST /v1/admin/refunds (admin/support gated).
+func (h *Handler) AdminRefund(w http.ResponseWriter, r *http.Request) {
+	if _, ok := auth.UserIDFromContext(r.Context()); !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Refunds == nil {
+		writeErr(w, http.StatusServiceUnavailable, ErrVerifierUnavailable.Error())
+		return
+	}
+	var req refundRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_input")
+		return
+	}
+	purchaseID, err := uuid.Parse(strings.TrimSpace(req.WebPurchaseID))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_web_purchase_id")
+		return
+	}
+	if h.Breaker != nil {
+		if err := h.Breaker.Allow(); err != nil {
+			writeIAPErr(w, err)
+			return
+		}
+	}
+	result, err := h.Refunds.RefundWebPurchase(r.Context(), purchaseID, strings.TrimSpace(req.IdempotencyKey))
+	if err != nil {
+		if h.Breaker != nil && !isIAPBusinessErr(err) {
+			h.Breaker.RecordFailure()
+		}
+		writeIAPErr(w, err)
+		return
+	}
+	if h.Breaker != nil {
+		h.Breaker.RecordSuccess()
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+type chargebackRequest struct {
+	UserID            string `json:"user_id"`
+	Provider          string `json:"provider"`
+	ProviderPaymentID string `json:"provider_payment_id"`
+	PaymentIntentID   string `json:"payment_intent_id"`
+}
+
+// Chargeback handles POST /internal/payments/chargeback from the payments service.
+func (h *Handler) Chargeback(w http.ResponseWriter, r *http.Request) {
+	got := r.Header.Get("X-Internal-Token")
+	if h.InternalToken == "" || got != h.InternalToken {
+		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if h.Refunds == nil {
+		writeErr(w, http.StatusServiceUnavailable, ErrVerifierUnavailable.Error())
+		return
+	}
+	var req chargebackRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_input")
+		return
+	}
+	intentID, err := uuid.Parse(strings.TrimSpace(req.PaymentIntentID))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_payment_intent_id")
+		return
+	}
+	if h.Breaker != nil {
+		if err := h.Breaker.Allow(); err != nil {
+			writeIAPErr(w, err)
+			return
+		}
+	}
+	result, err := h.Refunds.HandleChargeback(r.Context(), intentID, strings.TrimSpace(req.ProviderPaymentID))
+	if err != nil {
+		if h.Breaker != nil && !isIAPBusinessErr(err) {
+			h.Breaker.RecordFailure()
+		}
+		writeIAPErr(w, err)
+		return
+	}
+	if h.Breaker != nil {
+		h.Breaker.RecordSuccess()
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 // BattlePassStatus handles GET /v1/battle-pass.
 func (h *Handler) BattlePassStatus(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.UserIDFromContext(r.Context())
@@ -272,6 +366,9 @@ func isIAPBusinessErr(err error) bool {
 		errors.Is(err, ErrVerifierUnavailable),
 		errors.Is(err, ErrNoActiveSeason),
 		errors.Is(err, ErrTierNotEligible),
+		errors.Is(err, ErrPurchaseNotFound),
+		errors.Is(err, ErrAlreadyRefunded),
+		errors.Is(err, ErrPaymentsRefundFailed),
 		errors.Is(err, credits.ErrIdempotencyConflict),
 		errors.Is(err, credits.ErrInvalidIdempotencyKey),
 		errors.Is(err, db.ErrWritePathDegraded):
@@ -292,11 +389,14 @@ func writeIAPErr(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrInvalidReceipt):
 		writeErr(w, http.StatusUnprocessableEntity, err.Error())
-	case errors.Is(err, ErrVerifierUnavailable):
+	case errors.Is(err, ErrVerifierUnavailable),
+		errors.Is(err, ErrPaymentsRefundFailed):
 		writeErr(w, http.StatusServiceUnavailable, err.Error())
-	case errors.Is(err, ErrNoActiveSeason):
+	case errors.Is(err, ErrNoActiveSeason),
+		errors.Is(err, ErrPurchaseNotFound):
 		writeErr(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, ErrTierNotEligible):
+	case errors.Is(err, ErrTierNotEligible),
+		errors.Is(err, ErrAlreadyRefunded):
 		writeErr(w, http.StatusConflict, err.Error())
 	case errors.Is(err, credits.ErrIdempotencyConflict):
 		writeErr(w, http.StatusConflict, credits.ErrIdempotencyConflict.Error())
