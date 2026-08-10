@@ -5,25 +5,22 @@ import { useTranslations } from "next-intl";
 import maplibregl from "maplibre-gl";
 import LocaleToggle from "@/components/LocaleToggle";
 import PerfModeToggle from "@/components/PerfModeToggle";
+import { useRealtime } from "@/context/RealtimeContext";
+import { useWallet } from "@/context/WalletContext";
 import {
   fetchProvincesControl,
   fetchProvincesGeoJSON,
   postSupport,
   ProvinceProperties,
 } from "@/lib/support-api";
-import {
-  connectMapSocket,
-  MapBBox,
-  MapSocketHandle,
-  SupportAppliedMessage,
-} from "@/lib/mapSocket";
+import { type MapBBox, type SupportAppliedMessage } from "@/lib/realtimeSocket";
+import { fetchWalletBalance } from "@/lib/wallet-api";
 import {
   getChoroplethPerfConfig,
   getPerformanceModePreference,
   isPerformanceModeEnabled,
   type PerformanceModePreference,
 } from "@/lib/performanceMode";
-import { getSessionToken } from "@/lib/session";
 import {
   choroplethFillColor,
   choroplethFillOpacity,
@@ -60,9 +57,11 @@ export default function ProvinceMap({
 }) {
   const t = useTranslations("map");
   const tCommon = useTranslations("common");
+  const { applyOptimisticDelta, reconcileBalance } = useWallet();
+  const { subscribe, sendViewport, sendViewportNow, setBBoxGetter } =
+    useRealtime();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const socketRef = useRef<MapSocketHandle | null>(null);
   const liveMsgRef = useRef(t);
   const [perfPref, setPerfPref] = useState<PerformanceModePreference>(() =>
     typeof window !== "undefined" ? getPerformanceModePreference() : "auto",
@@ -78,14 +77,25 @@ export default function ProvinceMap({
   liveMsgRef.current = t;
 
   useEffect(() => {
+    return subscribe((event) => {
+      if (event.type !== "support_applied") return;
+      const msg = event as SupportAppliedMessage;
+      setMessage(
+        liveMsgRef.current("liveSupport", {
+          delta: msg.delta,
+          ilCode: msg.il_code,
+          tribeId: msg.tribe_id.slice(0, 8),
+        }),
+      );
+    });
+  }, [subscribe]);
+
+  useEffect(() => {
     if (!containerRef.current) {
       return;
     }
 
-    // Tear down any previous map when preference remounts the effect.
     if (mapRef.current) {
-      socketRef.current?.close();
-      socketRef.current = null;
       mapRef.current.remove();
       mapRef.current = null;
     }
@@ -112,21 +122,18 @@ export default function ProvinceMap({
       maxTileCacheSize: perf.maxTileCacheSize,
     });
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      "top-right",
+    );
     mapRef.current = map;
 
-    let cancelled = false;
+    setBBoxGetter(() => {
+      const m = mapRef.current;
+      return m ? boundsToBBox(m) : null;
+    });
 
-    const onSupportApplied = (event: SupportAppliedMessage) => {
-      if (cancelled) return;
-      setMessage(
-        liveMsgRef.current("liveSupport", {
-          delta: event.delta,
-          ilCode: event.il_code,
-          tribeId: event.tribe_id.slice(0, 8),
-        }),
-      );
-    };
+    let cancelled = false;
 
     map.on("load", () => {
       void (async () => {
@@ -221,23 +228,14 @@ export default function ProvinceMap({
             map.getCanvas().style.cursor = "";
           });
 
-          if (getSessionToken()) {
-            const socket = connectMapSocket({
-              getBBox: () => {
-                const m = mapRef.current;
-                return m ? boundsToBBox(m) : null;
-              },
-              onEvent: onSupportApplied,
-            });
-            socketRef.current = socket;
-            const pushViewport = () => {
-              const m = mapRef.current;
-              if (!m) return;
-              socket.sendViewport(boundsToBBox(m));
-            };
-            map.on("moveend", pushViewport);
-            map.on("zoomend", pushViewport);
-          }
+          const pushViewport = () => {
+            const m = mapRef.current;
+            if (!m) return;
+            sendViewport(boundsToBBox(m));
+          };
+          map.on("moveend", pushViewport);
+          map.on("zoomend", pushViewport);
+          sendViewportNow(boundsToBBox(map));
 
           setMapReady(true);
         } catch (err) {
@@ -252,12 +250,11 @@ export default function ProvinceMap({
 
     return () => {
       cancelled = true;
-      socketRef.current?.close();
-      socketRef.current = null;
+      setBBoxGetter(null);
       map.remove();
       mapRef.current = null;
     };
-  }, [focusIl, perfPref]);
+  }, [focusIl, perfPref, sendViewport, sendViewportNow, setBBoxGetter]);
 
   async function onSupport(e: FormEvent) {
     e.preventDefault();
@@ -272,8 +269,10 @@ export default function ProvinceMap({
     setBusy(true);
     setError(null);
     setMessage(null);
+    applyOptimisticDelta(-amount);
     try {
       const result = await postSupport(selected.il_code, amount);
+      reconcileBalance(result.balance_after);
       setMessage(
         t("supported", {
           province: selected.name_tr,
@@ -282,6 +281,12 @@ export default function ProvinceMap({
         }),
       );
     } catch (err) {
+      try {
+        const { balance } = await fetchWalletBalance();
+        reconcileBalance(balance);
+      } catch {
+        applyOptimisticDelta(amount);
+      }
       const code =
         err && typeof err === "object" && "code" in err
           ? String((err as { code?: string }).code)

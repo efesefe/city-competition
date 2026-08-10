@@ -4,6 +4,17 @@
     "loading": "Yükleniyor…",
     "redirecting": "Yönlendiriliyorsunuz…"
   },
+  "shell": {
+    "tabBarAria": "Ana navigasyon",
+    "tabMap": "Harita",
+    "tabLeaderboard": "Lider Tablosu",
+    "tabProfile": "Profil",
+    "balance": "{balance} kredi",
+    "balanceLoading": "…",
+    "crestAria": "Profil — {tribe}",
+    "notificationsAria": "Bildirimler",
+    "comingSoon": "Yakında"
+  },
   "map": {
     "ariaLabel": "Türkiye il haritası",
     "title": "Bir ili destekle",

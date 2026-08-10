@@ -10,6 +10,9 @@
   left: 1rem;
   bottom: 1rem;
   width: min(22rem, calc(100% - 2rem));
+  /* Stay clear of the fixed TabBar when mounted in the app shell. */
+  max-height: calc(100% - 1.5rem);
+  overflow: auto;
   padding: 1rem 1.1rem 1.15rem;
   background: rgba(10, 18, 16, 0.88);
   border: 1px solid #3a524a;

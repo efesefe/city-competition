@@ -129,6 +129,37 @@ async function mockMapAPIs(page: Page) {
     });
   });
 
+  await page.route("**/v1/credits/balance", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ balance: 1000 }),
+    });
+  });
+
+  await page.route("**/v1/cities", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        cities: [
+          {
+            id: "34",
+            name: "İstanbul",
+            centroid: { lng: 28.9, lat: 41.0 },
+            controlling_tribe: {
+              tribe_id: TRIBE_ID,
+              primary_color: "#336699",
+            },
+            competing_tribes: [
+              { tribe_id: TRIBE_ID, committed_credits: 100 },
+            ],
+          },
+        ],
+      }),
+    });
+  });
+
   await page.route("**/v1/provinces/geojson", async (route) => {
     await route.fulfill({
       status: 200,
@@ -193,7 +224,7 @@ test.describe("perf mode support", () => {
     await seedSessionAndPerf(page);
     const api = await mockMapAPIs(page);
 
-    await page.goto("/?il=34");
+    await page.goto("/map?il=34");
 
     await expect(page.getByTestId("map-screen")).toBeVisible();
     await expect(page.getByTestId("province-map")).toHaveAttribute(

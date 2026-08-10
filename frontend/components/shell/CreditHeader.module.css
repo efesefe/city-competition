@@ -1,0 +1,93 @@
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: var(--shell-header-height, 3.25rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.85rem;
+  background: rgba(12, 20, 24, 0.94);
+  border-bottom: 1px solid #2a3a36;
+  backdrop-filter: blur(8px);
+}
+
+.crestBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 2px solid color-mix(in srgb, var(--tribe-accent) 55%, #fff 10%);
+  border-radius: 999px;
+  background: var(--tribe-accent);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.crestBtn:focus-visible {
+  outline: 2px solid #e8efe9;
+  outline-offset: 2px;
+}
+
+.balance {
+  flex: 1;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.balanceMuted {
+  color: #8fb5a8;
+  font-weight: 500;
+}
+
+.bellWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.bell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 1px solid #3a524a;
+  border-radius: 999px;
+  background: transparent;
+  color: #c5d4ce;
+  cursor: default;
+}
+
+.badge {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.15rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: #c8102e;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1.05rem;
+  text-align: center;
+}

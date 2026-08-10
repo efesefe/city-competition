@@ -10,10 +10,11 @@ import (
 	"github.com/city-competition-remastered/backend/internal/db"
 )
 
-// Handler exposes support spend, province control, and personal history APIs.
+// Handler exposes support spend, province control, cities listing, and personal history APIs.
 type Handler struct {
 	Service *Service
 	Summary *SummaryStore
+	Cities  *CityStore
 	History *HistoryStore
 }
 
@@ -24,6 +25,10 @@ type errorBody struct {
 type createRequest struct {
 	IlCode  string `json:"il_code"`
 	Credits int64  `json:"credits"`
+}
+
+type pathSupportRequest struct {
+	Credits int64 `json:"credits"`
 }
 
 // Create handles POST /v1/support.
@@ -46,6 +51,55 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+// CreateByRegion handles POST /v1/region/{il_code}/support.
+// Unknown il codes return 404 unknown_region (path-based city contract).
+func (h *Handler) CreateByRegion(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+
+	ilCode := r.PathValue("il_code")
+	var req pathSupportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "error_invalid_json")
+		return
+	}
+
+	result, err := h.Service.Apply(r.Context(), userID, ilCode, req.Credits)
+	if err != nil {
+		if errors.Is(err, ErrInvalidIlCode) {
+			writeErr(w, http.StatusNotFound, ErrUnknownRegion.Error())
+			return
+		}
+		writeSupportErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// ListCities handles GET /v1/cities — all 81 ils with control + competing scores.
+func (h *Handler) ListCities(w http.ResponseWriter, r *http.Request) {
+	if _, ok := auth.UserIDFromContext(r.Context()); !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Cities == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	cities, err := h.Cities.ListCities(r.Context())
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	if cities == nil {
+		cities = []City{}
+	}
+	writeJSON(w, http.StatusOK, citiesListResponse{Cities: cities})
 }
 
 // Control handles GET /v1/provinces/control — all ils from province_control_summary.

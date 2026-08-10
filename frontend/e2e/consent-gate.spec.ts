@@ -33,6 +33,53 @@ function consentPayload(state: ConsentState) {
   };
 }
 
+const TRIBE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
+async function mockShellAPIs(page: Page) {
+  await page.route("**/v1/tribes", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        tribes: [
+          {
+            id: TRIBE_ID,
+            slug: "test-tribe",
+            display_name: "Test Tribe",
+            short_name: "TST",
+            primary_color: "#336699",
+            secondary_color: "#99aabb",
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        membership: {
+          tribe_id: TRIBE_ID,
+          tribe_switched_at: null,
+          switch_available_at: null,
+        },
+      }),
+    });
+  });
+
+  await page.route("**/v1/credits/balance", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ balance: 1000 }),
+    });
+  });
+
+  await page.route("**/v1/cities", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ cities: [] }),
+    });
+  });
+}
+
 async function mockConsentAPI(page: Page, initial: ConsentState) {
   const state = { ...initial };
 
@@ -63,6 +110,8 @@ async function mockConsentAPI(page: Page, initial: ConsentState) {
       get: () => geo,
     });
   });
+
+  await mockShellAPIs(page);
 
   await page.route("**/v1/consent/status", async (route) => {
     await route.fulfill({
@@ -119,7 +168,7 @@ test.describe("KVKK consent gate", () => {
       location: null,
     });
 
-    await page.goto("/");
+    await page.goto("/map");
 
     await expect(page.getByTestId("consent-modal")).toBeVisible();
     await expect(page.getByTestId("map-screen")).toHaveCount(0);
@@ -147,7 +196,7 @@ test.describe("KVKK consent gate", () => {
       location: null,
     });
 
-    await page.goto("/");
+    await page.goto("/map");
 
     await expect(page.getByTestId("consent-modal")).toBeVisible();
     await expect(page.getByTestId("map-screen")).toHaveCount(0);
@@ -161,7 +210,7 @@ test.describe("KVKK consent gate", () => {
     });
 
     await page.goto("/");
-
+    await expect(page).toHaveURL(/\/map/);
     await expect(page.getByTestId("map-screen")).toBeVisible();
     await expect(page.getByTestId("consent-modal")).toHaveCount(0);
   });

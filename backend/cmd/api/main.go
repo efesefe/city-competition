@@ -253,10 +253,12 @@ func main() {
 		OnStreakUpdated: progEngine.OnStreakUpdated,
 	}
 	summaryStore := &support.SummaryStore{Pool: pools.Write, Read: pools.Read}
+	cityStore := &support.CityStore{Pool: pools.Write, Read: pools.Read}
 	historyStore := &support.HistoryStore{Pool: pools.Read}
 	supportHandler := &support.Handler{
 		Service: supportService,
 		Summary: summaryStore,
+		Cities:  cityStore,
 		History: historyStore,
 	}
 	derbyStore := &derby.PoolStore{Pool: pools.Write}
@@ -389,7 +391,9 @@ func main() {
 	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, users, http.HandlerFunc(geoHandler.GeoJSON)))
 	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.Control)))
 	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.ProvinceStandings)))
+	mux.Handle("GET /v1/cities", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.ListCities)))
 	mux.Handle("POST /v1/support", auth.RequireSession(sessions, users, supportSpendLimit(http.HandlerFunc(supportHandler.Create))))
+	mux.Handle("POST /v1/region/{il_code}/support", auth.RequireSession(sessions, users, supportSpendLimit(http.HandlerFunc(supportHandler.CreateByRegion))))
 	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.ListMine)))
 	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Global)))
 	mux.Handle("GET /v1/leaderboards/tribes/{tribe_id}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Tribe)))

@@ -4,6 +4,17 @@
     "loading": "Loading…",
     "redirecting": "Redirecting…"
   },
+  "shell": {
+    "tabBarAria": "Main navigation",
+    "tabMap": "Map",
+    "tabLeaderboard": "Leaderboard",
+    "tabProfile": "Profile",
+    "balance": "{balance} credits",
+    "balanceLoading": "…",
+    "crestAria": "Profile — {tribe}",
+    "notificationsAria": "Notifications",
+    "comingSoon": "Coming soon"
+  },
   "map": {
     "ariaLabel": "Türkiye province map",
     "title": "Support a province",

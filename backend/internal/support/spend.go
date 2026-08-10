@@ -27,6 +27,9 @@ var (
 	ErrTribeRequired = errors.New("tribe_required")
 	// ErrInvalidIlCode is returned when il_code is missing from admin_boundaries.
 	ErrInvalidIlCode = errors.New("invalid_il_code")
+	// ErrUnknownRegion is returned by POST /v1/region/{il_code}/support when the
+	// path il_code is not among the fixed 81-city set (admin_boundaries).
+	ErrUnknownRegion = errors.New("unknown_region")
 	// ErrInvalidCredits is returned when credits is not strictly positive.
 	ErrInvalidCredits = errors.New("invalid_credits")
 )

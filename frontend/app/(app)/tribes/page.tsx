@@ -72,15 +72,15 @@ export default function TribesPage() {
     try {
       if (!hasTribeMembership(membership)) {
         await joinTribe(tribe.id);
-        router.replace("/");
+        router.replace("/map");
         return;
       }
       if (membership?.tribe_id === tribe.id) {
-        router.replace("/");
+        router.replace("/map");
         return;
       }
       await switchTribe(tribe.id);
-      router.replace("/");
+      router.replace("/map");
     } catch (e) {
       const code = (e as { code?: string }).code;
       setError(mapError(code));
