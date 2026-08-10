@@ -26,6 +26,24 @@ func Publish(ctx context.Context, client redis.Cmdable, channel string, payload 
 	return client.Publish(ctx, channel, payload).Err()
 }
 
+// Broadcaster is an injectable Pub/Sub publisher (tests can force failures).
+type Broadcaster interface {
+	Publish(ctx context.Context, channel, payload string) error
+}
+
+// RedisBroadcaster publishes via go-redis.
+type RedisBroadcaster struct {
+	Client redis.Cmdable
+}
+
+// Publish implements Broadcaster.
+func (b RedisBroadcaster) Publish(ctx context.Context, channel, payload string) error {
+	if b.Client == nil {
+		return fmt.Errorf("redis client nil")
+	}
+	return Publish(ctx, b.Client, channel, payload)
+}
+
 // NotifQueueKey is the Redis list drained by the Sprint 7 push worker.
 const NotifQueueKey = "notif_queue"
 

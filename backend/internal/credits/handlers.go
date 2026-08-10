@@ -6,11 +6,13 @@ import (
 	"net/http"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
+	"github.com/city-competition-remastered/backend/internal/db"
 )
 
 // Handler exposes credit balance and (dev-only) stub-grant endpoints.
 type Handler struct {
 	Wallet       *Wallet
+	Breaker      *db.CircuitBreaker
 	StubEnabled  bool
 	StubAmount   int64
 	IsProduction bool
@@ -68,6 +70,11 @@ func (h *Handler) StubGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.Breaker.Allow(); err != nil {
+		writeCreditsErr(w, err)
+		return
+	}
+
 	balanceAfter, err := h.Wallet.GrantCredits(r.Context(), ApplyInput{
 		UserID:         userID,
 		Amount:         h.StubAmount,
@@ -77,14 +84,33 @@ func (h *Handler) StubGrant(w http.ResponseWriter, r *http.Request) {
 		IdempotencyKey: req.IdempotencyKey,
 	})
 	if err != nil {
+		if !isCreditsBusinessErr(err) {
+			h.Breaker.RecordFailure()
+		}
 		writeCreditsErr(w, err)
 		return
 	}
+	h.Breaker.RecordSuccess()
 	writeJSON(w, http.StatusOK, balanceResponse{Balance: balanceAfter})
+}
+
+func isCreditsBusinessErr(err error) bool {
+	switch {
+	case errors.Is(err, ErrInsufficientCredits),
+		errors.Is(err, ErrIdempotencyConflict),
+		errors.Is(err, ErrInvalidAmount),
+		errors.Is(err, ErrInvalidIdempotencyKey),
+		errors.Is(err, db.ErrWritePathDegraded):
+		return true
+	default:
+		return false
+	}
 }
 
 func writeCreditsErr(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, db.ErrWritePathDegraded):
+		writeErr(w, http.StatusServiceUnavailable, db.ErrWritePathDegraded.Error())
 	case errors.Is(err, ErrInsufficientCredits):
 		writeErr(w, http.StatusPaymentRequired, ErrInsufficientCredits.Error())
 	case errors.Is(err, ErrIdempotencyConflict):

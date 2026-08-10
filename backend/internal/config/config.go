@@ -12,11 +12,16 @@ type Config struct {
 	AppEnv                         string
 	HTTPAddr                       string
 	DatabaseURL                    string
+	DBReadReplicaDSN               string
 	RedisURL                       string
 	MigrationsPath                 string
 	DBMaxConns                     int32
+	DBWriteMaxConns                int32
+	DBReadMaxConns                 int32
 	DBMinConns                     int32
 	DBMaxConnLifetime              time.Duration
+	DBCircuitFailureThreshold      int
+	DBCircuitCooldown              time.Duration
 	GoogleClientID                 string
 	AppleClientID                  string
 	TribeSwitchCooldown            time.Duration
@@ -31,6 +36,7 @@ type Config struct {
 	LeadThreatenedRateLimit        time.Duration
 	DerbySchedulerInterval         time.Duration
 	DerbyScoreTTL                  time.Duration
+	RestrictedDMDisabled           bool
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -130,10 +136,13 @@ func Load() (Config, error) {
 	}
 	cfg.DerbyScoreTTL = derbyScoreTTL
 
+	cfg.RestrictedDMDisabled = optionalBool("RESTRICTED_DM_DISABLED", false)
+
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {
 		missing = append(missing, "DATABASE_URL")
 	}
+	cfg.DBReadReplicaDSN = os.Getenv("DB_READ_REPLICA_DSN")
 
 	cfg.RedisURL = os.Getenv("REDIS_URL")
 	if cfg.RedisURL == "" {
@@ -145,6 +154,18 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.DBMaxConns = maxConns
+
+	writeMax, err := optionalInt32("DB_WRITE_MAX_CONNS", maxConns)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.DBWriteMaxConns = writeMax
+
+	readMax, err := optionalInt32("DB_READ_MAX_CONNS", maxConns)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.DBReadMaxConns = readMax
 
 	minConns, err := requireInt32("DB_MIN_CONNS")
 	if err != nil {
@@ -158,12 +179,33 @@ func Load() (Config, error) {
 	}
 	cfg.DBMaxConnLifetime = lifetime
 
+	threshold, err := optionalInt64("DB_CIRCUIT_FAILURE_THRESHOLD", 5)
+	if err != nil {
+		return Config{}, err
+	}
+	if threshold < 1 {
+		return Config{}, fmt.Errorf("DB_CIRCUIT_FAILURE_THRESHOLD must be >= 1")
+	}
+	cfg.DBCircuitFailureThreshold = int(threshold)
+
+	circuitCooldown, err := optionalDuration("DB_CIRCUIT_COOLDOWN", 30*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.DBCircuitCooldown = circuitCooldown
+
 	if len(missing) > 0 {
 		return Config{}, fmt.Errorf("missing required env vars: %v", missing)
 	}
 
 	if cfg.DBMinConns > cfg.DBMaxConns {
 		return Config{}, fmt.Errorf("DB_MIN_CONNS (%d) cannot exceed DB_MAX_CONNS (%d)", cfg.DBMinConns, cfg.DBMaxConns)
+	}
+	if cfg.DBMinConns > cfg.DBWriteMaxConns {
+		return Config{}, fmt.Errorf("DB_MIN_CONNS (%d) cannot exceed DB_WRITE_MAX_CONNS (%d)", cfg.DBMinConns, cfg.DBWriteMaxConns)
+	}
+	if cfg.DBMinConns > cfg.DBReadMaxConns {
+		return Config{}, fmt.Errorf("DB_MIN_CONNS (%d) cannot exceed DB_READ_MAX_CONNS (%d)", cfg.DBMinConns, cfg.DBReadMaxConns)
 	}
 
 	return cfg, nil
@@ -235,6 +277,21 @@ func optionalBool(key string, fallback bool) bool {
 		return fallback
 	}
 	return v
+}
+
+func optionalInt32(key string, fallback int32) (int32, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s: %w", key, err)
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("%s must be non-negative", key)
+	}
+	return int32(n), nil
 }
 
 func optionalInt64(key string, fallback int64) (int64, error) {

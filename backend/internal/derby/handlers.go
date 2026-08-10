@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
+	"github.com/city-competition-remastered/backend/internal/db"
 )
 
 // Handler exposes admin create/force-resolve and authenticated list/get.
@@ -59,6 +60,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 func writeCreateErr(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, db.ErrWritePathDegraded):
+		writeErr(w, http.StatusServiceUnavailable, db.ErrWritePathDegraded.Error())
 	case errors.Is(err, ErrSameTribe):
 		writeErr(w, http.StatusBadRequest, ErrSameTribe.Error())
 	case errors.Is(err, ErrInvalidWindow):
@@ -90,6 +93,8 @@ func (h *Handler) ForceResolve(w http.ResponseWriter, r *http.Request) {
 	d, err := h.Service.ForceResolve(r.Context(), id)
 	if err != nil {
 		switch {
+		case errors.Is(err, db.ErrWritePathDegraded):
+			writeErr(w, http.StatusServiceUnavailable, db.ErrWritePathDegraded.Error())
 		case errors.Is(err, ErrNotFound):
 			writeErr(w, http.StatusNotFound, ErrNotFound.Error())
 		case errors.Is(err, ErrAlreadyResolved):

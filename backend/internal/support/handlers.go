@@ -7,6 +7,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/credits"
+	"github.com/city-competition-remastered/backend/internal/db"
 )
 
 // Handler exposes support spend, province control, and personal history APIs.
@@ -106,6 +107,8 @@ func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
 
 func writeSupportErr(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, db.ErrWritePathDegraded):
+		writeErr(w, http.StatusServiceUnavailable, db.ErrWritePathDegraded.Error())
 	case errors.Is(err, ErrTribeRequired):
 		writeErr(w, http.StatusConflict, ErrTribeRequired.Error())
 	case errors.Is(err, ErrInvalidIlCode):

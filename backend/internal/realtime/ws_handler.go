@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -25,8 +26,9 @@ type Handler struct {
 }
 
 type clientMessage struct {
-	Type string    `json:"type"`
-	BBox geo.BBox  `json:"bbox"`
+	Type string   `json:"type"`
+	BBox geo.BBox `json:"bbox"`
+	Room string   `json:"room"`
 }
 
 // ServeWS handles GET /v1/ws/map?token=...
@@ -37,7 +39,6 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": auth.ErrUnauthorized.Error()})
 		return
 	}
-	_ = userID
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		// Match permissive CORS used elsewhere for the Next.js origin.
@@ -49,6 +50,7 @@ func (h *Handler) ServeWS(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithCancel(r.Context())
 	client := newClient()
+	h.Hub.BindUser(client, userID)
 	h.Hub.Register(client)
 
 	go h.writePump(ctx, cancel, conn, client)
@@ -71,17 +73,25 @@ func (h *Handler) readPump(ctx context.Context, cancel context.CancelFunc, conn 
 		if err := json.Unmarshal(data, &msg); err != nil {
 			continue
 		}
-		if msg.Type != "viewport" {
-			continue
-		}
-		if err := geo.ValidateBBox(msg.BBox); err != nil {
-			continue
-		}
-		setCtx, setCancel := context.WithTimeout(ctx, 5*time.Second)
-		err = h.Hub.SetViewport(setCtx, client, msg.BBox)
-		setCancel()
-		if err != nil {
-			h.Hub.Logger.Warn("realtime viewport resolve failed", "error", err, "client_id", client.ID)
+		switch msg.Type {
+		case "viewport":
+			if err := geo.ValidateBBox(msg.BBox); err != nil {
+				continue
+			}
+			setCtx, setCancel := context.WithTimeout(ctx, 5*time.Second)
+			err = h.Hub.SetViewport(setCtx, client, msg.BBox)
+			setCancel()
+			if err != nil {
+				h.Hub.Logger.Warn("realtime viewport resolve failed", "error", err, "client_id", client.ID)
+			}
+		case "join":
+			if strings.HasPrefix(msg.Room, "tribe:") {
+				h.Hub.JoinRoom(client, msg.Room)
+			}
+		case "leave":
+			if msg.Room != "" {
+				h.Hub.LeaveRoom(client, msg.Room)
+			}
 		}
 	}
 }

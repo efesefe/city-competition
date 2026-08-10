@@ -24,6 +24,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/migrate"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
 	"github.com/city-competition-remastered/backend/internal/realtime"
+	socialpkg "github.com/city-competition-remastered/backend/internal/social"
 	"github.com/city-competition-remastered/backend/internal/support"
 	"github.com/city-competition-remastered/backend/internal/tribe"
 	"github.com/city-competition-remastered/backend/internal/user"
@@ -50,17 +51,21 @@ func main() {
 	}
 	logger.Info("migrations applied", "path", cfg.MigrationsPath)
 
-	pool, err := db.NewPool(ctx, db.PoolConfig{
+	pools, err := db.NewPools(ctx, db.PoolsConfig{
 		DatabaseURL:     cfg.DatabaseURL,
-		MaxConns:        cfg.DBMaxConns,
+		ReadReplicaDSN:  cfg.DBReadReplicaDSN,
+		WriteMaxConns:   cfg.DBWriteMaxConns,
+		ReadMaxConns:    cfg.DBReadMaxConns,
 		MinConns:        cfg.DBMinConns,
 		MaxConnLifetime: cfg.DBMaxConnLifetime,
 	})
 	if err != nil {
-		logger.Error("database pool failed", "error", err)
+		logger.Error("database pools failed", "error", err)
 		os.Exit(1)
 	}
-	defer pool.Close()
+	defer pools.Close()
+
+	writeBreaker := db.NewCircuitBreaker(cfg.DBCircuitFailureThreshold, cfg.DBCircuitCooldown)
 
 	rdb, err := cache.NewClient(cfg.RedisURL)
 	if err != nil {
@@ -81,7 +86,7 @@ func main() {
 	}
 	otp := &auth.OTPService{RDB: rdb, SMS: sms}
 	sessions := &auth.SessionService{RDB: rdb}
-	users := &auth.PoolUserStore{Pool: pool}
+	users := &auth.PoolUserStore{Pool: pools.Write}
 	social := &auth.SocialService{
 		RDB: rdb,
 		Verifier: &auth.ProductionVerifier{
@@ -99,53 +104,62 @@ func main() {
 		Social:   social,
 	}
 	consentHandler := &consent.Handler{
-		Store: &consent.PoolStore{Pool: pool},
+		Store: &consent.PoolStore{Pool: pools.Write},
 	}
-	tribeStore := &tribe.PoolStore{Pool: pool}
+	socialHandler := &socialpkg.Handler{
+		Store:                &socialpkg.PoolStore{Pool: pools.Write},
+		Users:                users,
+		Broadcaster:          cache.RedisBroadcaster{Client: rdb},
+		RestrictedDMDisabled: cfg.RestrictedDMDisabled,
+	}
+	tribeStore := &tribe.PoolStore{Pool: pools.Write}
 	if err := tribe.EnsureSeeded(ctx, tribeStore); err != nil {
 		logger.Error("tribe seed failed", "error", err)
 		os.Exit(1)
 	}
 	logger.Info("tribe seed applied")
 	tribeHandler := &tribe.Handler{
-		Store:    tribeStore,
-		Cooldown: cfg.TribeSwitchCooldown,
+		Store:       tribeStore,
+		Cooldown:    cfg.TribeSwitchCooldown,
+		Broadcaster: cache.RedisBroadcaster{Client: rdb},
 	}
-	creditsWallet := &credits.Wallet{Pool: pool}
+	creditsWallet := &credits.Wallet{Pool: pools.Write}
 	creditsHandler := &credits.Handler{
 		Wallet:       creditsWallet,
+		Breaker:      writeBreaker,
 		StubEnabled:  cfg.CreditsStubEnabled,
 		StubAmount:   cfg.CreditsStubGrantAmount,
 		IsProduction: cfg.IsProduction(),
 	}
-	provinceStore := &geo.Store{Pool: pool}
+	provinceStore := &geo.Store{Pool: pools.Read}
 	geoHandler := &geo.Handler{Store: provinceStore}
-	supportCache := &support.ControlCache{RDB: rdb, Pool: pool}
+	supportCache := &support.ControlCache{RDB: rdb, Pool: pools.Read}
 	engagementHooks := &engagement.Hooks{
 		Streaks: &engagement.StreakStore{},
 		Rivals: &engagement.RivalAlerter{
-			Pool:      pool,
+			Pool:      pools.Write,
 			RDB:       rdb,
 			GapRatio:  cfg.LeadThreatenedGapRatio,
 			RateLimit: cfg.LeadThreatenedRateLimit,
 		},
 	}
 	supportService := &support.Service{
-		Pool:       pool,
+		Pool:       pools.Write,
 		Wallet:     creditsWallet,
 		Provinces:  provinceStore,
 		RDB:        rdb,
 		Cache:      supportCache,
 		Engagement: engagementHooks,
+		Breaker:    writeBreaker,
 	}
-	summaryStore := &support.SummaryStore{Pool: pool}
-	historyStore := &support.HistoryStore{Pool: pool}
+	summaryStore := &support.SummaryStore{Pool: pools.Write, Read: pools.Read}
+	historyStore := &support.HistoryStore{Pool: pools.Read}
 	supportHandler := &support.Handler{
 		Service: supportService,
 		Summary: summaryStore,
 		History: historyStore,
 	}
-	derbyStore := &derby.PoolStore{Pool: pool}
+	derbyStore := &derby.PoolStore{Pool: pools.Write}
 	derbyResolver := &derby.Resolver{Store: derbyStore, RDB: rdb}
 	supportService.MultiplierFn = derbyResolver.ResolveSupportMultiplier
 	derbyNotifier := &derby.Notifier{Store: derbyStore, RDB: rdb}
@@ -154,6 +168,7 @@ func main() {
 		Provinces: provinceStore,
 		RDB:       rdb,
 		Notifier:  derbyNotifier,
+		Breaker:   writeBreaker,
 		ScoreTTL:  cfg.DerbyScoreTTL,
 		Logger:    logger,
 	}
@@ -187,7 +202,8 @@ func main() {
 	})
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", httpserver.Health(pool, rdb))
+	mux.HandleFunc("GET /healthz", httpserver.Health(pools.Write, rdb))
+	mux.HandleFunc("GET /v1/system/status", httpserver.SystemStatus(writeBreaker))
 	mux.HandleFunc("POST /v1/auth/otp/request", authHandler.RequestOTP)
 	mux.HandleFunc("POST /v1/auth/otp/resend", authHandler.ResendOTP)
 	mux.HandleFunc("POST /v1/auth/otp/verify", authHandler.VerifyOTP)
@@ -200,6 +216,7 @@ func main() {
 	mux.Handle("GET /v1/tribes/{id}", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.Get)))
 	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.Join)))
 	mux.Handle("POST /v1/tribes/{id}/switch", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.Switch)))
+	mux.Handle("POST /v1/tribes/{id}/messages", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateTribeMessage))))
 	mux.Handle("POST /v1/admin/tribes", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Create))))
 	mux.Handle("PATCH /v1/admin/tribes/{id}", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Patch))))
 	mux.Handle("POST /v1/admin/derbies", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.Create))))
@@ -213,8 +230,23 @@ func main() {
 	mux.Handle("POST /v1/support", auth.RequireSession(sessions, supportSpendLimit(http.HandlerFunc(supportHandler.Create))))
 	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, http.HandlerFunc(supportHandler.ListMine)))
 	mux.HandleFunc("GET /v1/ws/map", wsHandler.ServeWS)
-	// Stub until Epic 03 clan chat lands — enforces restricted_mode (01.7).
-	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(auth.ClanChatStub))))
+	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateClanChat))))
+
+	mux.Handle("POST /v1/dms", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateDM)))
+	mux.Handle("POST /v1/friends/requests", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateFriendRequest)))
+	mux.Handle("GET /v1/friends/requests", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListFriendRequests)))
+	mux.Handle("POST /v1/friends/requests/{id}/accept", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.AcceptFriendRequest)))
+	mux.Handle("POST /v1/friends/requests/{id}/reject", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.RejectFriendRequest)))
+	mux.Handle("DELETE /v1/friends/requests/{id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CancelFriendRequest)))
+	mux.Handle("GET /v1/friends", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListFriends)))
+	mux.Handle("DELETE /v1/friends/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.Unfriend)))
+	mux.Handle("POST /v1/blocks", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateBlock)))
+	mux.Handle("GET /v1/blocks", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListBlocks)))
+	mux.Handle("DELETE /v1/blocks/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteBlock)))
+	mux.Handle("POST /v1/mutes", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateMute)))
+	mux.Handle("GET /v1/mutes", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListMutes)))
+	mux.Handle("DELETE /v1/mutes/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteMute)))
+	mux.Handle("POST /v1/reports", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateReport)))
 
 	handler := httpserver.CORS(httpserver.RequestID(logger)(mux))
 

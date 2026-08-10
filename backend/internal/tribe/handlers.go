@@ -11,15 +11,17 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
+	"github.com/city-competition-remastered/backend/internal/cache"
 )
 
 var hexColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 // Handler exposes tribe list/join/switch and admin CRUD endpoints.
 type Handler struct {
-	Store    Store
-	Cooldown time.Duration
-	Now      func() time.Time
+	Store       Store
+	Cooldown    time.Duration
+	Now         func() time.Time
+	Broadcaster cache.Broadcaster
 }
 
 func (h *Handler) now() time.Time {

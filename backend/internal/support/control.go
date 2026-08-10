@@ -57,8 +57,20 @@ type controlListResponse struct {
 }
 
 // SummaryStore reads and refreshes province_control_summary.
+// Pool is used for refresh writes; Read (when set) for choropleth list reads.
 type SummaryStore struct {
 	Pool *pgxpool.Pool
+	Read *pgxpool.Pool
+}
+
+func (s *SummaryStore) readPool() *pgxpool.Pool {
+	if s != nil && s.Read != nil {
+		return s.Read
+	}
+	if s != nil {
+		return s.Pool
+	}
+	return nil
 }
 
 // RefreshAll rebuilds province_control_summary from tribe_province_scores for
@@ -107,10 +119,11 @@ func (s *SummaryStore) RefreshAll(ctx context.Context) error {
 
 // ListControl returns all summary rows joined with the leading tribe's primary_color.
 func (s *SummaryStore) ListControl(ctx context.Context) ([]ProvinceControlRow, error) {
-	if s == nil || s.Pool == nil {
+	pool := s.readPool()
+	if pool == nil {
 		return nil, fmt.Errorf("province control summary: no pool configured")
 	}
-	rows, err := s.Pool.Query(ctx, `
+	rows, err := pool.Query(ctx, `
 		SELECT
 			s.il_code,
 			s.tribe_id,

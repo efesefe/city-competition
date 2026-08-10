@@ -93,7 +93,8 @@ func RequireNotRestricted(users RestrictedLookup, next http.Handler) http.Handle
 	})
 }
 
-// ClanChatStub is a placeholder until real clan chat lands; used to enforce restricted_mode.
+// ClanChatStub is deprecated; tribe.Handler.CreateClanChat replaces it.
+// Kept as a thin alias so older references compile during the transition.
 func ClanChatStub(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

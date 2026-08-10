@@ -2,6 +2,7 @@ package derby
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/city-competition-remastered/backend/internal/db"
 )
 
 // ProvinceChecker reports whether an il_code exists.
@@ -22,6 +25,7 @@ type Service struct {
 	Provinces ProvinceChecker
 	RDB       redis.Cmdable
 	Notifier  *Notifier
+	Breaker   *db.CircuitBreaker
 	ScoreTTL  time.Duration
 	Logger    *slog.Logger
 	Now       func() time.Time
@@ -63,6 +67,24 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Derby, error) {
 	if in.IlCode == "" {
 		return Derby{}, ErrInvalidIlCode
 	}
+
+	if err := s.Breaker.Allow(); err != nil {
+		return Derby{}, err
+	}
+
+	d, err := s.create(ctx, in)
+	if err != nil {
+		if isDerbyBusinessErr(err) {
+			return Derby{}, err
+		}
+		s.Breaker.RecordFailure()
+		return Derby{}, err
+	}
+	s.Breaker.RecordSuccess()
+	return d, nil
+}
+
+func (s *Service) create(ctx context.Context, in CreateInput) (Derby, error) {
 	if s.Provinces != nil {
 		ok, err := s.Provinces.Exists(ctx, in.IlCode)
 		if err != nil {
@@ -175,6 +197,22 @@ func (s *Service) Resolve(ctx context.Context, id uuid.UUID) (Derby, error) {
 
 // ForceResolve admin shortcut: resolve from scheduled or active.
 func (s *Service) ForceResolve(ctx context.Context, id uuid.UUID) (Derby, error) {
+	if err := s.Breaker.Allow(); err != nil {
+		return Derby{}, err
+	}
+	d, err := s.forceResolve(ctx, id)
+	if err != nil {
+		if isDerbyBusinessErr(err) {
+			return Derby{}, err
+		}
+		s.Breaker.RecordFailure()
+		return Derby{}, err
+	}
+	s.Breaker.RecordSuccess()
+	return d, nil
+}
+
+func (s *Service) forceResolve(ctx context.Context, id uuid.UUID) (Derby, error) {
 	d, err := s.Store.Get(ctx, id)
 	if err != nil {
 		return Derby{}, err
@@ -183,6 +221,23 @@ func (s *Service) ForceResolve(ctx context.Context, id uuid.UUID) (Derby, error)
 		return Derby{}, ErrAlreadyResolved
 	}
 	return s.Resolve(ctx, id)
+}
+
+func isDerbyBusinessErr(err error) bool {
+	switch {
+	case errors.Is(err, ErrSameTribe),
+		errors.Is(err, ErrInvalidWindow),
+		errors.Is(err, ErrInvalidIlCode),
+		errors.Is(err, ErrInvalidInput),
+		errors.Is(err, ErrTribeNotFound),
+		errors.Is(err, ErrInactiveTribe),
+		errors.Is(err, ErrNotFound),
+		errors.Is(err, ErrAlreadyResolved),
+		errors.Is(err, db.ErrWritePathDegraded):
+		return true
+	default:
+		return false
+	}
 }
 
 // ProcessDue runs one scheduler pass: activate due derbies, then resolve overdue active ones.

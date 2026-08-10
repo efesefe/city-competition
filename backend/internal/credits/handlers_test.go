@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/city-competition-remastered/backend/internal/db"
 )
 
 func TestStubGrantDisabledReturns404(t *testing.T) {
@@ -62,6 +64,21 @@ func TestWriteCreditsErrInsufficientFunds402(t *testing.T) {
 		t.Fatal(err)
 	}
 	if resp["error"] != "insufficient_credits" {
+		t.Fatalf("error = %q", resp["error"])
+	}
+}
+
+func TestWriteCreditsErrWritePathDegraded503(t *testing.T) {
+	rr := httptest.NewRecorder()
+	writeCreditsErr(rr, db.ErrWritePathDegraded)
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", rr.Code)
+	}
+	var resp map[string]string
+	if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp["error"] != "write_path_degraded" {
 		t.Fatalf("error = %q", resp["error"])
 	}
 }

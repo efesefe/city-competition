@@ -138,6 +138,58 @@ func TestDisconnect_ClearsClientInterestWithin1s(t *testing.T) {
 	}
 }
 
+func TestChatFanOut_TribeAndDM(t *testing.T) {
+	_, rdb := startMiniRedis(t)
+	hub := NewHub(rdb, nil, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	userID := uuid.New()
+	tribeID := uuid.New()
+	client := newClient()
+	hub.BindUser(client, userID)
+	hub.JoinRoom(client, TribeChannel(tribeID))
+	hub.Register(client)
+	defer hub.Unregister(client)
+
+	outsider := newClient()
+	hub.Register(outsider)
+	defer hub.Unregister(outsider)
+
+	tribePayload := []byte(`{"type":"tribe_message","body":"selam"}`)
+	if err := rdb.Publish(ctx, TribeChannel(tribeID), string(tribePayload)).Err(); err != nil {
+		t.Fatalf("publish tribe: %v", err)
+	}
+	select {
+	case msg := <-client.Send:
+		if string(msg) != string(tribePayload) {
+			t.Fatalf("tribe payload=%s", msg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for tribe fan-out")
+	}
+	select {
+	case msg := <-outsider.Send:
+		t.Fatalf("outsider got tribe message: %s", msg)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	dmPayload := []byte(`{"type":"dm","body":"merhaba"}`)
+	if err := rdb.Publish(ctx, DMChannel(userID), string(dmPayload)).Err(); err != nil {
+		t.Fatalf("publish dm: %v", err)
+	}
+	select {
+	case msg := <-client.Send:
+		if string(msg) != string(dmPayload) {
+			t.Fatalf("dm payload=%s", msg)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for dm fan-out")
+	}
+}
+
 func TestRedisPubSub_DeliversToInterestedClient(t *testing.T) {
 	_, rdb := startMiniRedis(t)
 	hub := NewHub(rdb, fixedResolver{codes: []string{"34"}}, nil)

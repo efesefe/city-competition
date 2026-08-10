@@ -15,6 +15,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/credits"
+	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
 	"github.com/city-competition-remastered/backend/internal/engagement"
 )
@@ -41,6 +42,7 @@ type Service struct {
 	RDB          redis.Cmdable
 	Cache        *ControlCache
 	Engagement   *engagement.Hooks
+	Breaker      *db.CircuitBreaker
 	MultiplierFn MultiplierFn
 	Now          func() time.Time
 }
@@ -79,6 +81,23 @@ func (s *Service) Apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		return nil, ErrInvalidIlCode
 	}
 
+	if err := s.Breaker.Allow(); err != nil {
+		return nil, err
+	}
+
+	result, err := s.apply(ctx, userID, ilCode, creditsSpent)
+	if err != nil {
+		if isSupportBusinessErr(err) {
+			return nil, err
+		}
+		s.Breaker.RecordFailure()
+		return nil, err
+	}
+	s.Breaker.RecordSuccess()
+	return result, nil
+}
+
+func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, creditsSpent int64) (*Result, error) {
 	ok, err := s.Provinces.Exists(ctx, ilCode)
 	if err != nil {
 		return nil, err
@@ -188,6 +207,22 @@ func (s *Service) Apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		TribeID:          *tribeID,
 		BalanceAfter:     balanceAfter,
 	}, nil
+}
+
+func isSupportBusinessErr(err error) bool {
+	switch {
+	case errors.Is(err, ErrTribeRequired),
+		errors.Is(err, ErrInvalidIlCode),
+		errors.Is(err, ErrInvalidCredits),
+		errors.Is(err, credits.ErrInsufficientCredits),
+		errors.Is(err, credits.ErrIdempotencyConflict),
+		errors.Is(err, credits.ErrInvalidAmount),
+		errors.Is(err, credits.ErrInvalidIdempotencyKey),
+		errors.Is(err, db.ErrWritePathDegraded):
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeIlCode(raw string) string {

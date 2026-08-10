@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
+	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/support"
 )
 
@@ -94,6 +96,39 @@ func TestCreate_InvalidCredits_Returns400(t *testing.T) {
 	_ = json.NewDecoder(rec.Body).Decode(&errBody)
 	if errBody["error"] != support.ErrInvalidCredits.Error() {
 		t.Fatalf("error=%q want invalid_credits", errBody["error"])
+	}
+}
+
+func TestCreate_WritePathDegraded_Returns503(t *testing.T) {
+	sessions, _, token := setupSession(t)
+	cb := db.NewCircuitBreaker(1, time.Minute)
+	cb.RecordFailure() // open immediately
+
+	h := &support.Handler{
+		Service: &support.Service{
+			Provinces: &fakeProvinces{codes: map[string]bool{"34": true}},
+			Breaker:   cb,
+		},
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+
+	body, _ := json.Marshal(map[string]any{"il_code": "34", "credits": 5})
+	req := httptest.NewRequest(http.MethodPost, "/v1/support", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status=%d want 503 body=%s", rec.Code, rec.Body.String())
+	}
+	var errBody map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&errBody); err != nil {
+		t.Fatal(err)
+	}
+	if errBody["error"] != "write_path_degraded" {
+		t.Fatalf("error=%q want write_path_degraded", errBody["error"])
 	}
 }
 
