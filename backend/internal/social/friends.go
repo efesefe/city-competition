@@ -471,6 +471,7 @@ type Handler struct {
 	Users                auth.RestrictedLookup
 	Broadcaster          cache.Broadcaster
 	RestrictedDMDisabled bool
+	Referrals            *ReferralService
 }
 
 type errorBody struct {

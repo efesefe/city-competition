@@ -22,8 +22,10 @@ import (
 	"github.com/city-competition-remastered/backend/internal/logging"
 	"github.com/city-competition-remastered/backend/internal/middleware"
 	"github.com/city-competition-remastered/backend/internal/migrate"
+	"github.com/city-competition-remastered/backend/internal/notifications"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
 	"github.com/city-competition-remastered/backend/internal/realtime"
+	"github.com/city-competition-remastered/backend/internal/share"
 	socialpkg "github.com/city-competition-remastered/backend/internal/social"
 	"github.com/city-competition-remastered/backend/internal/support"
 	"github.com/city-competition-remastered/backend/internal/tribe"
@@ -106,11 +108,19 @@ func main() {
 	consentHandler := &consent.Handler{
 		Store: &consent.PoolStore{Pool: pools.Write},
 	}
+	creditsWallet := &credits.Wallet{Pool: pools.Write}
+	referralSvc := &socialpkg.ReferralService{
+		Pool:   pools.Write,
+		Wallet: creditsWallet,
+		Store:  &socialpkg.PoolStore{Pool: pools.Write},
+		Amount: cfg.ReferralCreditAmount,
+	}
 	socialHandler := &socialpkg.Handler{
 		Store:                &socialpkg.PoolStore{Pool: pools.Write},
 		Users:                users,
 		Broadcaster:          cache.RedisBroadcaster{Client: rdb},
 		RestrictedDMDisabled: cfg.RestrictedDMDisabled,
+		Referrals:            referralSvc,
 	}
 	tribeStore := &tribe.PoolStore{Pool: pools.Write}
 	if err := tribe.EnsureSeeded(ctx, tribeStore); err != nil {
@@ -123,7 +133,6 @@ func main() {
 		Cooldown:    cfg.TribeSwitchCooldown,
 		Broadcaster: cache.RedisBroadcaster{Client: rdb},
 	}
-	creditsWallet := &credits.Wallet{Pool: pools.Write}
 	creditsHandler := &credits.Handler{
 		Wallet:       creditsWallet,
 		Breaker:      writeBreaker,
@@ -134,6 +143,10 @@ func main() {
 	provinceStore := &geo.Store{Pool: pools.Read}
 	geoHandler := &geo.Handler{Store: provinceStore}
 	supportCache := &support.ControlCache{RDB: rdb, Pool: pools.Read}
+	achievementStore := &share.Store{Pool: pools.Write}
+	achievementHandler := &share.Handler{Store: achievementStore}
+	pushTokens := &notifications.PoolTokenStore{Pool: pools.Write}
+	pushHandler := &notifications.Handler{Tokens: pushTokens}
 	engagementHooks := &engagement.Hooks{
 		Streaks: &engagement.StreakStore{},
 		Rivals: &engagement.RivalAlerter{
@@ -144,13 +157,14 @@ func main() {
 		},
 	}
 	supportService := &support.Service{
-		Pool:       pools.Write,
-		Wallet:     creditsWallet,
-		Provinces:  provinceStore,
-		RDB:        rdb,
-		Cache:      supportCache,
-		Engagement: engagementHooks,
-		Breaker:    writeBreaker,
+		Pool:         pools.Write,
+		Wallet:       creditsWallet,
+		Provinces:    provinceStore,
+		RDB:          rdb,
+		Cache:        supportCache,
+		Engagement:   engagementHooks,
+		Achievements: achievementStore,
+		Breaker:      writeBreaker,
 	}
 	summaryStore := &support.SummaryStore{Pool: pools.Write, Read: pools.Read}
 	historyStore := &support.HistoryStore{Pool: pools.Read}
@@ -188,6 +202,14 @@ func main() {
 		Logger:   logger,
 	}
 	go derbyScheduler.Run(hubCtx)
+	pushWorker := &notifications.Worker{
+		RDB:           rdb,
+		Tokens:        pushTokens,
+		Sender:        notifications.NewSenderFromEnv(logger, cfg.FCMProjectID, cfg.APNSKeyID),
+		Logger:        logger,
+		LeadRateLimit: cfg.LeadThreatenedRateLimit,
+	}
+	go pushWorker.Run(hubCtx)
 	mapHub := realtime.NewHub(rdb, provinceStore, logger)
 	go mapHub.Run(hubCtx)
 	wsHandler := &realtime.Handler{Hub: mapHub, Sessions: sessions}
@@ -247,6 +269,16 @@ func main() {
 	mux.Handle("GET /v1/mutes", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListMutes)))
 	mux.Handle("DELETE /v1/mutes/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteMute)))
 	mux.Handle("POST /v1/reports", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateReport)))
+	mux.Handle("PUT /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.PutReaction)))
+	mux.Handle("DELETE /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteReaction)))
+	mux.Handle("GET /v1/me/referral", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.GetReferral)))
+	mux.Handle("POST /v1/referrals/redeem", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.RedeemReferral)))
+	mux.Handle("PUT /v1/me/push-tokens", auth.RequireSession(sessions, http.HandlerFunc(pushHandler.PutPushToken)))
+	mux.Handle("DELETE /v1/me/push-tokens", auth.RequireSession(sessions, http.HandlerFunc(pushHandler.DeletePushToken)))
+	mux.HandleFunc("GET /v1/achievements/{public_id}", achievementHandler.GetPublic)
+	mux.Handle("GET /v1/me/achievements", auth.RequireSession(sessions, http.HandlerFunc(achievementHandler.ListMine)))
+	mux.HandleFunc("GET /share/{public_id}", achievementHandler.SharePage)
+	mux.HandleFunc("GET /share/{public_id}/og.png", achievementHandler.OGImage)
 
 	handler := httpserver.CORS(httpserver.RequestID(logger)(mux))
 

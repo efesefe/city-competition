@@ -1,0 +1,70 @@
+.root {
+  min-height: 100vh;
+  padding: 2.5rem 1.5rem 3rem;
+  background:
+    radial-gradient(ellipse at 20% 0%, #1a4a3e 0%, transparent 50%),
+    linear-gradient(160deg, #0a1f1a 0%, #14352c 45%, #0f2e28 100%);
+  color: #f4e8c1;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.brand {
+  margin: 0 0 1.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #f4e8c1;
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 600;
+  color: #c4a35a;
+}
+
+.lead {
+  margin: 0 0 1.5rem;
+  max-width: 36rem;
+  line-height: 1.5;
+  color: #d5c9a8;
+}
+
+.card {
+  display: block;
+  width: min(100%, 600px);
+  height: auto;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(196, 163, 90, 0.35);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.primary,
+.secondary {
+  border: none;
+  padding: 0.7rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.primary {
+  background: #c4a35a;
+  color: #0a1f1a;
+}
+
+.secondary {
+  background: transparent;
+  color: #f4e8c1;
+  border: 1px solid rgba(244, 232, 193, 0.45);
+}
+
+.link {
+  color: #c4a35a;
+  text-decoration: underline;
+}

@@ -36,7 +36,11 @@ function boundsToBBox(map: maplibregl.Map): MapBBox {
   return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
 }
 
-export default function ProvinceMap() {
+export default function ProvinceMap({
+  initialIlCode,
+}: {
+  initialIlCode?: string | null;
+}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const socketRef = useRef<MapSocketHandle | null>(null);
@@ -46,6 +50,7 @@ export default function ProvinceMap() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const focusIl = initialIlCode?.trim() || null;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -119,6 +124,25 @@ export default function ProvinceMap() {
             },
           });
 
+          if (focusIl) {
+            const match = colored.features.find(
+              (f) => String(f.properties?.il_code) === focusIl,
+            );
+            if (match?.properties) {
+              const props = match.properties;
+              setSelected({
+                il_code: String(props.il_code),
+                name_tr: String(props.name_tr ?? ""),
+                name_en: String(props.name_en ?? ""),
+              });
+              map.setFilter(SELECTED_LAYER_ID, [
+                "==",
+                ["get", "il_code"],
+                focusIl,
+              ]);
+            }
+          }
+
           map.on("click", FILL_LAYER_ID, (e) => {
             const feature = e.features?.[0];
             if (!feature?.properties) {
@@ -184,7 +208,7 @@ export default function ProvinceMap() {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [focusIl]);
 
   async function onSupport(e: FormEvent) {
     e.preventDefault();

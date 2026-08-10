@@ -225,9 +225,9 @@ type Hooks struct {
 }
 
 // UpsertStreak updates the support streak inside tx. Nil-safe.
-func (h *Hooks) UpsertStreak(ctx context.Context, tx pgx.Tx, userID uuid.UUID, now time.Time) error {
+func (h *Hooks) UpsertStreak(ctx context.Context, tx pgx.Tx, userID uuid.UUID, now time.Time) (StreakState, error) {
 	if h == nil || h.Streaks == nil {
-		return nil
+		return StreakState{}, nil
 	}
 	return h.Streaks.UpsertOnSupport(ctx, tx, userID, now)
 }

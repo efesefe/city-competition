@@ -39,6 +39,14 @@ func (w *Wallet) GrantCredits(ctx context.Context, in ApplyInput) (balanceAfter 
 	return w.apply(ctx, in, in.Amount)
 }
 
+// GrantCreditsOnTx credits amount within an existing transaction (no BEGIN/COMMIT).
+func (w *Wallet) GrantCreditsOnTx(ctx context.Context, tx pgx.Tx, in ApplyInput) (balanceAfter int64, err error) {
+	if in.Amount <= 0 {
+		return 0, ErrInvalidAmount
+	}
+	return w.applyOnTx(ctx, tx, in, in.Amount)
+}
+
 // SpendCredits debits amount (>0) from the user and appends a ledger row with negative delta.
 func (w *Wallet) SpendCredits(ctx context.Context, in ApplyInput) (balanceAfter int64, err error) {
 	if in.Amount <= 0 {

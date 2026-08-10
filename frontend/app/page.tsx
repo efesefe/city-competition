@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import ConsentModal from "@/components/ConsentModal";
 import DataResidencyBanner from "@/components/DataResidencyBanner";
 import {
@@ -25,8 +25,10 @@ type Gate =
   | { kind: "need_tribe" }
   | { kind: "ready" };
 
-export default function HomePage() {
+function HomeInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusIl = searchParams.get("il");
   const [gate, setGate] = useState<Gate>({ kind: "loading" });
 
   const refresh = useCallback(async () => {
@@ -93,7 +95,15 @@ export default function HomePage() {
   return (
     <main className="map-root" data-testid="map-screen">
       <DataResidencyBanner />
-      <ProvinceMap />
+      <ProvinceMap initialIlCode={focusIl} />
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<main className="map-root" aria-busy="true" />}>
+      <HomeInner />
+    </Suspense>
   );
 }

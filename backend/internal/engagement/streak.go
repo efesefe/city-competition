@@ -69,7 +69,7 @@ func calendarDate(t time.Time) time.Time {
 type StreakStore struct{}
 
 // UpsertOnSupport updates the user's support streak for a successful spend at now.
-func (StreakStore) UpsertOnSupport(ctx context.Context, tx pgx.Tx, userID uuid.UUID, now time.Time) error {
+func (StreakStore) UpsertOnSupport(ctx context.Context, tx pgx.Tx, userID uuid.UUID, now time.Time) (StreakState, error) {
 	var current, longest int
 	var last *time.Time
 	err := tx.QueryRow(ctx, `
@@ -79,7 +79,7 @@ func (StreakStore) UpsertOnSupport(ctx context.Context, tx pgx.Tx, userID uuid.U
 		FOR UPDATE
 	`, userID).Scan(&current, &longest, &last)
 	if err != nil && err != pgx.ErrNoRows {
-		return fmt.Errorf("load support streak: %w", err)
+		return StreakState{}, fmt.Errorf("load support streak: %w", err)
 	}
 
 	next := NextStreak(StreakState{
@@ -97,7 +97,7 @@ func (StreakStore) UpsertOnSupport(ctx context.Context, tx pgx.Tx, userID uuid.U
 			last_support_date = EXCLUDED.last_support_date
 	`, userID, next.CurrentStreak, next.LongestStreak, next.LastSupportDate)
 	if err != nil {
-		return fmt.Errorf("upsert support streak: %w", err)
+		return StreakState{}, fmt.Errorf("upsert support streak: %w", err)
 	}
-	return nil
+	return next, nil
 }

@@ -37,6 +37,9 @@ type Config struct {
 	DerbySchedulerInterval         time.Duration
 	DerbyScoreTTL                  time.Duration
 	RestrictedDMDisabled           bool
+	ReferralCreditAmount           int64
+	FCMProjectID                   string
+	APNSKeyID                      string
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -137,6 +140,17 @@ func Load() (Config, error) {
 	cfg.DerbyScoreTTL = derbyScoreTTL
 
 	cfg.RestrictedDMDisabled = optionalBool("RESTRICTED_DM_DISABLED", false)
+
+	referralAmount, err := optionalInt64("REFERRAL_CREDIT_AMOUNT", 100)
+	if err != nil {
+		return Config{}, err
+	}
+	if referralAmount <= 0 {
+		return Config{}, fmt.Errorf("REFERRAL_CREDIT_AMOUNT must be positive")
+	}
+	cfg.ReferralCreditAmount = referralAmount
+	cfg.FCMProjectID = os.Getenv("FCM_PROJECT_ID")
+	cfg.APNSKeyID = os.Getenv("APNS_KEY_ID")
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {

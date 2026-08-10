@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -14,6 +15,7 @@ import (
 const (
 	NotifTypeDerbyAnnounced = "derby_announced"
 	NotifTypeDerbyStarted   = "derby_started"
+	derbyEnqueueOnceTTL     = 365 * 24 * time.Hour
 )
 
 // NotifPayload is enqueued to notif_queue for the push worker.
@@ -33,6 +35,7 @@ type Notifier struct {
 }
 
 // EnqueueToMembers loads host+guest members and LPUSHes one payload per user.
+// Each (type, user, derby) pair is enqueued at most once (Redis SetNX).
 func (n *Notifier) EnqueueToMembers(ctx context.Context, notifType string, d Derby) (enqueued int, err error) {
 	if n == nil || n.Store == nil || n.RDB == nil {
 		return 0, nil
@@ -42,6 +45,14 @@ func (n *Notifier) EnqueueToMembers(ctx context.Context, notifType string, d Der
 		return 0, err
 	}
 	for _, userID := range members {
+		rlKey := fmt.Sprintf("notif_rl:%s:%s:%s", notifType, userID.String(), d.ID.String())
+		ok, err := n.RDB.SetNX(ctx, rlKey, "1", derbyEnqueueOnceTTL).Result()
+		if err != nil {
+			return enqueued, fmt.Errorf("derby notif rate limit: %w", err)
+		}
+		if !ok {
+			continue
+		}
 		payload, _ := json.Marshal(NotifPayload{
 			Type:         notifType,
 			UserID:       userID,

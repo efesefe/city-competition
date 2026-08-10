@@ -18,6 +18,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
 	"github.com/city-competition-remastered/backend/internal/engagement"
+	"github.com/city-competition-remastered/backend/internal/share"
 )
 
 var (
@@ -42,6 +43,7 @@ type Service struct {
 	RDB          redis.Cmdable
 	Cache        *ControlCache
 	Engagement   *engagement.Hooks
+	Achievements *share.Store
 	Breaker      *db.CircuitBreaker
 	MultiplierFn MultiplierFn
 	Now          func() time.Time
@@ -166,7 +168,8 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		return nil, fmt.Errorf("upsert tribe_province_scores: %w", err)
 	}
 
-	if err := s.Engagement.UpsertStreak(ctx, tx, userID, now); err != nil {
+	streak, err := s.Engagement.UpsertStreak(ctx, tx, userID, now)
+	if err != nil {
 		return nil, err
 	}
 
@@ -197,6 +200,8 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 
 	// Best-effort retention alert; never fail the successful spend.
 	_, _ = s.Engagement.MaybeLeadThreatened(ctx, ilCode, *tribeID, effective)
+	_ = share.MaybeFirstSupport(ctx, s.Achievements, userID, ilCode)
+	_ = share.MaybeStreakAchievements(ctx, s.Achievements, userID, streak.CurrentStreak, nil)
 
 	return &Result{
 		SupportID:        supportID,
