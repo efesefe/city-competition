@@ -169,10 +169,20 @@ func main() {
 		Pool:   pools.Write,
 		Wallet: creditsWallet,
 	}
+	webPurchaseService := &monetization.WebPurchaseService{
+		Pool:             pools.Write,
+		Wallet:           creditsWallet,
+		Packs:            packStore,
+		PaymentsURL:      cfg.PaymentsServiceURL,
+		InternalToken:    cfg.PaymentsInternalToken,
+		DefaultReturnURL: cfg.PaymentsDefaultReturnURL,
+	}
 	monetizationHandler := &monetization.Handler{
-		IAP:        iapService,
-		BattlePass: battlePassService,
-		Breaker:    writeBreaker,
+		IAP:           iapService,
+		BattlePass:    battlePassService,
+		WebPurchase:   webPurchaseService,
+		Breaker:       writeBreaker,
+		InternalToken: cfg.PaymentsInternalToken,
 	}
 	provinceStore := &geo.Store{Pool: pools.Read}
 	geoHandler := &geo.Handler{Store: provinceStore}
@@ -321,6 +331,8 @@ func main() {
 	mux.Handle("POST /v1/credits/stub-grant", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(creditsHandler.StubGrant))))
 	mux.Handle("GET /v1/credit-packs", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.ListPacks)))
 	mux.Handle("POST /v1/iap/verify", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Verify))))
+	mux.Handle("POST /v1/payments/checkout", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Checkout))))
+	mux.HandleFunc("POST /internal/payments/credit-grant", monetizationHandler.CreditGrant)
 	mux.Handle("GET /v1/battle-pass", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.BattlePassStatus)))
 	mux.Handle("POST /v1/battle-pass/claim", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.BattlePassClaim))))
 	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, users, http.HandlerFunc(geoHandler.GeoJSON)))

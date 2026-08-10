@@ -43,6 +43,9 @@ type Config struct {
 	AppleIAPSharedSecret           string
 	GooglePlayPackageName          string
 	GooglePlayAccessToken          string
+	PaymentsServiceURL             string
+	PaymentsInternalToken          string
+	PaymentsDefaultReturnURL       string
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -157,6 +160,9 @@ func Load() (Config, error) {
 	cfg.AppleIAPSharedSecret = os.Getenv("APPLE_IAP_SHARED_SECRET")
 	cfg.GooglePlayPackageName = os.Getenv("GOOGLE_PLAY_PACKAGE_NAME")
 	cfg.GooglePlayAccessToken = os.Getenv("GOOGLE_PLAY_ACCESS_TOKEN")
+	cfg.PaymentsServiceURL = os.Getenv("PAYMENTS_SERVICE_URL")
+	cfg.PaymentsInternalToken = os.Getenv("PAYMENTS_INTERNAL_TOKEN")
+	cfg.PaymentsDefaultReturnURL = getenv("PAYMENTS_DEFAULT_RETURN_URL", "http://localhost:3000/credits")
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {

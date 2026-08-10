@@ -6,16 +6,20 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/credits"
 	"github.com/city-competition-remastered/backend/internal/db"
 )
 
-// Handler exposes IAP verify, credit packs, and battle-pass endpoints.
+// Handler exposes IAP verify, credit packs, battle-pass, and web checkout endpoints.
 type Handler struct {
-	IAP        *Service
-	BattlePass *BattlePassService
-	Breaker    *db.CircuitBreaker
+	IAP         *Service
+	BattlePass  *BattlePassService
+	WebPurchase *WebPurchaseService
+	Breaker     *db.CircuitBreaker
+	InternalToken string
 }
 
 type errorBody struct {
@@ -35,9 +39,10 @@ type verifyRequest struct {
 }
 
 type packDTO struct {
-	Provider  string `json:"provider"`
-	ProductID string `json:"product_id"`
-	Credits   int64  `json:"credits"`
+	Provider    string `json:"provider"`
+	ProductID   string `json:"product_id"`
+	Credits     int64  `json:"credits"`
+	AmountKurus int64  `json:"amount_kurus,omitempty"`
 }
 
 // Verify handles POST /v1/iap/verify.
@@ -96,12 +101,123 @@ func (h *Handler) ListPacks(w http.ResponseWriter, r *http.Request) {
 	out := make([]packDTO, 0, len(packs))
 	for _, p := range packs {
 		out = append(out, packDTO{
-			Provider:  string(p.Provider),
-			ProductID: p.ProductID,
-			Credits:   p.Credits,
+			Provider:    string(p.Provider),
+			ProductID:   p.ProductID,
+			Credits:     p.Credits,
+			AmountKurus: p.AmountKurus,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"packs": out})
+}
+
+type checkoutRequest struct {
+	Provider  string `json:"provider"`
+	ProductID string `json:"product_id"`
+	ReturnURL string `json:"return_url"`
+}
+
+type creditGrantRequest struct {
+	UserID            string `json:"user_id"`
+	Credits           int64  `json:"credits"`
+	ProductID         string `json:"product_id"`
+	Provider          string `json:"provider"`
+	ProviderPaymentID string `json:"provider_payment_id"`
+	PaymentIntentID   string `json:"payment_intent_id"`
+}
+
+// Checkout handles POST /v1/payments/checkout (player-facing proxy to payments service).
+func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.WebPurchase == nil {
+		writeErr(w, http.StatusServiceUnavailable, ErrVerifierUnavailable.Error())
+		return
+	}
+	var req checkoutRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_input")
+		return
+	}
+	if h.Breaker != nil {
+		if err := h.Breaker.Allow(); err != nil {
+			writeIAPErr(w, err)
+			return
+		}
+	}
+	result, err := h.WebPurchase.StartCheckout(
+		r.Context(),
+		userID,
+		Provider(strings.ToLower(strings.TrimSpace(req.Provider))),
+		strings.TrimSpace(req.ProductID),
+		strings.TrimSpace(req.ReturnURL),
+	)
+	if err != nil {
+		if h.Breaker != nil && !isIAPBusinessErr(err) {
+			h.Breaker.RecordFailure()
+		}
+		writeIAPErr(w, err)
+		return
+	}
+	if h.Breaker != nil {
+		h.Breaker.RecordSuccess()
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+// CreditGrant handles POST /internal/payments/credit-grant from the payments service.
+func (h *Handler) CreditGrant(w http.ResponseWriter, r *http.Request) {
+	got := r.Header.Get("X-Internal-Token")
+	if h.InternalToken == "" || got != h.InternalToken {
+		writeErr(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if h.WebPurchase == nil {
+		writeErr(w, http.StatusServiceUnavailable, ErrVerifierUnavailable.Error())
+		return
+	}
+	var req creditGrantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_input")
+		return
+	}
+	userID, err := uuid.Parse(strings.TrimSpace(req.UserID))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_user_id")
+		return
+	}
+	intentID, err := uuid.Parse(strings.TrimSpace(req.PaymentIntentID))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_payment_intent_id")
+		return
+	}
+	if h.Breaker != nil {
+		if err := h.Breaker.Allow(); err != nil {
+			writeIAPErr(w, err)
+			return
+		}
+	}
+	result, err := h.WebPurchase.GrantFromPayments(r.Context(), CreditGrantInput{
+		UserID:            userID,
+		Credits:           req.Credits,
+		ProductID:         strings.TrimSpace(req.ProductID),
+		Provider:          Provider(strings.ToLower(strings.TrimSpace(req.Provider))),
+		ProviderPaymentID: strings.TrimSpace(req.ProviderPaymentID),
+		PaymentIntentID:   intentID,
+	})
+	if err != nil {
+		if h.Breaker != nil && !isIAPBusinessErr(err) {
+			h.Breaker.RecordFailure()
+		}
+		writeIAPErr(w, err)
+		return
+	}
+	if h.Breaker != nil {
+		h.Breaker.RecordSuccess()
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 // BattlePassStatus handles GET /v1/battle-pass.

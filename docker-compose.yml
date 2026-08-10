@@ -9,6 +9,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sh:/docker-entrypoint-initdb.d/01-init-databases.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-citycomp} -d ${POSTGRES_DB:-citycomp}"]
       interval: 5s
@@ -25,6 +26,37 @@ services:
       timeout: 3s
       retries: 10
 
+  payments:
+    build:
+      context: .
+      dockerfile: services/payments/Dockerfile
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      HTTP_ADDR: ${PAYMENTS_HTTP_ADDR:-:8081}
+      PAYMENTS_DATABASE_URL: ${PAYMENTS_DATABASE_URL:-postgres://citycomp:citycomp@postgres:5432/citycomp_payments?sslmode=disable}
+      PAYMENTS_INTERNAL_TOKEN: ${PAYMENTS_INTERNAL_TOKEN:-dev-payments-internal-token}
+      MAIN_API_URL: ${MAIN_API_URL:-http://backend:8080}
+      PAYMENTS_WEBHOOK_PUBLIC_BASE: ${PAYMENTS_WEBHOOK_PUBLIC_BASE:-http://payments:8081}
+      DB_MAX_CONNS: ${PAYMENTS_DB_MAX_CONNS:-5}
+      DB_MIN_CONNS: ${PAYMENTS_DB_MIN_CONNS:-1}
+      DB_MAX_CONN_LIFETIME: ${DB_MAX_CONN_LIFETIME:-30m}
+      IYZICO_API_KEY: ${IYZICO_API_KEY:-}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
+      IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
+      PAPARA_API_KEY: ${PAPARA_API_KEY:-}
+      PAPARA_SECRET_KEY: ${PAPARA_SECRET_KEY:-}
+      PAPARA_BASE_URL: ${PAPARA_BASE_URL:-https://merchant-api.test.papara.com}
+      BKM_API_KEY: ${BKM_API_KEY:-}
+      BKM_SECRET_KEY: ${BKM_SECRET_KEY:-}
+      BKM_BASE_URL: ${BKM_BASE_URL:-https://sandbox-api.bkmexpress.com.tr}
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   backend:
     build:
       context: .
@@ -39,6 +71,9 @@ services:
       DB_MIN_CONNS: ${DB_MIN_CONNS:-2}
       DB_MAX_CONN_LIFETIME: ${DB_MAX_CONN_LIFETIME:-30m}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      PAYMENTS_SERVICE_URL: ${PAYMENTS_SERVICE_URL:-http://payments:8081}
+      PAYMENTS_INTERNAL_TOKEN: ${PAYMENTS_INTERNAL_TOKEN:-dev-payments-internal-token}
+      PAYMENTS_DEFAULT_RETURN_URL: ${PAYMENTS_DEFAULT_RETURN_URL:-http://localhost:3000/credits}
     ports:
       - "8080:8080"
     depends_on:
@@ -46,6 +81,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      payments:
+        condition: service_started
 
   frontend:
     build:
