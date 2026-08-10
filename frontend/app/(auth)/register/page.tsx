@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
+import LocaleToggle from "@/components/LocaleToggle";
 import {
   AuthApiError,
   isUnder18,
@@ -23,6 +25,8 @@ type Step = "phone" | "otp" | "profile" | "done";
 const COOLDOWN_SEC = 60;
 
 export default function RegisterPage() {
+  const t = useTranslations("auth");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [step, setStep] = useState<Step>("phone");
   const [phoneInput, setPhoneInput] = useState("");
@@ -47,12 +51,46 @@ export default function RegisterPage() {
     return () => window.clearInterval(id);
   }, [cooldownLeft]);
 
+  function mapError(err: unknown): string {
+    const code =
+      err instanceof AuthApiError
+        ? err.code
+        : err && typeof err === "object" && "code" in err
+          ? String((err as { code?: string }).code)
+          : err instanceof Error
+            ? err.message
+            : "";
+    switch (code) {
+      case "error_invalid_phone_format":
+        return t("errors.invalidPhoneFormat");
+      case "error_otp_cooldown":
+        return t("errors.otpCooldown");
+      case "error_invalid_otp":
+        return t("errors.invalidOtp");
+      case "error_invalid_username":
+        return t("errors.invalidUsername");
+      case "error_invalid_birth_date":
+        return t("errors.invalidBirthDate");
+      case "error_user_conflict":
+        return t("errors.userConflict");
+      case "error_phone_not_verified":
+        return t("errors.phoneNotVerified");
+      case "error_invalid_social_token":
+        return t("errors.invalidSocialToken");
+      case "Google giriş yapılandırılmadı.":
+      case "Apple giriş yapılandırılmadı.":
+        return code;
+      default:
+        return t("errors.generic");
+    }
+  }
+
   async function onPhoneSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     const phone = toE164TR(phoneInput);
     if (!phone) {
-      setError("Geçerli bir Türkiye cep numarası girin.");
+      setError(t("invalidPhone"));
       return;
     }
     setBusy(true);
@@ -101,7 +139,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     if (!birthDate) {
-      setError("Doğum tarihinizi girin.");
+      setError(t("birthDateRequired"));
       return;
     }
     setBusy(true);
@@ -170,18 +208,15 @@ export default function RegisterPage() {
   }
 
   const underageNotice =
-    birthDate && isUnder18(birthDate)
-      ? "18 yaşından küçükseniz hesap açabilirsiniz; liderboard ve klan sohbeti kısıtlanır."
-      : null;
+    birthDate && isUnder18(birthDate) ? t("underageNotice") : null;
 
   return (
     <main className={styles.page}>
       <div className={styles.panel}>
-        <p className={styles.brand}>City Competition</p>
-        <h1 className={styles.title}>Kayıt ol</h1>
-        <p className={styles.lead}>
-          Telefon veya sosyal hesapla giriş. Doğum tarihi zorunludur.
-        </p>
+        <LocaleToggle />
+        <p className={styles.brand}>{tCommon("brand")}</p>
+        <h1 className={styles.title}>{t("registerTitle")}</h1>
+        <p className={styles.lead}>{t("registerLead")}</p>
 
         {error ? <p className={styles.error}>{error}</p> : null}
 
@@ -189,24 +224,24 @@ export default function RegisterPage() {
           <>
             <form onSubmit={onPhoneSubmit} className={styles.form}>
               <label className={styles.label} htmlFor="phone">
-                Cep telefonu
+                {t("phone")}
               </label>
               <input
                 id="phone"
                 className={styles.input}
                 inputMode="tel"
                 autoComplete="tel"
-                placeholder="05xx xxx xx xx"
+                placeholder={t("phonePlaceholder")}
                 value={phoneInput}
                 onChange={(e) => setPhoneInput(e.target.value)}
                 disabled={busy}
               />
               <button className={styles.button} type="submit" disabled={busy}>
-                Kod gönder
+                {t("sendCode")}
               </button>
             </form>
             <div className={styles.divider}>
-              <span>veya</span>
+              <span>{t("or")}</span>
             </div>
             <div className={styles.socialRow}>
               <button
@@ -216,7 +251,7 @@ export default function RegisterPage() {
                 onClick={() => onSocial("google")}
                 data-testid="social-google"
               >
-                Google ile devam
+                {t("continueGoogle")}
               </button>
               <button
                 type="button"
@@ -225,7 +260,7 @@ export default function RegisterPage() {
                 onClick={() => onSocial("apple")}
                 data-testid="social-apple"
               >
-                Apple ile devam
+                {t("continueApple")}
               </button>
             </div>
           </>
@@ -234,20 +269,20 @@ export default function RegisterPage() {
         {step === "otp" ? (
           <form onSubmit={onOTPSubmit} className={styles.form}>
             <label className={styles.label} htmlFor="code">
-              Doğrulama kodu
+              {t("otpLabel")}
             </label>
             <input
               id="code"
               className={styles.input}
               inputMode="numeric"
               autoComplete="one-time-code"
-              placeholder="6 haneli kod"
+              placeholder={t("otpPlaceholder")}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               disabled={busy}
             />
             <button className={styles.button} type="submit" disabled={busy}>
-              Doğrula
+              {t("verify")}
             </button>
             <button
               className={styles.linkBtn}
@@ -256,8 +291,8 @@ export default function RegisterPage() {
               disabled={busy || cooldownLeft > 0}
             >
               {cooldownLeft > 0
-                ? `Tekrar gönder (${cooldownLeft}s)`
-                : "Tekrar gönder"}
+                ? t("resendIn", { seconds: cooldownLeft })
+                : t("resend")}
             </button>
           </form>
         ) : null}
@@ -265,19 +300,19 @@ export default function RegisterPage() {
         {step === "profile" ? (
           <form onSubmit={onProfileSubmit} className={styles.form}>
             <label className={styles.label} htmlFor="username">
-              Kullanıcı adı
+              {t("username")}
             </label>
             <input
               id="username"
               className={styles.input}
               autoComplete="username"
-              placeholder="Oyuncu_01"
+              placeholder={t("usernamePlaceholder")}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={busy}
             />
             <label className={styles.label} htmlFor="birth_date">
-              Doğum tarihi
+              {t("birthDate")}
             </label>
             <input
               id="birth_date"
@@ -294,52 +329,20 @@ export default function RegisterPage() {
               </p>
             ) : null}
             <button className={styles.button} type="submit" disabled={busy}>
-              Hesabı oluştur
+              {t("createAccount")}
             </button>
           </form>
         ) : null}
 
         {step === "done" ? (
           <div className={styles.done}>
-            <p>Hoş geldin. Hesabın hazır. Onay adımına yönlendiriliyorsun…</p>
-            {userId ? <p className={styles.meta}>ID: {userId}</p> : null}
+            <p>{t("welcome")}</p>
+            {userId ? (
+              <p className={styles.meta}>{t("userId", { id: userId })}</p>
+            ) : null}
           </div>
         ) : null}
       </div>
     </main>
   );
-}
-
-function mapError(err: unknown): string {
-  const code =
-    err instanceof AuthApiError
-      ? err.code
-      : err && typeof err === "object" && "code" in err
-        ? String((err as { code?: string }).code)
-        : err instanceof Error
-          ? err.message
-          : "";
-  switch (code) {
-    case "error_invalid_phone_format":
-      return "Geçersiz telefon numarası.";
-    case "error_otp_cooldown":
-      return "Lütfen biraz bekleyip tekrar deneyin.";
-    case "error_invalid_otp":
-      return "Kod hatalı veya süresi dolmuş.";
-    case "error_invalid_username":
-      return "Kullanıcı adı geçersiz (3–24 karakter, harf/rakam/_).";
-    case "error_invalid_birth_date":
-      return "Geçerli bir doğum tarihi girin.";
-    case "error_user_conflict":
-      return "Bu telefon veya kullanıcı adı zaten kayıtlı.";
-    case "error_phone_not_verified":
-      return "Önce telefon doğrulaması gerekli.";
-    case "error_invalid_social_token":
-      return "Sosyal giriş doğrulanamadı.";
-    case "Google giriş yapılandırılmadı.":
-    case "Apple giriş yapılandırılmadı.":
-      return code;
-    default:
-      return "Bir hata oluştu. Tekrar deneyin.";
-  }
 }

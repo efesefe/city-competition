@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import maplibregl from "maplibre-gl";
+import LocaleToggle from "@/components/LocaleToggle";
 import {
   fetchProvincesControl,
   fetchProvincesGeoJSON,
@@ -41,9 +43,12 @@ export default function ProvinceMap({
 }: {
   initialIlCode?: string | null;
 }) {
+  const t = useTranslations("map");
+  const tCommon = useTranslations("common");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const socketRef = useRef<MapSocketHandle | null>(null);
+  const liveMsgRef = useRef(t);
   const [selected, setSelected] = useState<SelectedProvince | null>(null);
   const [credits, setCredits] = useState("10");
   const [busy, setBusy] = useState(false);
@@ -51,6 +56,8 @@ export default function ProvinceMap({
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const focusIl = initialIlCode?.trim() || null;
+
+  liveMsgRef.current = t;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) {
@@ -76,7 +83,11 @@ export default function ProvinceMap({
     const onSupportApplied = (event: SupportAppliedMessage) => {
       if (cancelled) return;
       setMessage(
-        `Live: +${event.delta} support on ${event.il_code} (tribe ${event.tribe_id.slice(0, 8)}…)`,
+        liveMsgRef.current("liveSupport", {
+          delta: event.delta,
+          ilCode: event.il_code,
+          tribeId: event.tribe_id.slice(0, 8),
+        }),
       );
     };
 
@@ -226,7 +237,11 @@ export default function ProvinceMap({
     try {
       const result = await postSupport(selected.il_code, amount);
       setMessage(
-        `Supported ${selected.name_tr} with ${result.credits_spent} credits (balance ${result.balance_after}).`,
+        t("supported", {
+          province: selected.name_tr,
+          credits: result.credits_spent,
+          balance: result.balance_after,
+        }),
       );
     } catch (err) {
       const code =
@@ -247,17 +262,15 @@ export default function ProvinceMap({
         ref={containerRef}
         className="map-canvas"
         role="application"
-        aria-label="Türkiye province map"
+        aria-label={t("ariaLabel")}
         data-testid="province-map"
         data-map-ready={mapReady ? "true" : "false"}
       />
       <aside className={styles.panel} aria-live="polite">
-        <p className={styles.brand}>City Competition</p>
-        <h1 className={styles.title}>Support a province</h1>
-        <p className={styles.lead}>
-          Click an il on the map, then spend credits for your tribe. Location
-          GPS is not used.
-        </p>
+        <LocaleToggle />
+        <p className={styles.brand}>{tCommon("brand")}</p>
+        <h1 className={styles.title}>{t("title")}</h1>
+        <p className={styles.lead}>{t("lead")}</p>
         {selected ? (
           <form className={styles.form} onSubmit={onSupport}>
             <p className={styles.province}>
@@ -265,7 +278,7 @@ export default function ProvinceMap({
               {selected.name_tr}
             </p>
             <label className={styles.label} htmlFor="support-credits">
-              Credits
+              {t("credits")}
             </label>
             <input
               id="support-credits"
@@ -278,11 +291,11 @@ export default function ProvinceMap({
               disabled={busy}
             />
             <button className={styles.button} type="submit" disabled={busy}>
-              {busy ? "Supporting…" : "Support"}
+              {busy ? t("supporting") : t("support")}
             </button>
           </form>
         ) : (
-          <p className={styles.hint}>Select a province to spend credits.</p>
+          <p className={styles.hint}>{t("hint")}</p>
         )}
         {message ? <p className={styles.success}>{message}</p> : null}
         {error ? <p className={styles.error}>{error}</p> : null}

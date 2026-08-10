@@ -1,0 +1,29 @@
+.root {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 0 0.65rem;
+}
+
+.btn,
+.active {
+  appearance: none;
+  border: 1px solid #3a524a;
+  background: transparent;
+  color: #8fb5a8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.active {
+  background: #1a3d34;
+  color: #e8efe9;
+  border-color: #5a7a6e;
+}
+
+.btn:hover {
+  color: #e8efe9;
+}

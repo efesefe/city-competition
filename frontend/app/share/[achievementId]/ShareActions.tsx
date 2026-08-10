@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import styles from "./share.module.css";
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function ShareActions({ title, text, url, deepLink }: Props) {
+  const t = useTranslations("share");
   const [copied, setCopied] = useState(false);
 
   async function onShare() {
@@ -38,13 +40,13 @@ export default function ShareActions({ title, text, url, deepLink }: Props) {
   return (
     <div className={styles.actions}>
       <button type="button" className={styles.primary} onClick={() => void onShare()}>
-        Paylaş
+        {t("share")}
       </button>
       <button type="button" className={styles.secondary} onClick={() => void onCopy()}>
-        {copied ? "Kopyalandı" : "Bağlantıyı kopyala"}
+        {copied ? t("copied") : t("copyLink")}
       </button>
       <a className={styles.link} href={deepLink}>
-        Haritada aç
+        {t("openMap")}
       </a>
     </div>
   );

@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ConsentStatusResponse } from "@/lib/consent-api";
 import { grantConsent } from "@/lib/consent-api";
+import LocaleToggle from "@/components/LocaleToggle";
 import styles from "./ConsentModal.module.css";
 
 type Props = {
@@ -16,6 +18,8 @@ export default function ConsentModal({
   onGranted,
   onStatusRefresh,
 }: Props) {
+  const t = useTranslations("consent");
+  const tCommon = useTranslations("common");
   const disclosure = status.consents.aydinlatma_metni;
   const location = status.consents.acik_riza_location;
 
@@ -63,11 +67,9 @@ export default function ConsentModal({
         });
         setAcceptDisclosure(false);
         setAcceptLocation(false);
-        setError(
-          "Metin güncellendi. Lütfen yeni metni okuyup yeniden onaylayın.",
-        );
+        setError(t("versionUpdated"));
       } else {
-        setError("Onay kaydedilemedi. Tekrar deneyin.");
+        setError(t("saveFailed"));
       }
     } finally {
       setBusy(false);
@@ -83,20 +85,18 @@ export default function ConsentModal({
       data-testid="consent-modal"
     >
       <div className={styles.panel}>
-        <p className={styles.brand}>City Competition</p>
+        <LocaleToggle />
+        <p className={styles.brand}>{tCommon("brand")}</p>
         <h1 id="consent-title" className={styles.title}>
-          KVKK onayları
+          {t("title")}
         </h1>
-        <p className={styles.lead}>
-          Konum özelliklerini kullanmadan önce aydınlatma metnini ve açık rızayı
-          ayrı ayrı onaylamanız gerekir. Bu adım atlanamaz.
-        </p>
+        <p className={styles.lead}>{t("lead")}</p>
 
         {error ? <p className={styles.error}>{error}</p> : null}
 
         <form onSubmit={onSubmit} className={styles.form}>
           <section className={styles.section} data-testid="consent-disclosure">
-            <h2 className={styles.sectionTitle}>Aydınlatma Metni</h2>
+            <h2 className={styles.sectionTitle}>{t("disclosureTitle")}</h2>
             <div className={styles.body}>{texts.disclosure}</div>
             <label className={styles.check}>
               <input
@@ -105,12 +105,12 @@ export default function ConsentModal({
                 onChange={(e) => setAcceptDisclosure(e.target.checked)}
                 data-testid="check-aydinlatma"
               />
-              <span>Aydınlatma metnini okudum ve anladım.</span>
+              <span>{t("disclosureCheck")}</span>
             </label>
           </section>
 
           <section className={styles.section} data-testid="consent-location">
-            <h2 className={styles.sectionTitle}>Konum için Açık Rıza</h2>
+            <h2 className={styles.sectionTitle}>{t("locationTitle")}</h2>
             <div className={styles.body}>{texts.location}</div>
             <label className={styles.check}>
               <input
@@ -119,9 +119,7 @@ export default function ConsentModal({
                 onChange={(e) => setAcceptLocation(e.target.checked)}
                 data-testid="check-location"
               />
-              <span>
-                Sürekli konum takibi için açık rızamı veriyorum.
-              </span>
+              <span>{t("locationCheck")}</span>
             </label>
           </section>
 
@@ -131,7 +129,7 @@ export default function ConsentModal({
             disabled={!canSubmit}
             data-testid="consent-submit"
           >
-            Onayları kaydet
+            {t("submit")}
           </button>
         </form>
       </div>

@@ -18,6 +18,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
 	"github.com/city-competition-remastered/backend/internal/engagement"
+	"github.com/city-competition-remastered/backend/internal/feed"
 	"github.com/city-competition-remastered/backend/internal/geo"
 	"github.com/city-competition-remastered/backend/internal/httpserver"
 	"github.com/city-competition-remastered/backend/internal/leaderboard"
@@ -154,6 +155,8 @@ func main() {
 	supportCache := &support.ControlCache{RDB: rdb, Pool: pools.Read}
 	achievementStore := &share.Store{Pool: pools.Write}
 	achievementHandler := &share.Handler{Store: achievementStore}
+	feedStore := &feed.PostgresStore{Pool: pools.Write}
+	feedHandler := &feed.Handler{Store: feedStore, Pool: pools.Read}
 	pushTokens := &notifications.PoolTokenStore{Pool: pools.Write}
 	pushHandler := &notifications.Handler{Tokens: pushTokens}
 	engagementHooks := &engagement.Hooks{
@@ -323,6 +326,7 @@ func main() {
 	mux.Handle("POST /v1/reports", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CreateReport)))
 	mux.Handle("PUT /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.PutReaction)))
 	mux.Handle("DELETE /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.DeleteReaction)))
+	mux.Handle("GET /v1/feed", auth.RequireSession(sessions, users, http.HandlerFunc(feedHandler.List)))
 	mux.Handle("GET /v1/me/referral", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.GetReferral)))
 	mux.Handle("POST /v1/referrals/redeem", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.RedeemReferral)))
 	mux.Handle("PUT /v1/me/push-tokens", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.PutPushToken)))

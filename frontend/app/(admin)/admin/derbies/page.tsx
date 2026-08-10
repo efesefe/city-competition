@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DataResidencyBanner from "@/components/DataResidencyBanner";
+import { formatDateTime } from "@/lib/dateFormat";
 import { Derby, forceResolveDerby, listDerbies } from "@/lib/derbies-api";
 import { getSessionToken } from "@/lib/session";
 import styles from "@/app/(app)/derbies/derbies.module.css";
@@ -107,8 +108,7 @@ export default function AdminDerbiesPage() {
                 <span className={styles.status}>{d.status}</span>
               </div>
               <p className={styles.sub}>
-                {new Date(d.starts_at).toLocaleString("tr-TR")} →{" "}
-                {new Date(d.ends_at).toLocaleString("tr-TR")}
+                {formatDateTime(d.starts_at)} → {formatDateTime(d.ends_at)}
               </p>
               <p className={styles.scores}>
                 Ev {d.host_effective_total} — Dep {d.guest_effective_total}

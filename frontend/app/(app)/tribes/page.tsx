@@ -1,8 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import DataResidencyBanner from "@/components/DataResidencyBanner";
+import LocaleToggle from "@/components/LocaleToggle";
+import { formatDateTime } from "@/lib/dateFormat";
 import { getSessionToken } from "@/lib/session";
 import {
   hasTribeMembership,
@@ -14,35 +17,37 @@ import {
 } from "@/lib/tribes-api";
 import styles from "./tribes.module.css";
 
-function mapError(code: string | undefined): string {
-  switch (code) {
-    case "tribe_switch_cooldown":
-      return "Kabile değiştirme bekleme süresindesiniz. Daha sonra tekrar deneyin.";
-    case "already_in_tribe":
-      return "Zaten bir kabiledesiniz. Değiştirmek için geçiş kullanın.";
-    case "tribe_not_found":
-      return "Kabile bulunamadı.";
-    case "error_unauthorized":
-      return "Oturum gerekli.";
-    default:
-      return "Bir hata oluştu. Lütfen tekrar deneyin.";
-  }
-}
-
-function formatSwitchHint(membership: TribeMembership): string | null {
-  if (!membership.switch_available_at) return null;
-  const at = new Date(membership.switch_available_at);
-  if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now()) return null;
-  return `Sonraki kabile değişikliği: ${at.toLocaleString("tr-TR")}`;
-}
-
 export default function TribesPage() {
+  const t = useTranslations("tribes");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [tribes, setTribes] = useState<Tribe[]>([]);
   const [membership, setMembership] = useState<TribeMembership | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  function mapError(code: string | undefined): string {
+    switch (code) {
+      case "tribe_switch_cooldown":
+        return t("errors.cooldown");
+      case "already_in_tribe":
+        return t("errors.alreadyIn");
+      case "tribe_not_found":
+        return t("errors.notFound");
+      case "error_unauthorized":
+        return t("errors.unauthorized");
+      default:
+        return t("errors.generic");
+    }
+  }
+
+  function formatSwitchHint(m: TribeMembership): string | null {
+    if (!m.switch_available_at) return null;
+    const at = new Date(m.switch_available_at);
+    if (Number.isNaN(at.getTime()) || at.getTime() <= Date.now()) return null;
+    return t("nextSwitch", { when: formatDateTime(at) });
+  }
 
   const load = useCallback(async () => {
     const data = await listTribes();
@@ -57,9 +62,9 @@ export default function TribesPage() {
       return;
     }
     load()
-      .catch(() => setError("Kabileler yüklenemedi."))
+      .catch(() => setError(t("loadFailed")))
       .finally(() => setLoading(false));
-  }, [load, router]);
+  }, [load, router, t]);
 
   const onSelect = async (tribe: Tribe) => {
     setError(null);
@@ -92,7 +97,7 @@ export default function TribesPage() {
   if (loading) {
     return (
       <main className={styles.page} aria-busy="true">
-        <p className={styles.lead}>Yükleniyor…</p>
+        <p className={styles.lead}>{tCommon("loading")}</p>
       </main>
     );
   }
@@ -105,42 +110,40 @@ export default function TribesPage() {
       <DataResidencyBanner />
       <main className={styles.page}>
         <header className={styles.header}>
-          <p className={styles.brand}>City Competition</p>
+          <LocaleToggle />
+          <p className={styles.brand}>{tCommon("brand")}</p>
           <h1 className={styles.title}>
-            {hasMembership ? "Kabile değiştir" : "Kabileni seç"}
+            {hasMembership ? t("titleSwitch") : t("titleSelect")}
           </h1>
-          <p className={styles.lead}>
-            Haritada il desteklemek için bir kabileye katılman gerekir. İsimler
-            kurmacadır; gerçek kulüp markaları kullanılmaz.
-          </p>
+          <p className={styles.lead}>{t("lead")}</p>
         </header>
 
         {error ? <p className={styles.error}>{error}</p> : null}
         {switchHint ? <p className={styles.notice}>{switchHint}</p> : null}
 
         <ul className={styles.list}>
-          {tribes.map((t) => {
-            const isCurrent = membership?.tribe_id === t.id;
+          {tribes.map((tribeItem) => {
+            const isCurrent = membership?.tribe_id === tribeItem.id;
             return (
-              <li key={t.id} className={styles.item}>
+              <li key={tribeItem.id} className={styles.item}>
                 <div
                   className={styles.swatch}
                   style={{
-                    background: `linear-gradient(135deg, ${t.primary_color} 50%, ${t.secondary_color} 50%)`,
+                    background: `linear-gradient(135deg, ${tribeItem.primary_color} 50%, ${tribeItem.secondary_color} 50%)`,
                   }}
                   aria-hidden
                 />
                 <div className={styles.meta}>
-                  <p className={styles.name}>{t.display_name}</p>
+                  <p className={styles.name}>{tribeItem.display_name}</p>
                   <p className={styles.sub}>
-                    {t.short_name}
-                    {typeof t.member_count === "number"
-                      ? ` · ${t.member_count} üye`
-                      : ""}
+                    {tribeItem.short_name}
+                    {typeof tribeItem.member_count === "number"
+                      ? t("memberCount", { count: tribeItem.member_count })
+                      : null}
                   </p>
                 </div>
                 {isCurrent ? (
-                  <span className={styles.current}>Senin kabilen</span>
+                  <span className={styles.current}>{t("yourTribe")}</span>
                 ) : (
                   <button
                     type="button"
@@ -150,13 +153,13 @@ export default function TribesPage() {
                         : styles.button
                     }
                     disabled={busyId !== null}
-                    onClick={() => onSelect(t)}
+                    onClick={() => onSelect(tribeItem)}
                   >
-                    {busyId === t.id
-                      ? "…"
+                    {busyId === tribeItem.id
+                      ? t("busy")
                       : hasMembership
-                        ? "Geçiş yap"
-                        : "Katıl"}
+                        ? t("switch")
+                        : t("join")}
                   </button>
                 )}
               </li>

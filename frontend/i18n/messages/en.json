@@ -1,0 +1,122 @@
+{
+  "common": {
+    "brand": "City Competition",
+    "loading": "Loading…",
+    "redirecting": "Redirecting…"
+  },
+  "map": {
+    "ariaLabel": "Türkiye province map",
+    "title": "Support a province",
+    "lead": "Click an il on the map, then spend credits for your tribe. Location GPS is not used.",
+    "credits": "Credits",
+    "support": "Support",
+    "supporting": "Supporting…",
+    "hint": "Select a province to spend credits.",
+    "supported": "Supported {province} with {credits} credits (balance {balance}).",
+    "liveSupport": "Live: +{delta} support on {ilCode} (tribe {tribeId}…)"
+  },
+  "auth": {
+    "registerTitle": "Sign up",
+    "registerLead": "Sign in with phone or social account. Birth date is required.",
+    "phone": "Mobile phone",
+    "phonePlaceholder": "05xx xxx xx xx",
+    "sendCode": "Send code",
+    "or": "or",
+    "continueGoogle": "Continue with Google",
+    "continueApple": "Continue with Apple",
+    "otpLabel": "Verification code",
+    "otpPlaceholder": "6-digit code",
+    "verify": "Verify",
+    "resend": "Resend",
+    "resendIn": "Resend ({seconds}s)",
+    "username": "Username",
+    "usernamePlaceholder": "Player_01",
+    "birthDate": "Birth date",
+    "createAccount": "Create account",
+    "welcome": "Welcome. Your account is ready. Redirecting to consent…",
+    "userId": "ID: {id}",
+    "underageNotice": "You can create an account under 18; leaderboard and clan chat are restricted.",
+    "invalidPhone": "Enter a valid Turkish mobile number.",
+    "birthDateRequired": "Enter your birth date.",
+    "errors": {
+      "invalidPhoneFormat": "Invalid phone number.",
+      "otpCooldown": "Please wait a moment and try again.",
+      "invalidOtp": "Code is invalid or expired.",
+      "invalidUsername": "Invalid username (3–24 characters, letters/digits/_).",
+      "invalidBirthDate": "Enter a valid birth date.",
+      "userConflict": "This phone or username is already registered.",
+      "phoneNotVerified": "Phone verification is required first.",
+      "invalidSocialToken": "Social sign-in could not be verified.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "merge": {
+    "title": "Merge accounts",
+    "lead": "This social account matches an existing phone account. Merging is not automatic — confirm with the code sent to your phone.",
+    "hint": "Hint: {hint}",
+    "phoneLabel": "Registered mobile phone",
+    "confirm": "Confirm merge"
+  },
+  "consent": {
+    "title": "KVKK consents",
+    "lead": "Before using location features you must separately accept the disclosure notice and explicit consent. This step cannot be skipped.",
+    "disclosureTitle": "Disclosure notice",
+    "disclosureCheck": "I have read and understood the disclosure notice.",
+    "locationTitle": "Explicit consent for location",
+    "locationCheck": "I give my explicit consent for continuous location tracking.",
+    "submit": "Save consents",
+    "versionUpdated": "The text was updated. Please read and accept again.",
+    "saveFailed": "Could not save consents. Please try again.",
+    "statusFailed": "Could not load consent status."
+  },
+  "residency": {
+    "TR": "Your data is processed and stored on servers in the Türkiye (TR) region.",
+    "EU": "Your data is processed and stored on servers in the European Union (EU) region. Cross-border transfer may apply."
+  },
+  "tribes": {
+    "titleSelect": "Choose your tribe",
+    "titleSwitch": "Switch tribe",
+    "lead": "You must join a tribe to support provinces on the map. Names are fictional; real club brands are not used.",
+    "loadFailed": "Could not load tribes.",
+    "yourTribe": "Your tribe",
+    "join": "Join",
+    "switch": "Switch",
+    "busy": "…",
+    "memberCount": " · {count} members",
+    "nextSwitch": "Next tribe switch: {when}",
+    "errors": {
+      "cooldown": "Tribe switch is on cooldown. Try again later.",
+      "alreadyIn": "You are already in a tribe. Use switch to change.",
+      "notFound": "Tribe not found.",
+      "unauthorized": "Sign-in required.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "derbies": {
+    "title": "Derbies",
+    "lead": "Match-day events between tribes. Live scores update for active derbies.",
+    "loadFailed": "Could not load derbies.",
+    "empty": "No derbies yet.",
+    "province": "Province {ilCode}",
+    "scores": "Home {host} — Away {guest}",
+    "window": "{start} → {end}",
+    "detailTitle": "Derby detail",
+    "back": "← All derbies",
+    "notFound": "Derby not found.",
+    "detailLoadFailed": "Could not load derby.",
+    "status": "Status",
+    "il": "Province",
+    "host": "Home tribe",
+    "guest": "Away tribe",
+    "starts": "Starts",
+    "ends": "Ends",
+    "hostScore": "Home score",
+    "guestScore": "Away score"
+  },
+  "share": {
+    "share": "Share",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "openMap": "Open on map"
+  }
+}

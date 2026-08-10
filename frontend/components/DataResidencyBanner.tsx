@@ -1,13 +1,11 @@
 "use client";
 
-const REGION_COPY: Record<string, string> = {
-  TR: "Verileriniz Türkiye (TR) bölgesindeki sunucularda işlenir ve saklanır.",
-  EU: "Verileriniz Avrupa Birliği (EU) bölgesindeki sunucularda işlenir ve saklanır. Sınır ötesi aktarım söz konusu olabilir.",
-};
+import { useTranslations } from "next-intl";
 
 export default function DataResidencyBanner() {
+  const t = useTranslations("residency");
   const region = process.env.NEXT_PUBLIC_DATA_REGION ?? "TR";
-  const text = REGION_COPY[region] ?? REGION_COPY.TR;
+  const text = region === "EU" ? t("EU") : t("TR");
 
   return (
     <aside

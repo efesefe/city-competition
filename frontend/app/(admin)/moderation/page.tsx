@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DataResidencyBanner from "@/components/DataResidencyBanner";
+import { formatDateTime } from "@/lib/dateFormat";
 import {
   Flag,
   Report,
@@ -174,7 +175,7 @@ export default function ModerationPage() {
                   {r.context_type ? ` · ${r.context_type}` : ""}
                 </p>
                 <p className={styles.sub}>
-                  {new Date(r.created_at).toLocaleString("tr-TR")}
+                  {formatDateTime(r.created_at)}
                 </p>
                 {r.status === "pending" ? (
                   <div className={styles.actions} style={{ marginTop: "0.75rem" }}>
@@ -259,7 +260,7 @@ export default function ModerationPage() {
                   {f.context_type ? ` · ${f.context_type}` : ""}
                 </p>
                 <p className={styles.sub}>
-                  {new Date(f.created_at).toLocaleString("tr-TR")}
+                  {formatDateTime(f.created_at)}
                 </p>
                 {f.status === "pending" ? (
                   <div className={styles.actions} style={{ marginTop: "0.75rem" }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import ConsentModal from "@/components/ConsentModal";
 import DataResidencyBanner from "@/components/DataResidencyBanner";
@@ -13,6 +14,8 @@ import { getSessionToken } from "@/lib/session";
 import styles from "../../(auth)/register/register.module.css";
 
 export default function ConsentPage() {
+  const t = useTranslations("consent");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [status, setStatus] = useState<ConsentStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -34,8 +37,8 @@ export default function ConsentPage() {
           router.replace("/");
         }
       })
-      .catch(() => setError("Onay durumu alınamadı."));
-  }, [load, router]);
+      .catch(() => setError(t("statusFailed")));
+  }, [load, router, t]);
 
   if (error) {
     return (
@@ -48,7 +51,7 @@ export default function ConsentPage() {
   if (!status || hasRequiredConsents(status)) {
     return (
       <main className={styles.page} aria-busy="true">
-        <p className={styles.lead}>Yükleniyor…</p>
+        <p className={styles.lead}>{tCommon("loading")}</p>
       </main>
     );
   }
