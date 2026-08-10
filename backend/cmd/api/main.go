@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/city-competition-remastered/backend/internal/admin"
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/config"
@@ -200,7 +201,9 @@ func main() {
 			progEngine.OnDerbyResolved(ctx, ev)
 		},
 	}
-	derbyHandler := &derby.Handler{Service: derbyService}
+	auditWriter := &admin.PoolWriter{Pool: pools.Write}
+	moderationHandler := &admin.Handler{Pool: pools.Write}
+	derbyHandler := &derby.Handler{Service: derbyService, Audit: auditWriter}
 	lbHandler := &leaderboard.Handler{
 		Store:    lbStore,
 		Profiles: &leaderboard.PoolProfiles{Pool: pools.Read},
@@ -263,6 +266,12 @@ func main() {
 	mux.Handle("PATCH /v1/admin/tribes/{id}", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Patch))))
 	mux.Handle("POST /v1/admin/derbies", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.Create))))
 	mux.Handle("POST /v1/admin/derbies/{id}/force-resolve", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.ForceResolve))))
+	mux.Handle("GET /v1/admin/moderation/reports", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListReports))))
+	mux.Handle("GET /v1/admin/moderation/flags", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListFlags))))
+	mux.Handle("POST /v1/admin/moderation/reports/{id}/review", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewReport))))
+	mux.Handle("POST /v1/admin/moderation/reports/{id}/dismiss", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissReport))))
+	mux.Handle("POST /v1/admin/moderation/flags/{id}/review", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewFlag))))
+	mux.Handle("POST /v1/admin/moderation/flags/{id}/dismiss", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissFlag))))
 	mux.Handle("GET /v1/derbies", auth.RequireSession(sessions, http.HandlerFunc(derbyHandler.List)))
 	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, http.HandlerFunc(derbyHandler.Get)))
 	mux.Handle("GET /v1/credits/balance", auth.RequireSession(sessions, http.HandlerFunc(creditsHandler.Balance)))

@@ -1,6 +1,7 @@
 package derby
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,13 +9,20 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/city-competition-remastered/backend/internal/admin"
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/db"
 )
 
+// AuditWriter appends immutable audit_log rows for admin derby actions.
+type AuditWriter interface {
+	Insert(ctx context.Context, actorID uuid.UUID, action, targetType string, targetID uuid.UUID, metadata map[string]any) error
+}
+
 // Handler exposes admin create/force-resolve and authenticated list/get.
 type Handler struct {
 	Service *Service
+	Audit   AuditWriter
 }
 
 type errorBody struct {
@@ -81,7 +89,8 @@ func writeCreateErr(w http.ResponseWriter, err error) {
 
 // ForceResolve handles POST /v1/admin/derbies/{id}/force-resolve.
 func (h *Handler) ForceResolve(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.UserIDFromContext(r.Context()); !ok {
+	actorID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
 		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
 		return
 	}
@@ -103,6 +112,11 @@ func (h *Handler) ForceResolve(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusInternalServerError, "error_internal")
 		}
 		return
+	}
+	if h.Audit != nil {
+		_ = h.Audit.Insert(r.Context(), actorID, admin.ActionDerbyForceResolve, admin.TargetTypeDerby, id, map[string]any{
+			"status": d.Status,
+		})
 	}
 	writeJSON(w, http.StatusOK, d)
 }
