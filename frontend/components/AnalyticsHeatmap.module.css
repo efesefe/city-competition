@@ -1,0 +1,19 @@
+.wrap {
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+.map {
+  width: 100%;
+  height: min(28rem, 60vh);
+  border: 1px solid #3a4f4a;
+  border-radius: 0.45rem;
+  overflow: hidden;
+}
+
+.legend {
+  margin: 0.65rem 0 0;
+  color: #8a9e96;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}

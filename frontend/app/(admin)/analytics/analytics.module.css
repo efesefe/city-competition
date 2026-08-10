@@ -1,0 +1,97 @@
+.section {
+  max-width: 56rem;
+  margin: 0 auto 2.5rem;
+}
+
+.sectionNarrow {
+  max-width: 42rem;
+  margin: 0 auto 2.5rem;
+}
+
+.sectionTitle {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.sectionLead {
+  margin: 0 0 1rem;
+  color: #a8b5b0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.funnel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.funnelRow {
+  display: grid;
+  grid-template-columns: 9rem 1fr 3.5rem;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.funnelLabel {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #c4d4cc;
+}
+
+.funnelTrack {
+  height: 0.85rem;
+  border-radius: 0.25rem;
+  background: rgba(8, 16, 18, 0.55);
+  border: 1px solid #3a4f4a;
+  overflow: hidden;
+}
+
+.funnelFill {
+  height: 100%;
+  background: linear-gradient(90deg, #2a6b56, #3d8f74);
+  border-radius: 0.2rem;
+  min-width: 0;
+}
+
+.funnelValue {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: #8fb5a8;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.table th,
+.table td {
+  padding: 0.55rem 0.45rem;
+  border-bottom: 1px solid #2a3a36;
+  text-align: left;
+}
+
+.table th {
+  color: #8a9e96;
+  font-weight: 560;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.table td {
+  font-variant-numeric: tabular-nums;
+  color: #e8efe9;
+}
+
+.empty {
+  margin: 0;
+  color: #8a9e96;
+  font-size: 0.9rem;
+}

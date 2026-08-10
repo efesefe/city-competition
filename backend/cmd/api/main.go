@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/city-competition-remastered/backend/internal/admin"
+	"github.com/city-competition-remastered/backend/internal/analytics"
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/config"
@@ -259,6 +260,7 @@ func main() {
 	moderationActions := &moderation.Actions{Pool: pools.Write}
 	appealsStore := &moderation.Appeals{Pool: pools.Write}
 	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions, Appeals: appealsStore}
+	analyticsHandler := &analytics.Handler{Store: &analytics.Store{Pool: pools.Read}}
 	derbyHandler := &derby.Handler{Service: derbyService, Audit: auditWriter}
 	lbHandler := &leaderboard.Handler{
 		Store:    lbStore,
@@ -335,6 +337,9 @@ func main() {
 	mux.Handle("POST /v1/admin/users/{id}/shadow-ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ShadowBanUser))))
 	mux.Handle("POST /v1/admin/users/{id}/unban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.UnbanUser))))
 	mux.Handle("POST /v1/admin/refunds", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(monetizationHandler.AdminRefund))))
+	mux.Handle("GET /v1/admin/analytics/funnel", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(analyticsHandler.Funnel))))
+	mux.Handle("GET /v1/admin/analytics/cohorts", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(analyticsHandler.Cohorts))))
+	mux.Handle("GET /v1/admin/analytics/heatmap", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(analyticsHandler.Heatmap))))
 	mux.Handle("POST /v1/appeals", auth.RequireSessionAllowBanned(sessions, users, http.HandlerFunc(moderationHandler.CreateAppeal)))
 	mux.Handle("GET /v1/derbies", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.List)))
 	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.Get)))

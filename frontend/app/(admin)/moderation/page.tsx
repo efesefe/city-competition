@@ -122,6 +122,12 @@ export default function ModerationPage() {
           >
             Derbi yönetimi
           </Link>
+          <Link
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            href="/analytics"
+          >
+            Analitik
+          </Link>
         </div>
 
         {error ? <p className={styles.error}>{error}</p> : null}
