@@ -47,6 +47,7 @@ type Config struct {
 	PaymentsInternalToken          string
 	PaymentsDefaultReturnURL       string
 	KDVRateBPS                     int
+	PaymentsDatabaseURL            string // optional; used by erasure cascade
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -164,6 +165,7 @@ func Load() (Config, error) {
 	cfg.PaymentsServiceURL = os.Getenv("PAYMENTS_SERVICE_URL")
 	cfg.PaymentsInternalToken = os.Getenv("PAYMENTS_INTERNAL_TOKEN")
 	cfg.PaymentsDefaultReturnURL = getenv("PAYMENTS_DEFAULT_RETURN_URL", "http://localhost:3000/credits")
+	cfg.PaymentsDatabaseURL = os.Getenv("PAYMENTS_DATABASE_URL")
 
 	kdvBPS, err := optionalInt64("KDV_RATE_BPS", 2000)
 	if err != nil {

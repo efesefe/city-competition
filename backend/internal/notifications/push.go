@@ -16,6 +16,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/engagement"
+	"github.com/city-competition-remastered/backend/internal/logging"
 )
 
 const (
@@ -226,11 +227,12 @@ func (w *Worker) DrainOnce(ctx context.Context) (bool, error) {
 
 // notifEnvelope is the common subset of queued payloads.
 type notifEnvelope struct {
-	Type    string    `json:"type"`
-	UserID  uuid.UUID `json:"user_id"`
-	IlCode  string    `json:"il_code"`
-	TribeID uuid.UUID `json:"tribe_id"`
-	DerbyID uuid.UUID `json:"derby_id"`
+	Type      string    `json:"type"`
+	UserID    uuid.UUID `json:"user_id"`
+	IlCode    string    `json:"il_code"`
+	TribeID   uuid.UUID `json:"tribe_id"`
+	DerbyID   uuid.UUID `json:"derby_id"`
+	RequestID string    `json:"request_id,omitempty"`
 }
 
 // HandlePayload rate-limits and delivers one queued JSON notification.
@@ -242,12 +244,17 @@ func (w *Worker) HandlePayload(ctx context.Context, raw string) error {
 	if env.UserID == uuid.Nil || env.Type == "" {
 		return fmt.Errorf("invalid notif payload")
 	}
+	if env.RequestID != "" {
+		ctx = logging.WithRequestID(ctx, env.RequestID)
+	}
+	log := logging.FromContext(ctx, w.log())
 
 	ok, err := w.tryPushRateLimit(ctx, env)
 	if err != nil {
 		return err
 	}
 	if !ok {
+		log.Info("push rate-limited", "type", env.Type, "user_id", env.UserID.String())
 		return nil
 	}
 
@@ -257,7 +264,7 @@ func (w *Worker) HandlePayload(ctx context.Context, raw string) error {
 		return fmt.Errorf("list tokens: %w", err)
 	}
 	if len(tokens) == 0 {
-		// Still count as rate-limited/sent so duplicates are suppressed.
+		log.Info("push skipped no tokens", "type", env.Type, "user_id", env.UserID.String())
 		return nil
 	}
 	if w.Sender == nil {
@@ -265,9 +272,10 @@ func (w *Worker) HandlePayload(ctx context.Context, raw string) error {
 	}
 	for _, t := range tokens {
 		if err := w.Sender.Send(ctx, t.Platform, t.Token, msg); err != nil {
-			w.log().Error("push send failed", "error", err, "platform", t.Platform)
+			log.Error("push send failed", "error", err, "platform", t.Platform)
 		}
 	}
+	log.Info("push delivered", "type", env.Type, "user_id", env.UserID.String(), "tokens", len(tokens))
 	return nil
 }
 

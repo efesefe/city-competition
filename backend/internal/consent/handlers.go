@@ -7,12 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/city-competition-remastered/backend/internal/auth"
 )
 
 // Handler exposes consent status and grant endpoints.
 type Handler struct {
 	Store Store
+	RDB   redis.Cmdable // optional; required for synchronous location withdraw
 }
 
 type errorBody struct {

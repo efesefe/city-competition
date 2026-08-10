@@ -41,7 +41,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	log := logging.New(os.Getenv("APP_ENV") == "production")
+	log := logging.New("worker-season", os.Getenv("APP_ENV") == "production")
 
 	rdb, err := cache.NewClient(*redisURL)
 	if err != nil {

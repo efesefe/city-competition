@@ -1,0 +1,113 @@
+{
+  "title": "City Competition Observability",
+  "uid": "citycomp-obs",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "tags": ["observability", "10.4"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Error rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (service, route_group) (rate(http_requests_total{code=~\"5..\"}[5m]))",
+          "legendFormat": "{{service}} {{route_group}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Latency p50 / p95 / p99 by route group",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, route_group) (rate(http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p50 {{route_group}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, route_group) (rate(http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{route_group}}"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, route_group) (rate(http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "p99 {{route_group}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Postgres pool saturation (acquired / max)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "pgx_pool_acquired / clamp_min(pgx_pool_max, 1)",
+          "legendFormat": "{{service}} {{pool}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Redis pool saturation",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "redis_pool_total_conns - redis_pool_idle_conns",
+          "legendFormat": "{{service}} in-use"
+        },
+        {
+          "expr": "redis_pool_total_conns",
+          "legendFormat": "{{service}} total"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Circuit breaker state (0=closed 1=open 2=half_open)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "db_circuit_breaker_state",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Circuit breaker trips",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "increase(db_circuit_breaker_trips_total[5m])",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    }
+  ]
+}

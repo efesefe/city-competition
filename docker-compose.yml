@@ -67,6 +67,7 @@ services:
       APP_ENV: ${APP_ENV:-development}
       HTTP_ADDR: ${HTTP_ADDR:-:8080}
       DATABASE_URL: ${DATABASE_URL:-postgres://citycomp:citycomp@postgres:5432/citycomp?sslmode=disable}
+      PAYMENTS_DATABASE_URL: ${PAYMENTS_DATABASE_URL:-postgres://citycomp:citycomp@postgres:5432/citycomp_payments?sslmode=disable}
       DB_MAX_CONNS: ${DB_MAX_CONNS:-10}
       DB_MIN_CONNS: ${DB_MIN_CONNS:-2}
       DB_MAX_CONN_LIFETIME: ${DB_MAX_CONN_LIFETIME:-30m}
@@ -99,5 +100,55 @@ services:
     depends_on:
       - backend
 
+  loki:
+    image: grafana/loki:3.4.2
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./docker/observability/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:3.4.2
+    command: ["-config.file=/etc/promtail/promtail-config.yml"]
+    volumes:
+      - ./docker/observability/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - backend
+      - payments
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./docker/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
 volumes:
   postgres_data:
+  loki_data:
+  prometheus_data:
+  grafana_data:

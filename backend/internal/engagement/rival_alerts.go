@@ -13,6 +13,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/city-competition-remastered/backend/internal/cache"
+	"github.com/city-competition-remastered/backend/internal/logging"
 )
 
 const (
@@ -29,10 +30,11 @@ type TribeScore struct {
 
 // LeadThreatenedPayload is enqueued to notif_queue for the push worker.
 type LeadThreatenedPayload struct {
-	Type    string    `json:"type"`
-	UserID  uuid.UUID `json:"user_id"`
-	IlCode  string    `json:"il_code"`
-	TribeID uuid.UUID `json:"tribe_id"`
+	Type      string    `json:"type"`
+	UserID    uuid.UUID `json:"user_id"`
+	IlCode    string    `json:"il_code"`
+	TribeID   uuid.UUID `json:"tribe_id"`
+	RequestID string    `json:"request_id,omitempty"`
 }
 
 // GapRatio returns (leader - second) / leader, or a large value when there is no valid pair.
@@ -156,11 +158,13 @@ func (a *RivalAlerter) DetectAndEnqueue(
 		if !ok {
 			continue
 		}
+		reqID, _ := logging.RequestIDFromContext(ctx)
 		payload, _ := json.Marshal(LeadThreatenedPayload{
-			Type:    NotifTypeProvinceLeadThreatened,
-			UserID:  userID,
-			IlCode:  ilCode,
-			TribeID: leaderID,
+			Type:      NotifTypeProvinceLeadThreatened,
+			UserID:    userID,
+			IlCode:    ilCode,
+			TribeID:   leaderID,
+			RequestID: reqID,
 		})
 		if err := cache.EnqueueNotif(ctx, a.RDB, string(payload)); err != nil {
 			return enqueued, fmt.Errorf("enqueue notif: %w", err)

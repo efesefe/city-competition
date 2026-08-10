@@ -19,6 +19,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
 	"github.com/city-competition-remastered/backend/internal/engagement"
+	"github.com/city-competition-remastered/backend/internal/erasure"
 	"github.com/city-competition-remastered/backend/internal/feed"
 	"github.com/city-competition-remastered/backend/internal/geo"
 	"github.com/city-competition-remastered/backend/internal/httpserver"
@@ -29,6 +30,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/moderation"
 	"github.com/city-competition-remastered/backend/internal/monetization"
 	"github.com/city-competition-remastered/backend/internal/notifications"
+	"github.com/city-competition-remastered/backend/internal/observability"
 	"github.com/city-competition-remastered/backend/internal/progression"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
 	"github.com/city-competition-remastered/backend/internal/realtime"
@@ -37,6 +39,8 @@ import (
 	"github.com/city-competition-remastered/backend/internal/support"
 	"github.com/city-competition-remastered/backend/internal/tribe"
 	"github.com/city-competition-remastered/backend/internal/user"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -47,7 +51,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := logging.New(cfg.IsProduction())
+	logger := logging.New(observability.ServiceAPI, cfg.IsProduction())
+	metrics := observability.NewMetrics(observability.ServiceAPI)
 	// Keep Turkish casing linked into the binary (catalog 01.10).
 	_ = user.FoldUsername("İstanbul")
 
@@ -75,6 +80,7 @@ func main() {
 	defer pools.Close()
 
 	writeBreaker := db.NewCircuitBreaker(cfg.DBCircuitFailureThreshold, cfg.DBCircuitCooldown)
+	writeBreaker.SetObserver(metrics)
 
 	rdb, err := cache.NewClient(cfg.RedisURL)
 	if err != nil {
@@ -114,6 +120,20 @@ func main() {
 	}
 	consentHandler := &consent.Handler{
 		Store: &consent.PoolStore{Pool: pools.Write},
+		RDB:   rdb,
+	}
+	erasureStore := &erasure.Store{Pool: pools.Write}
+	erasureHandler := &erasure.Handler{Store: erasureStore}
+
+	var paymentsPool *pgxpool.Pool
+	if cfg.PaymentsDatabaseURL != "" {
+		var err error
+		paymentsPool, err = pgxpool.New(ctx, cfg.PaymentsDatabaseURL)
+		if err != nil {
+			logger.Error("payments database pool failed", "error", err)
+			os.Exit(1)
+		}
+		defer paymentsPool.Close()
 	}
 	creditsWallet := &credits.Wallet{Pool: pools.Write}
 	referralSvc := &socialpkg.ReferralService{
@@ -291,6 +311,17 @@ func main() {
 		LeadRateLimit: cfg.LeadThreatenedRateLimit,
 	}
 	go pushWorker.Run(hubCtx)
+	erasureWorker := &erasure.Worker{
+		Store:         erasureStore,
+		RDB:           rdb,
+		Sessions:      sessions,
+		ObjectStorage: erasure.StubObjectStorage{},
+		PaymentsPool:  paymentsPool,
+		Logger:        logging.New(observability.ServiceWorkerErasure, cfg.IsProduction()),
+		Concurrency:   10,
+	}
+	go erasureWorker.Run(hubCtx)
+	metrics.StartPoolCollector(hubCtx, 15*time.Second, pools.Write, pools.Read, rdb)
 	mapHub := realtime.NewHub(rdb, provinceStore, logger)
 	go mapHub.Run(hubCtx)
 	wsHandler := &realtime.Handler{Hub: mapHub, Sessions: sessions}
@@ -306,6 +337,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", httpserver.Health(pools.Write, rdb))
+	mux.Handle("GET /metrics", observability.MetricsHandler())
 	mux.HandleFunc("GET /v1/system/status", httpserver.SystemStatus(writeBreaker))
 	mux.HandleFunc("POST /v1/auth/otp/request", authHandler.RequestOTP)
 	mux.HandleFunc("POST /v1/auth/otp/resend", authHandler.ResendOTP)
@@ -315,6 +347,8 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/social/merge", authHandler.SocialMerge)
 	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Status)))
 	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Grant)))
+	mux.Handle("POST /v1/consent/withdraw", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Withdraw)))
+	mux.Handle("POST /v1/account/erasure-request", auth.RequireSession(sessions, users, http.HandlerFunc(erasureHandler.Request)))
 	mux.Handle("GET /v1/tribes", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.List)))
 	mux.Handle("GET /v1/tribes/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Get)))
 	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Join)))
@@ -393,7 +427,7 @@ func main() {
 	mux.HandleFunc("GET /share/{public_id}", achievementHandler.SharePage)
 	mux.HandleFunc("GET /share/{public_id}/og.png", achievementHandler.OGImage)
 
-	handler := httpserver.CORS(httpserver.RequestID(logger)(mux))
+	handler := httpserver.CORS(observability.Middleware(logger, metrics)(httpserver.RequestID(mux)))
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

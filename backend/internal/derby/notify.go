@@ -10,6 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/city-competition-remastered/backend/internal/cache"
+	"github.com/city-competition-remastered/backend/internal/logging"
 )
 
 const (
@@ -26,6 +27,7 @@ type NotifPayload struct {
 	IlCode       string    `json:"il_code"`
 	HostTribeID  uuid.UUID `json:"host_tribe_id"`
 	GuestTribeID uuid.UUID `json:"guest_tribe_id"`
+	RequestID    string    `json:"request_id,omitempty"`
 }
 
 // Notifier fans out derby notifications to host + guest members via Redis.
@@ -53,6 +55,7 @@ func (n *Notifier) EnqueueToMembers(ctx context.Context, notifType string, d Der
 		if !ok {
 			continue
 		}
+		reqID, _ := logging.RequestIDFromContext(ctx)
 		payload, _ := json.Marshal(NotifPayload{
 			Type:         notifType,
 			UserID:       userID,
@@ -60,6 +63,7 @@ func (n *Notifier) EnqueueToMembers(ctx context.Context, notifType string, d Der
 			IlCode:       d.IlCode,
 			HostTribeID:  d.HostTribeID,
 			GuestTribeID: d.GuestTribeID,
+			RequestID:    reqID,
 		})
 		if err := cache.EnqueueNotif(ctx, n.RDB, string(payload)); err != nil {
 			return enqueued, fmt.Errorf("enqueue notif: %w", err)

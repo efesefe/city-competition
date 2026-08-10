@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,21 +13,23 @@ import (
 	"github.com/city-competition-remastered/payments/internal/db"
 	"github.com/city-competition-remastered/payments/internal/emit"
 	"github.com/city-competition-remastered/payments/internal/httputil"
+	"github.com/city-competition-remastered/payments/internal/logging"
 	"github.com/city-competition-remastered/payments/internal/migrate"
+	"github.com/city-competition-remastered/payments/internal/observability"
 	"github.com/city-competition-remastered/payments/internal/providers"
 	"github.com/city-competition-remastered/payments/internal/webhook"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := logging.New(observability.ServicePayments)
 	cfg, err := config.Load()
 	if err != nil {
-		logger.Error("config", "err", err.Error())
+		logger.Error("config", "error", err.Error())
 		os.Exit(1)
 	}
 	ctx := context.Background()
 	if err := migrate.Up(cfg.DatabaseURL, cfg.MigrationsPath); err != nil {
-		logger.Error("migrate", "err", err.Error())
+		logger.Error("migrate", "error", err.Error())
 		os.Exit(1)
 	}
 	pool, err := db.NewPool(ctx, db.PoolConfig{
@@ -38,10 +39,15 @@ func main() {
 		MaxConnLifetime: cfg.DBMaxConnLifetime,
 	})
 	if err != nil {
-		logger.Error("db", "err", err.Error())
+		logger.Error("db", "error", err.Error())
 		os.Exit(1)
 	}
 	defer pool.Close()
+
+	metrics := observability.NewMetrics()
+	runCtx, runCancel := context.WithCancel(context.Background())
+	defer runCancel()
+	metrics.StartPoolCollector(runCtx, pool)
 
 	registry := providers.Registry{
 		providers.NameIyzico: &providers.Iyzico{
@@ -85,19 +91,20 @@ func main() {
 		}
 		httputil.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "payments"})
 	})
+	mux.Handle("GET /metrics", observability.MetricsHandler())
 	mux.HandleFunc("POST /v1/charges", httputil.RequireInternalToken(cfg.InternalToken, chargeHandler.CreateCharge))
 	mux.HandleFunc("POST /v1/refunds", httputil.RequireInternalToken(cfg.InternalToken, chargeHandler.Refund))
 	mux.Handle("POST /v1/webhooks/{provider}", webhookHandler)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           mux,
+		Handler:           observability.Middleware(logger, metrics)(mux),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
 		logger.Info("payments listening", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("listen", "err", err.Error())
+			logger.Error("listen", "error", err.Error())
 			os.Exit(1)
 		}
 	}()
@@ -105,6 +112,7 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
+	runCancel()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)

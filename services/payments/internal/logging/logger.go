@@ -8,20 +8,13 @@ import (
 
 type ctxKey struct{}
 
-// New creates a slog logger with a stable service attr.
-// JSON in production, text otherwise. Schema: service, level, msg, plus contextual fields.
-func New(service string, production bool) *slog.Logger {
-	var handler slog.Handler
-	opts := &slog.HandlerOptions{Level: slog.LevelInfo}
-	if production {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
-	}
+// New creates a slog logger with service attr (JSON always for payments).
+func New(service string) *slog.Logger {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
 	return slog.New(handler).With(slog.String("service", service))
 }
 
-// WithRequestID returns a child context carrying requestID for log enrichment.
+// WithRequestID returns a child context carrying requestID.
 func WithRequestID(ctx context.Context, requestID string) context.Context {
 	return context.WithValue(ctx, ctxKey{}, requestID)
 }
@@ -32,7 +25,7 @@ func RequestIDFromContext(ctx context.Context) (string, bool) {
 	return v, ok
 }
 
-// FromContext returns a logger with request_id attr when available.
+// FromContext returns a logger with request_id when available.
 func FromContext(ctx context.Context, base *slog.Logger) *slog.Logger {
 	if id, ok := RequestIDFromContext(ctx); ok {
 		return base.With(slog.String("request_id", id))

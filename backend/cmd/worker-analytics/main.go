@@ -37,7 +37,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	log := logging.New(os.Getenv("APP_ENV") == "production")
+	log := logging.New("worker-analytics", os.Getenv("APP_ENV") == "production")
 
 	pool, err := pgxpool.New(ctx, *databaseURL)
 	if err != nil {

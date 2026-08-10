@@ -19,12 +19,18 @@ const (
 	StateHalfOpen State = "half_open"
 )
 
+// BreakerObserver is notified when breaker state changes (Prometheus etc.).
+type BreakerObserver interface {
+	ObserveBreaker(state string, tripped bool)
+}
+
 // CircuitBreaker trips after consecutive write failures and short-circuits
 // further writes during a cooldown, then allows a single half-open trial.
 type CircuitBreaker struct {
 	threshold int
 	cooldown  time.Duration
 	now       func() time.Time
+	observer  BreakerObserver
 
 	mu            sync.Mutex
 	state         State
@@ -49,6 +55,19 @@ func NewCircuitBreaker(threshold int, cooldown time.Duration) *CircuitBreaker {
 	}
 }
 
+// SetObserver attaches a metrics observer (optional).
+func (cb *CircuitBreaker) SetObserver(o BreakerObserver) {
+	if cb == nil {
+		return
+	}
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.observer = o
+	if o != nil {
+		o.ObserveBreaker(string(cb.state), false)
+	}
+}
+
 // SetClock overrides the time source (tests only).
 func (cb *CircuitBreaker) SetClock(now func() time.Time) {
 	if cb == nil || now == nil {
@@ -57,6 +76,12 @@ func (cb *CircuitBreaker) SetClock(now func() time.Time) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.now = now
+}
+
+func (cb *CircuitBreaker) notifyLocked(tripped bool) {
+	if cb.observer != nil {
+		cb.observer.ObserveBreaker(string(cb.state), tripped)
+	}
 }
 
 // Allow returns ErrWritePathDegraded when the breaker is open (before cooldown)
@@ -74,6 +99,7 @@ func (cb *CircuitBreaker) Allow() error {
 		if now.Sub(cb.openedAt) >= cb.cooldown {
 			cb.state = StateHalfOpen
 			cb.halfOpenTrial = true
+			cb.notifyLocked(false)
 			return nil
 		}
 		return ErrWritePathDegraded
@@ -98,6 +124,7 @@ func (cb *CircuitBreaker) RecordSuccess() {
 	cb.failures = 0
 	cb.halfOpenTrial = false
 	cb.state = StateClosed
+	cb.notifyLocked(false)
 }
 
 // RecordFailure increments consecutive failures and opens the breaker at threshold.
@@ -109,10 +136,12 @@ func (cb *CircuitBreaker) RecordFailure() {
 	defer cb.mu.Unlock()
 
 	cb.halfOpenTrial = false
+	prev := cb.state
 	if cb.state == StateHalfOpen {
 		cb.state = StateOpen
 		cb.openedAt = cb.now()
 		cb.failures = cb.threshold
+		cb.notifyLocked(prev != StateOpen)
 		return
 	}
 
@@ -120,7 +149,10 @@ func (cb *CircuitBreaker) RecordFailure() {
 	if cb.failures >= cb.threshold {
 		cb.state = StateOpen
 		cb.openedAt = cb.now()
+		cb.notifyLocked(prev != StateOpen)
+		return
 	}
+	cb.notifyLocked(false)
 }
 
 // State returns the current breaker state (advancing open→half_open when cooldown elapsed).

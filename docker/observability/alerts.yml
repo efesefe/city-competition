@@ -1,0 +1,11 @@
+groups:
+  - name: circuit_breaker
+    rules:
+      - alert: WritePathCircuitBreakerOpen
+        expr: db_circuit_breaker_state == 1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Write-path circuit breaker is open"
+          description: "db_circuit_breaker_state is open (1) for service {{ $labels.service }}. Induce via consecutive write failures; clear after cooldown/half-open success."
