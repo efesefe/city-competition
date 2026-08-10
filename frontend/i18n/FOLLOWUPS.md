@@ -11,5 +11,6 @@
 
 ## Other
 
-- Maplibre Turkish glyph coverage (09.4) and low-end performance mode (09.5) are separate prompts.
+- Maplibre Turkish glyph coverage (09.4): verified — see `frontend/docs/maplibre-turkish-glyphs.md` (OpenFreeMap Liberty / Noto Sans).
+- Low-end performance mode (09.5): implemented via `frontend/lib/performanceMode.ts` + map sidebar toggle.
 - Prefer ICU placeholders in message catalogs over template-literal UI copy when touching remaining screens.

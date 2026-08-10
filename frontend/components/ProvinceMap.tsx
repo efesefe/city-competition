@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import maplibregl from "maplibre-gl";
 import LocaleToggle from "@/components/LocaleToggle";
+import PerfModeToggle from "@/components/PerfModeToggle";
 import {
   fetchProvincesControl,
   fetchProvincesGeoJSON,
@@ -16,10 +17,17 @@ import {
   MapSocketHandle,
   SupportAppliedMessage,
 } from "@/lib/mapSocket";
+import {
+  getChoroplethPerfConfig,
+  getPerformanceModePreference,
+  isPerformanceModeEnabled,
+  type PerformanceModePreference,
+} from "@/lib/performanceMode";
 import { getSessionToken } from "@/lib/session";
 import {
   choroplethFillColor,
   choroplethFillOpacity,
+  choroplethFillOpacityPerf,
   mergeControlIntoGeoJSON,
 } from "./ProvinceChoropleth";
 import styles from "./ProvinceMap.module.css";
@@ -30,6 +38,13 @@ const SOURCE_ID = "provinces";
 const FILL_LAYER_ID = "provinces-fill";
 const LINE_LAYER_ID = "provinces-line";
 const SELECTED_LAYER_ID = "provinces-selected";
+
+/**
+ * Turkish glyph coverage (09.4): default OpenFreeMap Liberty style uses
+ * Noto Sans Regular/Italic/Bold via
+ * https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf — covers
+ * İıĞğŞşÇçÖöÜü. See frontend/docs/maplibre-turkish-glyphs.md.
+ */
 
 type SelectedProvince = ProvinceProperties;
 
@@ -49,6 +64,9 @@ export default function ProvinceMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const socketRef = useRef<MapSocketHandle | null>(null);
   const liveMsgRef = useRef(t);
+  const [perfPref, setPerfPref] = useState<PerformanceModePreference>(() =>
+    typeof window !== "undefined" ? getPerformanceModePreference() : "auto",
+  );
   const [selected, setSelected] = useState<SelectedProvince | null>(null);
   const [credits, setCredits] = useState("10");
   const [busy, setBusy] = useState(false);
@@ -60,19 +78,38 @@ export default function ProvinceMap({
   liveMsgRef.current = t;
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) {
+    if (!containerRef.current) {
       return;
     }
+
+    // Tear down any previous map when preference remounts the effect.
+    if (mapRef.current) {
+      socketRef.current?.close();
+      socketRef.current = null;
+      mapRef.current.remove();
+      mapRef.current = null;
+    }
+
+    setMapReady(false);
 
     const styleURL =
       process.env.NEXT_PUBLIC_MAP_STYLE_URL ??
       "https://tiles.openfreemap.org/styles/liberty";
+
+    const perfEnabled = isPerformanceModeEnabled(perfPref);
+    const perf = getChoroplethPerfConfig(perfEnabled);
+    const fillOpacity = perf.useSteppedOpacity
+      ? choroplethFillOpacityPerf
+      : choroplethFillOpacity;
 
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: styleURL,
       center: TURKIYE_CENTER,
       zoom: DEFAULT_ZOOM,
+      fadeDuration: perf.fadeDuration,
+      antialias: perf.antialias,
+      maxTileCacheSize: perf.maxTileCacheSize,
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
@@ -105,6 +142,7 @@ export default function ProvinceMap({
           map.addSource(SOURCE_ID, {
             type: "geojson",
             data: colored as unknown as maplibregl.GeoJSONSourceSpecification["data"],
+            tolerance: perf.geojsonTolerance,
           });
           map.addLayer({
             id: FILL_LAYER_ID,
@@ -112,7 +150,7 @@ export default function ProvinceMap({
             source: SOURCE_ID,
             paint: {
               "fill-color": choroplethFillColor,
-              "fill-opacity": choroplethFillOpacity,
+              "fill-opacity": fillOpacity,
             },
           });
           map.addLayer({
@@ -121,7 +159,7 @@ export default function ProvinceMap({
             source: SOURCE_ID,
             paint: {
               "line-color": "#1a3d34",
-              "line-width": 1.2,
+              "line-width": perf.lineWidth,
             },
           });
           map.addLayer({
@@ -219,7 +257,7 @@ export default function ProvinceMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [focusIl]);
+  }, [focusIl, perfPref]);
 
   async function onSupport(e: FormEvent) {
     e.preventDefault();
@@ -265,9 +303,11 @@ export default function ProvinceMap({
         aria-label={t("ariaLabel")}
         data-testid="province-map"
         data-map-ready={mapReady ? "true" : "false"}
+        data-perf-mode={isPerformanceModeEnabled(perfPref) ? "on" : "off"}
       />
       <aside className={styles.panel} aria-live="polite">
         <LocaleToggle />
+        <PerfModeToggle value={perfPref} onChange={setPerfPref} />
         <p className={styles.brand}>{tCommon("brand")}</p>
         <h1 className={styles.title}>{t("title")}</h1>
         <p className={styles.lead}>{t("lead")}</p>

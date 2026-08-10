@@ -13,7 +13,13 @@
     "supporting": "Supporting…",
     "hint": "Select a province to spend credits.",
     "supported": "Supported {province} with {credits} credits (balance {balance}).",
-    "liveSupport": "Live: +{delta} support on {ilCode} (tribe {tribeId}…)"
+    "liveSupport": "Live: +{delta} support on {ilCode} (tribe {tribeId}…)",
+    "perfModeLabel": "Performance mode",
+    "perfMode": {
+      "auto": "Auto",
+      "on": "Perf on",
+      "off": "Perf off"
+    }
   },
   "auth": {
     "registerTitle": "Sign up",

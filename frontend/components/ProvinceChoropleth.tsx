@@ -24,6 +24,19 @@ export const choroplethFillOpacity: ExpressionSpecification = [
   0.72,
 ];
 
+/** Stepped opacity for low-end devices (cheaper than linear interpolate). */
+export const choroplethFillOpacityPerf: ExpressionSpecification = [
+  "step",
+  ["coalesce", ["get", "control_pct"], 0],
+  0.12,
+  25,
+  0.28,
+  50,
+  0.45,
+  75,
+  0.62,
+];
+
 /**
  * Merges leading-tribe control into GeoJSON feature properties for MapLibre paint.
  */

@@ -13,7 +13,13 @@
     "supporting": "Destekleniyor…",
     "hint": "Kredi harcamak için bir il seç.",
     "supported": "{province} için {credits} kredi harcandı (bakiye {balance}).",
-    "liveSupport": "Canlı: {ilCode} üzerinde +{delta} destek (kabile {tribeId}…)"
+    "liveSupport": "Canlı: {ilCode} üzerinde +{delta} destek (kabile {tribeId}…)",
+    "perfModeLabel": "Performans modu",
+    "perfMode": {
+      "auto": "Otomatik",
+      "on": "Açık",
+      "off": "Kapalı"
+    }
   },
   "auth": {
     "registerTitle": "Kayıt ol",
