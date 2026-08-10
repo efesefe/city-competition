@@ -39,7 +39,7 @@ func TestRateLimit_Returns429WithRetryAfter(t *testing.T) {
 	okHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
-	h := auth.RequireSession(sessions, middleware.RateLimit(
+	h := auth.RequireSession(sessions, nil, middleware.RateLimit(
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
 		bucket,
 		ratelimit.GroupCreditWrite,

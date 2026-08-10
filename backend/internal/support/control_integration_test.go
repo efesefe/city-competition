@@ -122,7 +122,7 @@ func TestListControl_AfterRefresh_IncludesIl(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, http.HandlerFunc(h.Control)))
+	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Control)))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/provinces/control", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

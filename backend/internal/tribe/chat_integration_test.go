@@ -188,7 +188,7 @@ func TestTribeChat_RestrictedRejectedPreWrite(t *testing.T) {
 	users := poolUsers{pool: pool}
 	mux := http.NewServeMux()
 	mux.Handle("POST /v1/tribes/{id}/messages",
-		auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(h.CreateTribeMessage))))
+		auth.RequireSession(sessions, nil, auth.RequireNotRestricted(users, http.HandlerFunc(h.CreateTribeMessage))))
 
 	body, _ := json.Marshal(map[string]string{"body": "selam kabile"})
 	req := httptest.NewRequest(http.MethodPost, "/v1/tribes/"+tribeID.String()+"/messages", bytes.NewReader(body))

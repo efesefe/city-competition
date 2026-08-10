@@ -212,7 +212,7 @@ func TestRestrictedUser_PresentInRedis_AbsentFromPublicAPI(t *testing.T) {
 		Profiles: &leaderboard.PoolProfiles{Pool: pool},
 	}
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, http.HandlerFunc(h.Global)))
+	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Global)))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/leaderboards/global?limit=50", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -357,7 +357,7 @@ func TestProvinceStandings_UsesControlCache(t *testing.T) {
 		Control: &support.ControlCache{RDB: rdb, Pool: pool},
 	}
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, http.HandlerFunc(h.ProvinceStandings)))
+	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, nil, http.HandlerFunc(h.ProvinceStandings)))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/provinces/35/standings", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

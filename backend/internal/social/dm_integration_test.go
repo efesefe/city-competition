@@ -164,7 +164,7 @@ func TestCreateDM_HTTP(t *testing.T) {
 		Broadcaster: fail,
 	}
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/dms", auth.RequireSession(sessions, http.HandlerFunc(h.CreateDM)))
+	mux.Handle("POST /v1/dms", auth.RequireSession(sessions, nil, http.HandlerFunc(h.CreateDM)))
 
 	token, err := sessions.Create(context.Background(), from)
 	if err != nil {

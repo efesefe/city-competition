@@ -24,6 +24,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/logging"
 	"github.com/city-competition-remastered/backend/internal/middleware"
 	"github.com/city-competition-remastered/backend/internal/migrate"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 	"github.com/city-competition-remastered/backend/internal/notifications"
 	"github.com/city-competition-remastered/backend/internal/progression"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
@@ -136,12 +137,14 @@ func main() {
 		Cooldown:    cfg.TribeSwitchCooldown,
 		Broadcaster: cache.RedisBroadcaster{Client: rdb},
 	}
+	spendAnomaly := &moderation.SpendAnomalyDetector{Pool: pools.Write}
 	creditsHandler := &credits.Handler{
 		Wallet:       creditsWallet,
 		Breaker:      writeBreaker,
 		StubEnabled:  cfg.CreditsStubEnabled,
 		StubAmount:   cfg.CreditsStubGrantAmount,
 		IsProduction: cfg.IsProduction(),
+		SpendAnomaly: spendAnomaly,
 	}
 	provinceStore := &geo.Store{Pool: pools.Read}
 	geoHandler := &geo.Handler{Store: provinceStore}
@@ -171,6 +174,7 @@ func main() {
 		Engagement:   engagementHooks,
 		Achievements: achievementStore,
 		Breaker:      writeBreaker,
+		SpendAnomaly: spendAnomaly,
 		OnSupportApplied: func(ctx context.Context, ev support.SupportAppliedEvent) {
 			lbUpdater.OnSupportApplied(ctx, ev)
 			progEngine.OnSupportApplied(ctx, ev)
@@ -202,7 +206,8 @@ func main() {
 		},
 	}
 	auditWriter := &admin.PoolWriter{Pool: pools.Write}
-	moderationHandler := &admin.Handler{Pool: pools.Write}
+	moderationActions := &moderation.Actions{Pool: pools.Write}
+	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions}
 	derbyHandler := &derby.Handler{Service: derbyService, Audit: auditWriter}
 	lbHandler := &leaderboard.Handler{
 		Store:    lbStore,
@@ -255,64 +260,67 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/register", authHandler.Register)
 	mux.HandleFunc("POST /v1/auth/social/login", authHandler.SocialLogin)
 	mux.HandleFunc("POST /v1/auth/social/merge", authHandler.SocialMerge)
-	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, http.HandlerFunc(consentHandler.Status)))
-	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, http.HandlerFunc(consentHandler.Grant)))
-	mux.Handle("GET /v1/tribes", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.List)))
-	mux.Handle("GET /v1/tribes/{id}", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.Get)))
-	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.Join)))
-	mux.Handle("POST /v1/tribes/{id}/switch", auth.RequireSession(sessions, http.HandlerFunc(tribeHandler.Switch)))
-	mux.Handle("POST /v1/tribes/{id}/messages", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateTribeMessage))))
-	mux.Handle("POST /v1/admin/tribes", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Create))))
-	mux.Handle("PATCH /v1/admin/tribes/{id}", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Patch))))
-	mux.Handle("POST /v1/admin/derbies", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.Create))))
-	mux.Handle("POST /v1/admin/derbies/{id}/force-resolve", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.ForceResolve))))
-	mux.Handle("GET /v1/admin/moderation/reports", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListReports))))
-	mux.Handle("GET /v1/admin/moderation/flags", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListFlags))))
-	mux.Handle("POST /v1/admin/moderation/reports/{id}/review", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewReport))))
-	mux.Handle("POST /v1/admin/moderation/reports/{id}/dismiss", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissReport))))
-	mux.Handle("POST /v1/admin/moderation/flags/{id}/review", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewFlag))))
-	mux.Handle("POST /v1/admin/moderation/flags/{id}/dismiss", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissFlag))))
-	mux.Handle("GET /v1/derbies", auth.RequireSession(sessions, http.HandlerFunc(derbyHandler.List)))
-	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, http.HandlerFunc(derbyHandler.Get)))
-	mux.Handle("GET /v1/credits/balance", auth.RequireSession(sessions, http.HandlerFunc(creditsHandler.Balance)))
-	mux.Handle("POST /v1/credits/stub-grant", auth.RequireSession(sessions, creditWriteLimit(http.HandlerFunc(creditsHandler.StubGrant))))
-	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, http.HandlerFunc(geoHandler.GeoJSON)))
-	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, http.HandlerFunc(supportHandler.Control)))
-	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.ProvinceStandings)))
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, supportSpendLimit(http.HandlerFunc(supportHandler.Create))))
-	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, http.HandlerFunc(supportHandler.ListMine)))
-	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Global)))
-	mux.Handle("GET /v1/leaderboards/tribes/{tribe_id}", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Tribe)))
-	mux.Handle("GET /v1/leaderboards/provinces/{il_code}", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Province)))
-	mux.Handle("GET /v1/leaderboards/derbies/{derby_id}", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.DerbySupporters)))
-	mux.Handle("GET /v1/leaderboards/me", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Me)))
-	mux.Handle("GET /v1/derbies/{id}/standings", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.DerbyStandings)))
+	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Status)))
+	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Grant)))
+	mux.Handle("GET /v1/tribes", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.List)))
+	mux.Handle("GET /v1/tribes/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Get)))
+	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Join)))
+	mux.Handle("POST /v1/tribes/{id}/switch", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Switch)))
+	mux.Handle("POST /v1/tribes/{id}/messages", auth.RequireSession(sessions, users, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateTribeMessage))))
+	mux.Handle("POST /v1/admin/tribes", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Create))))
+	mux.Handle("PATCH /v1/admin/tribes/{id}", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(tribeHandler.Patch))))
+	mux.Handle("POST /v1/admin/derbies", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.Create))))
+	mux.Handle("POST /v1/admin/derbies/{id}/force-resolve", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(derbyHandler.ForceResolve))))
+	mux.Handle("GET /v1/admin/moderation/reports", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListReports))))
+	mux.Handle("GET /v1/admin/moderation/flags", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ListFlags))))
+	mux.Handle("POST /v1/admin/moderation/reports/{id}/review", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewReport))))
+	mux.Handle("POST /v1/admin/moderation/reports/{id}/dismiss", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissReport))))
+	mux.Handle("POST /v1/admin/moderation/flags/{id}/review", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ReviewFlag))))
+	mux.Handle("POST /v1/admin/moderation/flags/{id}/dismiss", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.DismissFlag))))
+	mux.Handle("POST /v1/admin/users/{id}/ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.BanUser))))
+	mux.Handle("POST /v1/admin/users/{id}/shadow-ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ShadowBanUser))))
+	mux.Handle("POST /v1/admin/users/{id}/unban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.UnbanUser))))
+	mux.Handle("GET /v1/derbies", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.List)))
+	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.Get)))
+	mux.Handle("GET /v1/credits/balance", auth.RequireSession(sessions, users, http.HandlerFunc(creditsHandler.Balance)))
+	mux.Handle("POST /v1/credits/stub-grant", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(creditsHandler.StubGrant))))
+	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, users, http.HandlerFunc(geoHandler.GeoJSON)))
+	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.Control)))
+	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.ProvinceStandings)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, users, supportSpendLimit(http.HandlerFunc(supportHandler.Create))))
+	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.ListMine)))
+	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Global)))
+	mux.Handle("GET /v1/leaderboards/tribes/{tribe_id}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Tribe)))
+	mux.Handle("GET /v1/leaderboards/provinces/{il_code}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Province)))
+	mux.Handle("GET /v1/leaderboards/derbies/{derby_id}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.DerbySupporters)))
+	mux.Handle("GET /v1/leaderboards/me", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Me)))
+	mux.Handle("GET /v1/derbies/{id}/standings", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.DerbyStandings)))
 	mux.HandleFunc("GET /v1/ws/map", wsHandler.ServeWS)
-	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateClanChat))))
+	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, users, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateClanChat))))
 
-	mux.Handle("POST /v1/dms", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateDM)))
-	mux.Handle("POST /v1/friends/requests", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateFriendRequest)))
-	mux.Handle("GET /v1/friends/requests", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListFriendRequests)))
-	mux.Handle("POST /v1/friends/requests/{id}/accept", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.AcceptFriendRequest)))
-	mux.Handle("POST /v1/friends/requests/{id}/reject", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.RejectFriendRequest)))
-	mux.Handle("DELETE /v1/friends/requests/{id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CancelFriendRequest)))
-	mux.Handle("GET /v1/friends", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListFriends)))
-	mux.Handle("DELETE /v1/friends/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.Unfriend)))
-	mux.Handle("POST /v1/blocks", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateBlock)))
-	mux.Handle("GET /v1/blocks", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListBlocks)))
-	mux.Handle("DELETE /v1/blocks/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteBlock)))
-	mux.Handle("POST /v1/mutes", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateMute)))
-	mux.Handle("GET /v1/mutes", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.ListMutes)))
-	mux.Handle("DELETE /v1/mutes/{user_id}", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteMute)))
-	mux.Handle("POST /v1/reports", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.CreateReport)))
-	mux.Handle("PUT /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.PutReaction)))
-	mux.Handle("DELETE /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.DeleteReaction)))
-	mux.Handle("GET /v1/me/referral", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.GetReferral)))
-	mux.Handle("POST /v1/referrals/redeem", auth.RequireSession(sessions, http.HandlerFunc(socialHandler.RedeemReferral)))
-	mux.Handle("PUT /v1/me/push-tokens", auth.RequireSession(sessions, http.HandlerFunc(pushHandler.PutPushToken)))
-	mux.Handle("DELETE /v1/me/push-tokens", auth.RequireSession(sessions, http.HandlerFunc(pushHandler.DeletePushToken)))
+	mux.Handle("POST /v1/dms", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CreateDM)))
+	mux.Handle("POST /v1/friends/requests", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CreateFriendRequest)))
+	mux.Handle("GET /v1/friends/requests", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.ListFriendRequests)))
+	mux.Handle("POST /v1/friends/requests/{id}/accept", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.AcceptFriendRequest)))
+	mux.Handle("POST /v1/friends/requests/{id}/reject", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.RejectFriendRequest)))
+	mux.Handle("DELETE /v1/friends/requests/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CancelFriendRequest)))
+	mux.Handle("GET /v1/friends", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.ListFriends)))
+	mux.Handle("DELETE /v1/friends/{user_id}", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.Unfriend)))
+	mux.Handle("POST /v1/blocks", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CreateBlock)))
+	mux.Handle("GET /v1/blocks", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.ListBlocks)))
+	mux.Handle("DELETE /v1/blocks/{user_id}", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.DeleteBlock)))
+	mux.Handle("POST /v1/mutes", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CreateMute)))
+	mux.Handle("GET /v1/mutes", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.ListMutes)))
+	mux.Handle("DELETE /v1/mutes/{user_id}", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.DeleteMute)))
+	mux.Handle("POST /v1/reports", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.CreateReport)))
+	mux.Handle("PUT /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.PutReaction)))
+	mux.Handle("DELETE /v1/feed/events/{id}/reactions", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.DeleteReaction)))
+	mux.Handle("GET /v1/me/referral", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.GetReferral)))
+	mux.Handle("POST /v1/referrals/redeem", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.RedeemReferral)))
+	mux.Handle("PUT /v1/me/push-tokens", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.PutPushToken)))
+	mux.Handle("DELETE /v1/me/push-tokens", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.DeletePushToken)))
 	mux.HandleFunc("GET /v1/achievements/{public_id}", achievementHandler.GetPublic)
-	mux.Handle("GET /v1/me/achievements", auth.RequireSession(sessions, http.HandlerFunc(achievementHandler.ListMine)))
+	mux.Handle("GET /v1/me/achievements", auth.RequireSession(sessions, users, http.HandlerFunc(achievementHandler.ListMine)))
 	mux.HandleFunc("GET /share/{public_id}", achievementHandler.SharePage)
 	mux.HandleFunc("GET /share/{public_id}/og.png", achievementHandler.OGImage)
 

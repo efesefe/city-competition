@@ -7,6 +7,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/db"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 )
 
 // Handler exposes credit balance and (dev-only) stub-grant endpoints.
@@ -16,6 +17,7 @@ type Handler struct {
 	StubEnabled  bool
 	StubAmount   int64
 	IsProduction bool
+	SpendAnomaly *moderation.SpendAnomalyDetector
 }
 
 type errorBody struct {
@@ -91,6 +93,9 @@ func (h *Handler) StubGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.Breaker.RecordSuccess()
+	if h.SpendAnomaly != nil {
+		_ = h.SpendAnomaly.CheckAfterGrant(r.Context(), userID)
+	}
 	writeJSON(w, http.StatusOK, balanceResponse{Balance: balanceAfter})
 }
 

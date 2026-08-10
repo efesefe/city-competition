@@ -9,12 +9,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 )
 
 // UserProfile is the public display row for a leaderboard member.
 type UserProfile struct {
 	Username       string
 	RestrictedMode bool
+	Status         string
 }
 
 // ProfileLookup loads username + restricted_mode for user IDs.
@@ -34,7 +36,7 @@ func (p *PoolProfiles) Profiles(ctx context.Context, ids []uuid.UUID) (map[uuid.
 		return out, nil
 	}
 	rows, err := p.Pool.Query(ctx, `
-		SELECT id, username, restricted_mode
+		SELECT id, username, restricted_mode, status
 		FROM users
 		WHERE id = ANY($1)
 	`, ids)
@@ -45,7 +47,7 @@ func (p *PoolProfiles) Profiles(ctx context.Context, ids []uuid.UUID) (map[uuid.
 	for rows.Next() {
 		var id uuid.UUID
 		var profile UserProfile
-		if err := rows.Scan(&id, &profile.Username, &profile.RestrictedMode); err != nil {
+		if err := rows.Scan(&id, &profile.Username, &profile.RestrictedMode, &profile.Status); err != nil {
 			return nil, err
 		}
 		out[id] = profile
@@ -54,10 +56,18 @@ func (p *PoolProfiles) Profiles(ctx context.Context, ids []uuid.UUID) (map[uuid.
 }
 
 // PublicVisible reports whether a profile may appear on public boards.
-// Uses auth.LeaderboardExcludeRestrictedSQL semantics (restricted_mode = false).
+// Excludes age-gate restricted_mode and shadow_banned / banned accounts.
 func PublicVisible(p UserProfile) bool {
 	_ = auth.LeaderboardExcludeRestrictedSQL
-	return !p.RestrictedMode
+	if p.RestrictedMode {
+		return false
+	}
+	switch p.Status {
+	case moderation.StatusShadowBanned, moderation.StatusBanned:
+		return false
+	default:
+		return true
+	}
 }
 
 func parseUserIDs(members []string) []uuid.UUID {

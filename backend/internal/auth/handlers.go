@@ -82,6 +82,18 @@ func (s *PoolUserStore) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, er
 	return admin, err
 }
 
+// Status returns users.status (active / banned / shadow_banned).
+func (s *PoolUserStore) Status(ctx context.Context, userID uuid.UUID) (string, error) {
+	var status string
+	err := s.Pool.QueryRow(ctx,
+		`SELECT status FROM users WHERE id = $1`, userID,
+	).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrUnauthorized
+	}
+	return status, err
+}
+
 // FindByEmail looks up a user by case-insensitive email.
 func (s *PoolUserStore) FindByEmail(ctx context.Context, email string) (MatchUser, bool, error) {
 	var u MatchUser

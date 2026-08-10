@@ -18,6 +18,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
 	"github.com/city-competition-remastered/backend/internal/engagement"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 	"github.com/city-competition-remastered/backend/internal/share"
 )
 
@@ -52,6 +53,8 @@ type Service struct {
 	OnSupportApplied func(ctx context.Context, ev SupportAppliedEvent)
 	// OnStreakUpdated is invoked after a successful spend with the streak snapshot (best-effort).
 	OnStreakUpdated func(ctx context.Context, ev StreakUpdatedEvent)
+	// SpendAnomaly is invoked after a real (non-inert) support commit (best-effort).
+	SpendAnomaly *moderation.SpendAnomalyDetector
 }
 
 // StreakUpdatedEvent is passed to OnStreakUpdated after support spend commits.
@@ -127,9 +130,10 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 	}
 
 	var tribeID *uuid.UUID
+	var userStatus string
 	if err := s.Pool.QueryRow(ctx, `
-		SELECT tribe_id FROM users WHERE id = $1
-	`, userID).Scan(&tribeID); err != nil {
+		SELECT tribe_id, status FROM users WHERE id = $1
+	`, userID).Scan(&tribeID, &userStatus); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrTribeRequired
 		}
@@ -148,6 +152,24 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 	}
 	effective := float64(creditsSpent) * multiplier
 	supportID := uuid.New()
+
+	// Shadow-ban inert path (08.4): success-shaped response, no ledger debit,
+	// no supports row, no tribe_province_scores / leaderboard / pubsub side effects.
+	if userStatus == moderation.StatusShadowBanned {
+		balanceAfter, err := s.Wallet.GetBalance(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		return &Result{
+			SupportID:        supportID,
+			IlCode:           ilCode,
+			CreditsSpent:     creditsSpent,
+			Multiplier:       multiplier,
+			EffectiveSupport: effective,
+			TribeID:          *tribeID,
+			BalanceAfter:     balanceAfter,
+		}, nil
+	}
 
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -239,6 +261,9 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 	_, _ = s.Engagement.MaybeLeadThreatened(ctx, ilCode, *tribeID, effective)
 	_ = share.MaybeFirstSupport(ctx, s.Achievements, userID, ilCode)
 	_ = share.MaybeStreakAchievements(ctx, s.Achievements, userID, streak.CurrentStreak, nil)
+	if s.SpendAnomaly != nil {
+		_ = s.SpendAnomaly.CheckAfterSupport(ctx, userID)
+	}
 
 	return &Result{
 		SupportID:        supportID,

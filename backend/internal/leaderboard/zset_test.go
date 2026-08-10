@@ -32,11 +32,17 @@ func TestScopeKeys(t *testing.T) {
 }
 
 func TestPublicVisible(t *testing.T) {
-	if !PublicVisible(UserProfile{RestrictedMode: false}) {
+	if !PublicVisible(UserProfile{RestrictedMode: false, Status: "active"}) {
 		t.Fatal("expected non-restricted visible")
 	}
-	if PublicVisible(UserProfile{RestrictedMode: true}) {
+	if PublicVisible(UserProfile{RestrictedMode: true, Status: "active"}) {
 		t.Fatal("expected restricted hidden")
+	}
+	if PublicVisible(UserProfile{RestrictedMode: false, Status: "shadow_banned"}) {
+		t.Fatal("expected shadow_banned hidden")
+	}
+	if PublicVisible(UserProfile{RestrictedMode: false, Status: "banned"}) {
+		t.Fatal("expected banned hidden")
 	}
 }
 

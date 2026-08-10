@@ -52,7 +52,7 @@ func TestCreate_InvalidIlCode_Returns400(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Create)))
 
 	body, _ := json.Marshal(map[string]any{"il_code": "99", "credits": 5})
 	req := httptest.NewRequest(http.MethodPost, "/v1/support", bytes.NewReader(body))
@@ -81,7 +81,7 @@ func TestCreate_InvalidCredits_Returns400(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Create)))
 
 	body, _ := json.Marshal(map[string]any{"il_code": "34", "credits": 0})
 	req := httptest.NewRequest(http.MethodPost, "/v1/support", bytes.NewReader(body))
@@ -112,7 +112,7 @@ func TestCreate_WritePathDegraded_Returns503(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Create)))
 
 	body, _ := json.Marshal(map[string]any{"il_code": "34", "credits": 5})
 	req := httptest.NewRequest(http.MethodPost, "/v1/support", bytes.NewReader(body))

@@ -143,7 +143,7 @@ func TestGrantOutdatedVersion_Returns409(t *testing.T) {
 	h := &consent.Handler{Store: store}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, http.HandlerFunc(h.Grant)))
+	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Grant)))
 
 	body := []byte(`{"consent_type":"aydinlatma_metni","consent_version":"v0-stale"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/consent/grant", bytes.NewReader(body))
@@ -206,7 +206,7 @@ func TestRequireSession_MissingBearer_Returns401(t *testing.T) {
 	h := &consent.Handler{Store: store}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, http.HandlerFunc(h.Status)))
+	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Status)))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/consent/status", nil)
 	rec := httptest.NewRecorder()
@@ -228,7 +228,7 @@ func TestRequireSession_InvalidBearer_Returns401(t *testing.T) {
 	h := &consent.Handler{Store: store}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, http.HandlerFunc(h.Status)))
+	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Status)))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/consent/status", nil)
 	req.Header.Set("Authorization", "Bearer not-a-real-token")
@@ -246,7 +246,7 @@ func TestGrantValidVersion_InsertsEvent(t *testing.T) {
 	h := &consent.Handler{Store: store}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, http.HandlerFunc(h.Grant)))
+	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Grant)))
 
 	body := []byte(`{"consent_type":"aydinlatma_metni","consent_version":"v1"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/consent/grant", bytes.NewReader(body))

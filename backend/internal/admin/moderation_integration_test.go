@@ -78,12 +78,12 @@ func newModerationMux(t *testing.T, pool *pgxpool.Pool) (*http.ServeMux, *auth.S
 	h := &admin.Handler{Pool: pool}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/admin/moderation/reports", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.ListReports))))
-	mux.Handle("GET /v1/admin/moderation/flags", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.ListFlags))))
-	mux.Handle("POST /v1/admin/moderation/reports/{id}/review", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.ReviewReport))))
-	mux.Handle("POST /v1/admin/moderation/reports/{id}/dismiss", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.DismissReport))))
-	mux.Handle("POST /v1/admin/moderation/flags/{id}/review", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.ReviewFlag))))
-	mux.Handle("POST /v1/admin/moderation/flags/{id}/dismiss", auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.DismissFlag))))
+	mux.Handle("GET /v1/admin/moderation/reports", auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.ListReports))))
+	mux.Handle("GET /v1/admin/moderation/flags", auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.ListFlags))))
+	mux.Handle("POST /v1/admin/moderation/reports/{id}/review", auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.ReviewReport))))
+	mux.Handle("POST /v1/admin/moderation/reports/{id}/dismiss", auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.DismissReport))))
+	mux.Handle("POST /v1/admin/moderation/flags/{id}/review", auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.ReviewFlag))))
+	mux.Handle("POST /v1/admin/moderation/flags/{id}/dismiss", auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.DismissFlag))))
 	return mux, sessions
 }
 
@@ -290,7 +290,7 @@ func TestForceResolve_WritesAuditLog(t *testing.T) {
 	h := &derby.Handler{Service: svc, Audit: &admin.PoolWriter{Pool: pool}}
 	mux := http.NewServeMux()
 	mux.Handle("POST /v1/admin/derbies/{id}/force-resolve",
-		auth.RequireSession(sessions, auth.RequireAdmin(users, http.HandlerFunc(h.ForceResolve))))
+		auth.RequireSession(sessions, nil, auth.RequireAdmin(users, http.HandlerFunc(h.ForceResolve))))
 
 	req := authReq(http.MethodPost, "/v1/admin/derbies/"+d.ID.String()+"/force-resolve", token, nil)
 	rec := httptest.NewRecorder()

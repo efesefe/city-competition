@@ -190,7 +190,7 @@ func TestRestrictedModeClanChatForbidden(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(auth.ClanChatStub))))
+	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, nil, auth.RequireNotRestricted(users, http.HandlerFunc(auth.ClanChatStub))))
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/clan/chat", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
@@ -229,7 +229,7 @@ func TestRestrictedModeClanChatAllowedForAdult(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(auth.ClanChatStub))))
+	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, nil, auth.RequireNotRestricted(users, http.HandlerFunc(auth.ClanChatStub))))
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/clan/chat", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

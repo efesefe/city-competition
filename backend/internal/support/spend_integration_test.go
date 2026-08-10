@@ -135,7 +135,7 @@ func TestSupport_WithoutTribe_Returns409(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Create)))
 
 	body, _ := json.Marshal(map[string]any{"il_code": "34", "credits": 5})
 	req := httptest.NewRequest(http.MethodPost, "/v1/support", bytes.NewReader(body))
@@ -165,7 +165,7 @@ func TestSupport_InsufficientCredits_Returns402_NoRows(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Create)))
 
 	body, _ := json.Marshal(map[string]any{"il_code": "34", "credits": 5})
 	req := httptest.NewRequest(http.MethodPost, "/v1/support", bytes.NewReader(body))
@@ -215,7 +215,7 @@ func TestSupport_Success_DecrementsBalance_AndIncrementsScores(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/support", auth.RequireSession(sessions, http.HandlerFunc(h.Create)))
+	mux.Handle("POST /v1/support", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Create)))
 
 	const spend int64 = 25
 	body, _ := json.Marshal(map[string]any{"il_code": "06", "credits": spend})

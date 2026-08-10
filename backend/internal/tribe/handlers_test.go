@@ -277,7 +277,7 @@ func TestAdminCreate_NonAdminForbidden(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.Handle("POST /v1/admin/tribes",
-		auth.RequireSession(sessions, auth.RequireAdmin(&memAdminLookup{store}, http.HandlerFunc(h.Create))))
+		auth.RequireSession(sessions, nil, auth.RequireAdmin(&memAdminLookup{store}, http.HandlerFunc(h.Create))))
 
 	body := []byte(`{"slug":"x","display_name":"X","short_name":"X","primary_color":"#111111","secondary_color":"#222222"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/admin/tribes", bytes.NewReader(body))
@@ -303,7 +303,7 @@ func TestJoin_IdempotentSameTribe_RejectDifferent(t *testing.T) {
 	h := &tribe.Handler{Store: store, Cooldown: time.Hour}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, http.HandlerFunc(h.Join)))
+	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Join)))
 
 	join := func(id uuid.UUID) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(http.MethodPost, "/v1/tribes/"+id.String()+"/join", nil)
@@ -350,8 +350,8 @@ func TestSwitch_CooldownThenSuccess(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, http.HandlerFunc(h.Join)))
-	mux.Handle("POST /v1/tribes/{id}/switch", auth.RequireSession(sessions, http.HandlerFunc(h.Switch)))
+	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Join)))
+	mux.Handle("POST /v1/tribes/{id}/switch", auth.RequireSession(sessions, nil, http.HandlerFunc(h.Switch)))
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/tribes/"+a.ID.String()+"/join", nil)
 	req.Header.Set("Authorization", "Bearer "+token)

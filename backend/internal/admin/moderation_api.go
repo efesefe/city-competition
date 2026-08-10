@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
+	"github.com/city-competition-remastered/backend/internal/moderation"
 )
 
 var (
@@ -23,7 +24,8 @@ var (
 
 // Handler serves admin moderation queue APIs.
 type Handler struct {
-	Pool *pgxpool.Pool
+	Pool    *pgxpool.Pool
+	Actions *moderation.Actions
 }
 
 type errorBody struct {
@@ -136,6 +138,59 @@ func (h *Handler) ReviewFlag(w http.ResponseWriter, r *http.Request) {
 // DismissFlag handles POST /v1/admin/moderation/flags/{id}/dismiss.
 func (h *Handler) DismissFlag(w http.ResponseWriter, r *http.Request) {
 	h.resolveFlag(w, r, "dismissed", ActionFlagDismissed)
+}
+
+// BanUser handles POST /v1/admin/users/{id}/ban.
+func (h *Handler) BanUser(w http.ResponseWriter, r *http.Request) {
+	if h.Actions == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	h.setUserStatus(w, r, h.Actions.Ban, moderation.StatusBanned)
+}
+
+// ShadowBanUser handles POST /v1/admin/users/{id}/shadow-ban.
+func (h *Handler) ShadowBanUser(w http.ResponseWriter, r *http.Request) {
+	if h.Actions == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	h.setUserStatus(w, r, h.Actions.ShadowBan, moderation.StatusShadowBanned)
+}
+
+// UnbanUser handles POST /v1/admin/users/{id}/unban.
+func (h *Handler) UnbanUser(w http.ResponseWriter, r *http.Request) {
+	if h.Actions == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	h.setUserStatus(w, r, h.Actions.Unban, moderation.StatusActive)
+}
+
+func (h *Handler) setUserStatus(w http.ResponseWriter, r *http.Request, fn func(context.Context, uuid.UUID, uuid.UUID) error, status string) {
+	actorID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "error_invalid_id")
+		return
+	}
+	if err := fn(r.Context(), actorID, id); err != nil {
+		switch {
+		case errors.Is(err, moderation.ErrUserNotFound):
+			writeErr(w, http.StatusNotFound, moderation.ErrUserNotFound.Error())
+		default:
+			writeErr(w, http.StatusInternalServerError, "error_internal")
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id": id,
+		"status":  status,
+	})
 }
 
 func (h *Handler) resolveReport(w http.ResponseWriter, r *http.Request, newStatus, action string) {

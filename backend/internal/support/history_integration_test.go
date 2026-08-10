@@ -49,7 +49,7 @@ func TestListMine_IgnoresClientUserID_CannotFetchOtherUser(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, http.HandlerFunc(h.ListMine)))
+	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, nil, http.HandlerFunc(h.ListMine)))
 
 	// Tamper with user_id=B while authenticated as A — must still only return A's rows.
 	req := httptest.NewRequest(
@@ -102,7 +102,7 @@ func TestListMine_NewestFirst_Paginated(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, http.HandlerFunc(h.ListMine)))
+	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, nil, http.HandlerFunc(h.ListMine)))
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/me/supports?limit=1&offset=0", nil)
 	req.Header.Set("Authorization", "Bearer "+token)
