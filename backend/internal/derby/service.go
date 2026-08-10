@@ -2,6 +2,7 @@ package derby
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/db"
 )
 
@@ -29,6 +31,18 @@ type Service struct {
 	ScoreTTL  time.Duration
 	Logger    *slog.Logger
 	Now       func() time.Time
+	// OnDerbyResolved is invoked after successful resolve + Pub/Sub (best-effort).
+	OnDerbyResolved func(ctx context.Context, ev ResolvedEvent)
+}
+
+// ResolvedEvent is published on derby_resolved:{derby_id} and passed to OnDerbyResolved.
+type ResolvedEvent struct {
+	DerbyID      uuid.UUID `json:"derby_id"`
+	HostTotal    float64   `json:"host_total"`
+	GuestTotal   float64   `json:"guest_total"`
+	IlCode       string    `json:"il_code"`
+	HostTribeID  uuid.UUID `json:"host_tribe_id"`
+	GuestTribeID uuid.UUID `json:"guest_tribe_id"`
 }
 
 func (s *Service) now() time.Time {
@@ -191,6 +205,25 @@ func (s *Service) Resolve(ctx context.Context, id uuid.UUID) (Derby, error) {
 	}
 	if err := InvalidateActiveByIl(ctx, s.RDB, resolved.IlCode); err != nil {
 		s.log().Error("derby by-il cache invalidate failed", "derby_id", id, "error", err)
+	}
+
+	ev := ResolvedEvent{
+		DerbyID:      resolved.ID,
+		HostTotal:    resolved.HostEffectiveTotal,
+		GuestTotal:   resolved.GuestEffectiveTotal,
+		IlCode:       resolved.IlCode,
+		HostTribeID:  resolved.HostTribeID,
+		GuestTribeID: resolved.GuestTribeID,
+	}
+	if s.RDB != nil {
+		payload, _ := json.Marshal(ev)
+		channel := fmt.Sprintf("derby_resolved:%s", resolved.ID.String())
+		if err := cache.Publish(ctx, s.RDB, channel, string(payload)); err != nil {
+			s.log().Error("derby_resolved publish failed", "derby_id", resolved.ID, "error", err)
+		}
+	}
+	if s.OnDerbyResolved != nil {
+		s.OnDerbyResolved(ctx, ev)
 	}
 	return resolved, nil
 }

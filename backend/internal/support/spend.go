@@ -47,6 +47,9 @@ type Service struct {
 	Breaker      *db.CircuitBreaker
 	MultiplierFn MultiplierFn
 	Now          func() time.Time
+	// OnSupportApplied is invoked after a successful spend + Pub/Sub publish (best-effort).
+	// Leaderboard ZSET updates subscribe here — do not put ZINCRBY in this package.
+	OnSupportApplied func(ctx context.Context, ev SupportAppliedEvent)
 }
 
 func (s *Service) now() time.Time {
@@ -67,9 +70,14 @@ type Result struct {
 	BalanceAfter     int64     `json:"balance_after"`
 }
 
-type supportAppliedEvent struct {
-	TribeID uuid.UUID `json:"tribe_id"`
-	Delta   float64   `json:"delta"`
+// SupportAppliedEvent is published on support_applied:{il_code} and passed to OnSupportApplied.
+// Extra fields beyond tribe_id/delta are ignored by the map hub.
+type SupportAppliedEvent struct {
+	UserID  uuid.UUID  `json:"user_id"`
+	TribeID uuid.UUID  `json:"tribe_id"`
+	IlCode  string     `json:"il_code"`
+	Delta   float64    `json:"delta"`
+	DerbyID *uuid.UUID `json:"derby_id,omitempty"`
 }
 
 // Apply spends credits for the user's tribe in il_code inside one DB transaction,
@@ -182,11 +190,18 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		_ = s.Cache.Invalidate(ctx, ilCode)
 	}
 
+	ev := SupportAppliedEvent{
+		UserID:  userID,
+		TribeID: *tribeID,
+		IlCode:  ilCode,
+		Delta:   effective,
+	}
+	if derbyID != nil {
+		ev.DerbyID = derbyID
+	}
+
 	if s.RDB != nil {
-		payload, _ := json.Marshal(supportAppliedEvent{
-			TribeID: *tribeID,
-			Delta:   effective,
-		})
+		payload, _ := json.Marshal(ev)
 		channel := fmt.Sprintf("support_applied:%s", ilCode)
 		if err := cache.Publish(ctx, s.RDB, channel, string(payload)); err != nil {
 			// Spend already committed; log via caller if needed — do not fail the request.
@@ -196,6 +211,10 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 			// Best-effort derby score update; spend already committed.
 			_ = derby.IncrScore(ctx, s.RDB, *derbyID, derbySide, effective)
 		}
+	}
+
+	if s.OnSupportApplied != nil {
+		s.OnSupportApplied(ctx, ev)
 	}
 
 	// Best-effort retention alert; never fail the successful spend.

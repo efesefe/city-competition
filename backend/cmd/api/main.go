@@ -19,6 +19,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/engagement"
 	"github.com/city-competition-remastered/backend/internal/geo"
 	"github.com/city-competition-remastered/backend/internal/httpserver"
+	"github.com/city-competition-remastered/backend/internal/leaderboard"
 	"github.com/city-competition-remastered/backend/internal/logging"
 	"github.com/city-competition-remastered/backend/internal/middleware"
 	"github.com/city-competition-remastered/backend/internal/migrate"
@@ -156,15 +157,18 @@ func main() {
 			RateLimit: cfg.LeadThreatenedRateLimit,
 		},
 	}
+	lbStore := &leaderboard.LeaderboardStore{RDB: rdb}
+	lbUpdater := &leaderboard.Updater{Store: lbStore, Logger: logger}
 	supportService := &support.Service{
-		Pool:         pools.Write,
-		Wallet:       creditsWallet,
-		Provinces:    provinceStore,
-		RDB:          rdb,
-		Cache:        supportCache,
-		Engagement:   engagementHooks,
-		Achievements: achievementStore,
-		Breaker:      writeBreaker,
+		Pool:             pools.Write,
+		Wallet:           creditsWallet,
+		Provinces:        provinceStore,
+		RDB:              rdb,
+		Cache:            supportCache,
+		Engagement:       engagementHooks,
+		Achievements:     achievementStore,
+		Breaker:          writeBreaker,
+		OnSupportApplied: lbUpdater.OnSupportApplied,
 	}
 	summaryStore := &support.SummaryStore{Pool: pools.Write, Read: pools.Read}
 	historyStore := &support.HistoryStore{Pool: pools.Read}
@@ -178,15 +182,22 @@ func main() {
 	supportService.MultiplierFn = derbyResolver.ResolveSupportMultiplier
 	derbyNotifier := &derby.Notifier{Store: derbyStore, RDB: rdb}
 	derbyService := &derby.Service{
-		Store:     derbyStore,
-		Provinces: provinceStore,
-		RDB:       rdb,
-		Notifier:  derbyNotifier,
-		Breaker:   writeBreaker,
-		ScoreTTL:  cfg.DerbyScoreTTL,
-		Logger:    logger,
+		Store:           derbyStore,
+		Provinces:       provinceStore,
+		RDB:             rdb,
+		Notifier:        derbyNotifier,
+		Breaker:         writeBreaker,
+		ScoreTTL:        cfg.DerbyScoreTTL,
+		Logger:          logger,
+		OnDerbyResolved: lbUpdater.OnDerbyResolved,
 	}
 	derbyHandler := &derby.Handler{Service: derbyService}
+	lbHandler := &leaderboard.Handler{
+		Store:    lbStore,
+		Profiles: &leaderboard.PoolProfiles{Pool: pools.Read},
+		Control:  supportCache,
+		Derbies:  derbyService,
+	}
 
 	hubCtx, hubCancel := context.WithCancel(context.Background())
 	defer hubCancel()
@@ -249,8 +260,15 @@ func main() {
 	mux.Handle("POST /v1/credits/stub-grant", auth.RequireSession(sessions, creditWriteLimit(http.HandlerFunc(creditsHandler.StubGrant))))
 	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, http.HandlerFunc(geoHandler.GeoJSON)))
 	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, http.HandlerFunc(supportHandler.Control)))
+	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.ProvinceStandings)))
 	mux.Handle("POST /v1/support", auth.RequireSession(sessions, supportSpendLimit(http.HandlerFunc(supportHandler.Create))))
 	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, http.HandlerFunc(supportHandler.ListMine)))
+	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Global)))
+	mux.Handle("GET /v1/leaderboards/tribes/{tribe_id}", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Tribe)))
+	mux.Handle("GET /v1/leaderboards/provinces/{il_code}", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Province)))
+	mux.Handle("GET /v1/leaderboards/derbies/{derby_id}", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.DerbySupporters)))
+	mux.Handle("GET /v1/leaderboards/me", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.Me)))
+	mux.Handle("GET /v1/derbies/{id}/standings", auth.RequireSession(sessions, http.HandlerFunc(lbHandler.DerbyStandings)))
 	mux.HandleFunc("GET /v1/ws/map", wsHandler.ServeWS)
 	mux.Handle("POST /v1/clan/chat", auth.RequireSession(sessions, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateClanChat))))
 
