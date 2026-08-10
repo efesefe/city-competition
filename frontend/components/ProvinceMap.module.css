@@ -1,0 +1,113 @@
+.root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  position: absolute;
+  z-index: 2;
+  left: 1rem;
+  bottom: 1rem;
+  width: min(22rem, calc(100% - 2rem));
+  padding: 1rem 1.1rem 1.15rem;
+  background: rgba(10, 18, 16, 0.88);
+  border: 1px solid #3a524a;
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  backdrop-filter: blur(6px);
+}
+
+.brand {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead,
+.hint {
+  margin: 0 0 0.85rem;
+  color: #a8b5b0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.province {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ilCode {
+  display: inline-block;
+  margin-right: 0.45rem;
+  color: #c4a35a;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-size: 0.78rem;
+  color: #8fb5a8;
+}
+
+.input {
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.3rem;
+  background: rgba(6, 12, 11, 0.85);
+  color: #e8efe9;
+  font-size: 1rem;
+}
+
+.button {
+  margin-top: 0.25rem;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: #2a6b5a;
+  color: #f2f7f4;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.success {
+  margin: 0.75rem 0 0;
+  color: #9ed4b8;
+  font-size: 0.85rem;
+}
+
+.error {
+  margin: 0.75rem 0 0;
+  color: #e8a090;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    left: 0.5rem;
+    right: 0.5rem;
+    bottom: 0.5rem;
+    width: auto;
+  }
+}

@@ -70,6 +70,18 @@ func (s *PoolUserStore) IsRestricted(ctx context.Context, userID uuid.UUID) (boo
 	return restricted, err
 }
 
+// IsAdmin returns users.is_admin.
+func (s *PoolUserStore) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
+	var admin bool
+	err := s.Pool.QueryRow(ctx,
+		`SELECT is_admin FROM users WHERE id = $1`, userID,
+	).Scan(&admin)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrUnauthorized
+	}
+	return admin, err
+}
+
 // FindByEmail looks up a user by case-insensitive email.
 func (s *PoolUserStore) FindByEmail(ctx context.Context, email string) (MatchUser, bool, error) {
 	var u MatchUser

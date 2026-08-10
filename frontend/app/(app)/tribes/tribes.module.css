@@ -1,0 +1,130 @@
+.page {
+  min-height: 100vh;
+  width: 100%;
+  overflow: auto;
+  padding: 2rem 1.25rem 3rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, #1a3a4a 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, #2a1f14 0%, transparent 50%),
+    linear-gradient(160deg, #0c1418 0%, #152028 45%, #1a1712 100%);
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.header {
+  max-width: 42rem;
+  margin: 0 auto 1.75rem;
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+  color: #a8b5b0;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 42rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.85rem;
+  align-items: center;
+  padding: 0.85rem 1rem;
+  border: 1px solid #3a4f4a;
+  border-radius: 0.45rem;
+  background: rgba(8, 16, 18, 0.45);
+}
+
+.swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.meta {
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: #8a9e96;
+}
+
+.button {
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.65rem 0.9rem;
+  background: #3d8f74;
+  color: #06120e;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.buttonSecondary {
+  background: transparent;
+  color: #8fb5a8;
+  border: 1px solid #3a4f4a;
+}
+
+.current {
+  font-size: 0.8rem;
+  color: #8fb5a8;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.error {
+  max-width: 42rem;
+  margin: 0 auto 1rem;
+  color: #e8a090;
+  font-size: 0.9rem;
+}
+
+.notice {
+  max-width: 42rem;
+  margin: 0 auto 1rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #c4b48a;
+}

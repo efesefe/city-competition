@@ -1,0 +1,183 @@
+.page {
+  min-height: 100vh;
+  width: 100%;
+  overflow: auto;
+  padding: 2rem 1.25rem 3rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, #1a3a4a 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, #2a1f14 0%, transparent 50%),
+    linear-gradient(160deg, #0c1418 0%, #152028 45%, #1a1712 100%);
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.header {
+  max-width: 42rem;
+  margin: 0 auto 1.75rem;
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+  color: #a8b5b0;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 42rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.item {
+  display: block;
+  padding: 0.85rem 1rem;
+  border: 1px solid #3a4f4a;
+  border-radius: 0.45rem;
+  background: rgba(8, 16, 18, 0.45);
+  color: inherit;
+  text-decoration: none;
+}
+
+.item:hover {
+  border-color: #5a7f74;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.status {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #8a9e96;
+  line-height: 1.4;
+}
+
+.scores {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  color: #c4d4cc;
+}
+
+.error {
+  max-width: 42rem;
+  margin: 0 auto 1rem;
+  color: #e8a090;
+  font-size: 0.9rem;
+}
+
+.actions {
+  max-width: 42rem;
+  margin: 0 auto 1.25rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.button {
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.65rem 0.9rem;
+  background: #3d8f74;
+  color: #06120e;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.buttonSecondary {
+  background: transparent;
+  color: #8fb5a8;
+  border: 1px solid #3a4f4a;
+}
+
+.form {
+  max-width: 42rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: #a8b5b0;
+}
+
+.input,
+.select {
+  border: 1px solid #3a4f4a;
+  border-radius: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  background: rgba(8, 16, 18, 0.65);
+  color: #e8efe9;
+  font-size: 0.95rem;
+}
+
+.detail {
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+.detail dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.5rem 1rem;
+}
+
+.detail dt {
+  color: #8a9e96;
+  font-size: 0.85rem;
+}
+
+.detail dd {
+  margin: 0;
+  font-size: 0.95rem;
+}

@@ -11,8 +11,9 @@ import {
   hasRequiredConsents,
 } from "@/lib/consent-api";
 import { getSessionToken } from "@/lib/session";
+import { hasTribeMembership, listTribes } from "@/lib/tribes-api";
 
-const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
+const ProvinceMap = dynamic(() => import("@/components/ProvinceMap"), {
   ssr: false,
   loading: () => <div className="map-root" aria-busy="true" />,
 });
@@ -21,6 +22,7 @@ type Gate =
   | { kind: "loading" }
   | { kind: "need_auth" }
   | { kind: "need_consent"; status: ConsentStatusResponse }
+  | { kind: "need_tribe" }
   | { kind: "ready" };
 
 export default function HomePage() {
@@ -38,6 +40,11 @@ export default function HomePage() {
       setGate({ kind: "need_consent", status });
       return status;
     }
+    const tribes = await listTribes();
+    if (!hasTribeMembership(tribes.membership)) {
+      setGate({ kind: "need_tribe" });
+      return status;
+    }
     setGate({ kind: "ready" });
     return status;
   }, []);
@@ -49,10 +56,16 @@ export default function HomePage() {
   useEffect(() => {
     if (gate.kind === "need_auth") {
       router.replace("/register");
+    } else if (gate.kind === "need_tribe") {
+      router.replace("/tribes");
     }
   }, [gate, router]);
 
-  if (gate.kind === "loading" || gate.kind === "need_auth") {
+  if (
+    gate.kind === "loading" ||
+    gate.kind === "need_auth" ||
+    gate.kind === "need_tribe"
+  ) {
     return <main className="map-root" aria-busy="true" />;
   }
 
@@ -69,7 +82,9 @@ export default function HomePage() {
             }
             return status;
           }}
-          onGranted={() => setGate({ kind: "ready" })}
+          onGranted={() => {
+            void refresh();
+          }}
         />
       </>
     );
@@ -78,7 +93,7 @@ export default function HomePage() {
   return (
     <main className="map-root" data-testid="map-screen">
       <DataResidencyBanner />
-      <MapCanvas />
+      <ProvinceMap />
     </main>
   );
 }

@@ -1,0 +1,72 @@
+[
+  {
+    "slug": "kizil-ruzgar",
+    "display_name": "Kızıl Rüzgar",
+    "short_name": "KZR",
+    "primary_color": "#C8102E",
+    "secondary_color": "#FFD100"
+  },
+  {
+    "slug": "sari-dalga",
+    "display_name": "Sarı Dalga",
+    "short_name": "SRD",
+    "primary_color": "#FFE014",
+    "secondary_color": "#00205B"
+  },
+  {
+    "slug": "siyah-gelgit",
+    "display_name": "Siyah Gelgit",
+    "short_name": "SGT",
+    "primary_color": "#111111",
+    "secondary_color": "#FFFFFF"
+  },
+  {
+    "slug": "bordo-firtina",
+    "display_name": "Bordo Fırtına",
+    "short_name": "BFT",
+    "primary_color": "#6B0F1A",
+    "secondary_color": "#1B4D3E"
+  },
+  {
+    "slug": "turkuaz-ufuk",
+    "display_name": "Turkuaz Ufuk",
+    "short_name": "TKU",
+    "primary_color": "#00A3A1",
+    "secondary_color": "#F5F5F5"
+  },
+  {
+    "slug": "kirmizi-pusula",
+    "display_name": "Kırmızı Pusula",
+    "short_name": "KRP",
+    "primary_color": "#E30613",
+    "secondary_color": "#1A1A1A"
+  },
+  {
+    "slug": "turuncu-sahil",
+    "display_name": "Turuncu Sahil",
+    "short_name": "TRS",
+    "primary_color": "#FF6A00",
+    "secondary_color": "#0B3D5C"
+  },
+  {
+    "slug": "yesil-ovalar",
+    "display_name": "Yeşil Ovalar",
+    "short_name": "YSO",
+    "primary_color": "#1B7A3D",
+    "secondary_color": "#FFFFFF"
+  },
+  {
+    "slug": "lacivert-zirve",
+    "display_name": "Lacivert Zirve",
+    "short_name": "LZV",
+    "primary_color": "#0033A0",
+    "secondary_color": "#E30613"
+  },
+  {
+    "slug": "mor-isik",
+    "display_name": "Mor Işık",
+    "short_name": "MRI",
+    "primary_color": "#5B2C6F",
+    "secondary_color": "#F4C430"
+  }
+]

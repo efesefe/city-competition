@@ -1,0 +1,268 @@
+"use client";
+
+import { FormEvent, useEffect, useRef, useState } from "react";
+import maplibregl from "maplibre-gl";
+import {
+  fetchProvincesControl,
+  fetchProvincesGeoJSON,
+  postSupport,
+  ProvinceProperties,
+} from "@/lib/support-api";
+import {
+  connectMapSocket,
+  MapBBox,
+  MapSocketHandle,
+  SupportAppliedMessage,
+} from "@/lib/mapSocket";
+import { getSessionToken } from "@/lib/session";
+import {
+  choroplethFillColor,
+  choroplethFillOpacity,
+  mergeControlIntoGeoJSON,
+} from "./ProvinceChoropleth";
+import styles from "./ProvinceMap.module.css";
+
+const TURKIYE_CENTER: [number, number] = [35.0, 39.0];
+const DEFAULT_ZOOM = 5.5;
+const SOURCE_ID = "provinces";
+const FILL_LAYER_ID = "provinces-fill";
+const LINE_LAYER_ID = "provinces-line";
+const SELECTED_LAYER_ID = "provinces-selected";
+
+type SelectedProvince = ProvinceProperties;
+
+function boundsToBBox(map: maplibregl.Map): MapBBox {
+  const b = map.getBounds();
+  return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+}
+
+export default function ProvinceMap() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const socketRef = useRef<MapSocketHandle | null>(null);
+  const [selected, setSelected] = useState<SelectedProvince | null>(null);
+  const [credits, setCredits] = useState("10");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) {
+      return;
+    }
+
+    const styleURL =
+      process.env.NEXT_PUBLIC_MAP_STYLE_URL ??
+      "https://tiles.openfreemap.org/styles/liberty";
+
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: styleURL,
+      center: TURKIYE_CENTER,
+      zoom: DEFAULT_ZOOM,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    mapRef.current = map;
+
+    let cancelled = false;
+
+    const onSupportApplied = (event: SupportAppliedMessage) => {
+      if (cancelled) return;
+      setMessage(
+        `Live: +${event.delta} support on ${event.il_code} (tribe ${event.tribe_id.slice(0, 8)}…)`,
+      );
+    };
+
+    map.on("load", () => {
+      void (async () => {
+        try {
+          const [geojson, control] = await Promise.all([
+            fetchProvincesGeoJSON(),
+            fetchProvincesControl(),
+          ]);
+          if (cancelled || !mapRef.current) {
+            return;
+          }
+          const colored = mergeControlIntoGeoJSON(geojson, control.provinces);
+          map.addSource(SOURCE_ID, {
+            type: "geojson",
+            data: colored as unknown as maplibregl.GeoJSONSourceSpecification["data"],
+          });
+          map.addLayer({
+            id: FILL_LAYER_ID,
+            type: "fill",
+            source: SOURCE_ID,
+            paint: {
+              "fill-color": choroplethFillColor,
+              "fill-opacity": choroplethFillOpacity,
+            },
+          });
+          map.addLayer({
+            id: LINE_LAYER_ID,
+            type: "line",
+            source: SOURCE_ID,
+            paint: {
+              "line-color": "#1a3d34",
+              "line-width": 1.2,
+            },
+          });
+          map.addLayer({
+            id: SELECTED_LAYER_ID,
+            type: "fill",
+            source: SOURCE_ID,
+            filter: ["==", ["get", "il_code"], ""],
+            paint: {
+              "fill-color": "#c4a35a",
+              "fill-opacity": 0.45,
+            },
+          });
+
+          map.on("click", FILL_LAYER_ID, (e) => {
+            const feature = e.features?.[0];
+            if (!feature?.properties) {
+              return;
+            }
+            const props = feature.properties as ProvinceProperties;
+            setSelected({
+              il_code: String(props.il_code),
+              name_tr: String(props.name_tr ?? ""),
+              name_en: String(props.name_en ?? ""),
+            });
+            setMessage(null);
+            setError(null);
+            if (map.getLayer(SELECTED_LAYER_ID)) {
+              map.setFilter(SELECTED_LAYER_ID, [
+                "==",
+                ["get", "il_code"],
+                String(props.il_code),
+              ]);
+            }
+          });
+
+          map.on("mouseenter", FILL_LAYER_ID, () => {
+            map.getCanvas().style.cursor = "pointer";
+          });
+          map.on("mouseleave", FILL_LAYER_ID, () => {
+            map.getCanvas().style.cursor = "";
+          });
+
+          if (getSessionToken()) {
+            const socket = connectMapSocket({
+              getBBox: () => {
+                const m = mapRef.current;
+                return m ? boundsToBBox(m) : null;
+              },
+              onEvent: onSupportApplied,
+            });
+            socketRef.current = socket;
+            const pushViewport = () => {
+              const m = mapRef.current;
+              if (!m) return;
+              socket.sendViewport(boundsToBBox(m));
+            };
+            map.on("moveend", pushViewport);
+            map.on("zoomend", pushViewport);
+          }
+
+          setMapReady(true);
+        } catch (err) {
+          if (!cancelled) {
+            setError(
+              err instanceof Error ? err.message : "failed_to_load_provinces",
+            );
+          }
+        }
+      })();
+    });
+
+    return () => {
+      cancelled = true;
+      socketRef.current?.close();
+      socketRef.current = null;
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  async function onSupport(e: FormEvent) {
+    e.preventDefault();
+    if (!selected) {
+      return;
+    }
+    const amount = Number.parseInt(credits, 10);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("invalid_credits");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await postSupport(selected.il_code, amount);
+      setMessage(
+        `Supported ${selected.name_tr} with ${result.credits_spent} credits (balance ${result.balance_after}).`,
+      );
+    } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code?: string }).code)
+          : err instanceof Error
+            ? err.message
+            : "request_failed";
+      setError(code);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={styles.root}>
+      <div
+        ref={containerRef}
+        className="map-canvas"
+        role="application"
+        aria-label="Türkiye province map"
+        data-testid="province-map"
+        data-map-ready={mapReady ? "true" : "false"}
+      />
+      <aside className={styles.panel} aria-live="polite">
+        <p className={styles.brand}>City Competition</p>
+        <h1 className={styles.title}>Support a province</h1>
+        <p className={styles.lead}>
+          Click an il on the map, then spend credits for your tribe. Location
+          GPS is not used.
+        </p>
+        {selected ? (
+          <form className={styles.form} onSubmit={onSupport}>
+            <p className={styles.province}>
+              <span className={styles.ilCode}>{selected.il_code}</span>
+              {selected.name_tr}
+            </p>
+            <label className={styles.label} htmlFor="support-credits">
+              Credits
+            </label>
+            <input
+              id="support-credits"
+              className={styles.input}
+              type="number"
+              min={1}
+              step={1}
+              value={credits}
+              onChange={(ev) => setCredits(ev.target.value)}
+              disabled={busy}
+            />
+            <button className={styles.button} type="submit" disabled={busy}>
+              {busy ? "Supporting…" : "Support"}
+            </button>
+          </form>
+        ) : (
+          <p className={styles.hint}>Select a province to spend credits.</p>
+        )}
+        {message ? <p className={styles.success}>{message}</p> : null}
+        {error ? <p className={styles.error}>{error}</p> : null}
+      </aside>
+    </div>
+  );
+}

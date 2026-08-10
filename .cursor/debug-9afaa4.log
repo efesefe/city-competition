@@ -1,0 +1,1 @@
+{"sessionId":"9afaa4","runId":"post-fix","hypothesisId":"H-A","location":"frontend/npm-run-build","message":"frontend production build succeeded after css alias fix","data":{"exitCode":0,"cssImport":"@/app/(app)/derbies/derbies.module.css","routes":["/admin/derbies","/admin/derbies/new","/derbies"]},"timestamp":1775863400000}
