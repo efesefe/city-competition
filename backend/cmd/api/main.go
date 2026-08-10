@@ -26,6 +26,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/middleware"
 	"github.com/city-competition-remastered/backend/internal/migrate"
 	"github.com/city-competition-remastered/backend/internal/moderation"
+	"github.com/city-competition-remastered/backend/internal/monetization"
 	"github.com/city-competition-remastered/backend/internal/notifications"
 	"github.com/city-competition-remastered/backend/internal/progression"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
@@ -149,6 +150,29 @@ func main() {
 		StubAmount:   cfg.CreditsStubGrantAmount,
 		IsProduction: cfg.IsProduction(),
 		SpendAnomaly: spendAnomaly,
+	}
+	packStore := &monetization.PackStore{Pool: pools.Write}
+	iapVerifier := &monetization.CompositeVerifier{
+		Apple: &monetization.AppleVerifier{SharedSecret: cfg.AppleIAPSharedSecret},
+		Google: &monetization.GoogleVerifier{
+			PackageName: cfg.GooglePlayPackageName,
+			AccessToken: cfg.GooglePlayAccessToken,
+		},
+	}
+	iapService := &monetization.Service{
+		Pool:     pools.Write,
+		Wallet:   creditsWallet,
+		Verifier: iapVerifier,
+		Packs:    packStore,
+	}
+	battlePassService := &monetization.BattlePassService{
+		Pool:   pools.Write,
+		Wallet: creditsWallet,
+	}
+	monetizationHandler := &monetization.Handler{
+		IAP:        iapService,
+		BattlePass: battlePassService,
+		Breaker:    writeBreaker,
 	}
 	provinceStore := &geo.Store{Pool: pools.Read}
 	geoHandler := &geo.Handler{Store: provinceStore}
@@ -295,6 +319,10 @@ func main() {
 	mux.Handle("GET /v1/derbies/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(derbyHandler.Get)))
 	mux.Handle("GET /v1/credits/balance", auth.RequireSession(sessions, users, http.HandlerFunc(creditsHandler.Balance)))
 	mux.Handle("POST /v1/credits/stub-grant", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(creditsHandler.StubGrant))))
+	mux.Handle("GET /v1/credit-packs", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.ListPacks)))
+	mux.Handle("POST /v1/iap/verify", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Verify))))
+	mux.Handle("GET /v1/battle-pass", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.BattlePassStatus)))
+	mux.Handle("POST /v1/battle-pass/claim", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.BattlePassClaim))))
 	mux.Handle("GET /v1/provinces/geojson", auth.RequireSession(sessions, users, http.HandlerFunc(geoHandler.GeoJSON)))
 	mux.Handle("GET /v1/provinces/control", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.Control)))
 	mux.Handle("GET /v1/provinces/{il_code}/standings", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.ProvinceStandings)))

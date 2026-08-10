@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS user_battle_pass_claims;
+DROP TABLE IF EXISTS user_battle_pass;
+DROP TABLE IF EXISTS user_cosmetics;
+DROP TABLE IF EXISTS battle_pass_tiers;
+DROP TABLE IF EXISTS battle_pass_seasons;
+DROP TABLE IF EXISTS cosmetics;
+DROP INDEX IF EXISTS iap_purchases_user_idx;
+DROP TABLE IF EXISTS iap_purchases;
+DROP INDEX IF EXISTS credit_packs_active_idx;
+DROP TABLE IF EXISTS credit_packs;

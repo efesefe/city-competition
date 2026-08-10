@@ -27,6 +27,12 @@ func UserIDFromContext(ctx context.Context) (uuid.UUID, bool) {
 	return id, ok
 }
 
+// ContextWithUserID returns a child context carrying the authenticated user id.
+// Intended for tests and internal wiring that already authenticated the caller.
+func ContextWithUserID(ctx context.Context, userID uuid.UUID) context.Context {
+	return context.WithValue(ctx, userIDKey, userID)
+}
+
 // AdminLookup resolves whether a user has the admin role.
 type AdminLookup interface {
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)

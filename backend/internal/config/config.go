@@ -40,6 +40,9 @@ type Config struct {
 	ReferralCreditAmount           int64
 	FCMProjectID                   string
 	APNSKeyID                      string
+	AppleIAPSharedSecret           string
+	GooglePlayPackageName          string
+	GooglePlayAccessToken          string
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -151,6 +154,9 @@ func Load() (Config, error) {
 	cfg.ReferralCreditAmount = referralAmount
 	cfg.FCMProjectID = os.Getenv("FCM_PROJECT_ID")
 	cfg.APNSKeyID = os.Getenv("APNS_KEY_ID")
+	cfg.AppleIAPSharedSecret = os.Getenv("APPLE_IAP_SHARED_SECRET")
+	cfg.GooglePlayPackageName = os.Getenv("GOOGLE_PLAY_PACKAGE_NAME")
+	cfg.GooglePlayAccessToken = os.Getenv("GOOGLE_PLAY_ACCESS_TOKEN")
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
 	if cfg.DatabaseURL == "" {
