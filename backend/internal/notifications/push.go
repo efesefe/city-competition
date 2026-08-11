@@ -134,7 +134,7 @@ func (s *PoolTokenStore) ListByUser(ctx context.Context, userID uuid.UUID) ([]De
 func (s *PoolTokenStore) Upsert(ctx context.Context, userID uuid.UUID, platform, token string) error {
 	platform = strings.ToLower(strings.TrimSpace(platform))
 	token = strings.TrimSpace(token)
-	if platform != "ios" && platform != "android" {
+	if platform != "ios" && platform != "android" && platform != "web" {
 		return fmt.Errorf("invalid platform")
 	}
 	if token == "" {

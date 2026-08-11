@@ -1,0 +1,97 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.5rem;
+  background: rgba(10, 18, 16, 0.7);
+}
+
+.rowTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.city {
+  margin: 0;
+  font-weight: 650;
+  font-size: 0.98rem;
+}
+
+.credits {
+  margin: 0;
+  color: #c5d0cb;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+  color: #a8b5b0;
+  font-size: 0.82rem;
+}
+
+.derbi {
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  background: rgba(196, 163, 90, 0.18);
+  border: 1px solid rgba(196, 163, 90, 0.45);
+  color: #e6d3a0;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.message {
+  margin: 0;
+  color: #a8b5b0;
+  font-size: 0.9rem;
+}
+
+.error {
+  margin: 0;
+  color: #e8a0a0;
+  font-size: 0.9rem;
+}
+
+.more {
+  align-self: flex-start;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #e8efe9;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.more:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

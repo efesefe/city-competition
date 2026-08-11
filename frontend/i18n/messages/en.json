@@ -164,5 +164,71 @@
     "copied": "Copied",
     "copyLink": "Copy link",
     "openMap": "Open on map"
+  },
+  "profile": {
+    "title": "Profile",
+    "restrictedBanner": "Restricted account: leaderboard and chat features are limited.",
+    "tribeChat": "Tribe chat",
+    "tribe": {
+      "detailsAria": "Tribe details — {tribe}",
+      "members": "{count} members",
+      "territory": "Territory: {count} provinces",
+      "territoryEmpty": "No provinces controlled yet",
+      "territoryList": "Controlled provinces",
+      "closeDetails": "Close tribe details",
+      "switch": "Switch tribe",
+      "switchCooldown": "Next switch: {when}",
+      "noTribe": "No tribe"
+    },
+    "wallet": {
+      "title": "Credits",
+      "balance": "{balance}",
+      "topUp": "Top up credits"
+    },
+    "topup": {
+      "title": "Top up credits",
+      "lead": "Credit packages will be available here soon.",
+      "back": "Back to profile"
+    },
+    "history": {
+      "title": "Support history",
+      "empty": "You have not supported any province yet.",
+      "loadFailed": "Could not load support history.",
+      "loadMore": "Load more",
+      "loading": "Loading…",
+      "credits": "{credits} credits",
+      "derbiBonus": "Derbi bonus ×{multiplier}",
+      "unknownCity": "Province {code}",
+      "unknownTribe": "Tribe"
+    },
+    "settings": {
+      "title": "Settings",
+      "locale": "Language",
+      "notifications": "Push notifications",
+      "notificationsOn": "Enabled",
+      "notificationsOff": "Disabled",
+      "notificationsEnable": "Enable",
+      "notificationsDisable": "Disable",
+      "notificationsDenied": "Notification permission was denied in the browser.",
+      "notificationsFailed": "Could not update notification preference.",
+      "consentTitle": "KVKK consents",
+      "consentGranted": "Granted",
+      "consentNotGranted": "Not granted",
+      "consentWithdraw": "Withdraw",
+      "consentWithdrawn": "Consent withdrawn.",
+      "consentWithdrawFailed": "Could not withdraw consent.",
+      "consentLoadFailed": "Could not load consent status.",
+      "consentTypes": {
+        "aydinlatma_metni": "Disclosure notice",
+        "acik_riza_location": "Location consent",
+        "terms_of_service": "Terms of service"
+      },
+      "erasureTitle": "Delete my data",
+      "erasureLead": "Request permanent erasure of your account and personal data (KVKK).",
+      "erasureConfirm": "This cannot be undone. Submit erasure request?",
+      "erasureSubmit": "Request data erasure",
+      "erasureSuccess": "Erasure request accepted (status: {status}).",
+      "erasureFailed": "Could not submit erasure request."
+    }
   }
 }

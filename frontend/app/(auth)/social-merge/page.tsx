@@ -116,7 +116,7 @@ export default function SocialMergePage() {
       await verifyOTP(e164, code.trim());
       const res = await socialMerge(pending.mergeToken, e164);
       clearPendingMerge();
-      setSession(res.user_id, res.session_token);
+      setSession(res.user_id, res.session_token, res.restricted_mode);
       router.replace("/consent");
     } catch (err) {
       setError(mapError(err));

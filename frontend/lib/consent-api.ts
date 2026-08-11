@@ -68,6 +68,21 @@ export function grantConsent(
   });
 }
 
+export function withdrawConsent(
+  consentType: ConsentType,
+  consentVersion: string,
+) {
+  return authJSON<{
+    consent_type: string;
+    consent_version: string;
+    granted: boolean;
+    withdrawn_at: string;
+  }>("POST", "/v1/consent/withdraw", {
+    consent_type: consentType,
+    consent_version: consentVersion,
+  });
+}
+
 /** Both KVKK purposes required before map / geolocation. */
 export function hasRequiredConsents(status: ConsentStatusResponse): boolean {
   const disclosure = status.consents.aydinlatma_metni;

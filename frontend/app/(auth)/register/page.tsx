@@ -151,7 +151,7 @@ export default function RegisterPage() {
           username: username.trim(),
           birthDate,
         });
-        setSession(res.user_id, res.session_token);
+        setSession(res.user_id, res.session_token, res.restricted_mode);
         setUserId(res.user_id);
         setStep("done");
         router.replace("/consent");
@@ -159,7 +159,7 @@ export default function RegisterPage() {
       }
       if (!e164) return;
       const res = await register(e164, username.trim(), birthDate);
-      setSession(res.user_id, res.session_token);
+      setSession(res.user_id, res.session_token, res.restricted_mode);
       setUserId(res.user_id);
       setStep("done");
       router.replace("/consent");
@@ -177,7 +177,7 @@ export default function RegisterPage() {
       const idToken = await obtainSocialIdToken(provider);
       try {
         const res = await socialLogin({ provider, idToken });
-        setSession(res.user_id, res.session_token);
+        setSession(res.user_id, res.session_token, res.restricted_mode);
         router.replace("/consent");
         return;
       } catch (err) {

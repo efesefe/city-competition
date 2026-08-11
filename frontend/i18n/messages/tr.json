@@ -164,5 +164,71 @@
     "copied": "Kopyalandı",
     "copyLink": "Bağlantıyı kopyala",
     "openMap": "Haritada aç"
+  },
+  "profile": {
+    "title": "Profil",
+    "restrictedBanner": "Kısıtlı hesap: lider tablosu ve sohbet özellikleri sınırlıdır.",
+    "tribeChat": "Kabile sohbeti",
+    "tribe": {
+      "detailsAria": "Kabile detayı — {tribe}",
+      "members": "{count} üye",
+      "territory": "Bölge: {count} il",
+      "territoryEmpty": "Henüz kontrol edilen il yok",
+      "territoryList": "Kontrol edilen iller",
+      "closeDetails": "Kabile detayını kapat",
+      "switch": "Takımı değiştir",
+      "switchCooldown": "Sonraki değişiklik: {when}",
+      "noTribe": "Kabile yok"
+    },
+    "wallet": {
+      "title": "Kredi",
+      "balance": "{balance}",
+      "topUp": "Kredi yükle"
+    },
+    "topup": {
+      "title": "Kredi yükle",
+      "lead": "Kredi paketleri yakında burada olacak.",
+      "back": "Profile dön"
+    },
+    "history": {
+      "title": "Destek geçmişi",
+      "empty": "Henüz hiçbir ili desteklemediniz.",
+      "loadFailed": "Destek geçmişi yüklenemedi.",
+      "loadMore": "Daha fazla",
+      "loading": "Yükleniyor…",
+      "credits": "{credits} kredi",
+      "derbiBonus": "Derbi bonusu ×{multiplier}",
+      "unknownCity": "İl {code}",
+      "unknownTribe": "Kabile"
+    },
+    "settings": {
+      "title": "Ayarlar",
+      "locale": "Dil",
+      "notifications": "Anlık bildirimler",
+      "notificationsOn": "Açık",
+      "notificationsOff": "Kapalı",
+      "notificationsEnable": "Aç",
+      "notificationsDisable": "Kapat",
+      "notificationsDenied": "Bildirim izni tarayıcıda reddedildi.",
+      "notificationsFailed": "Bildirim tercihi güncellenemedi.",
+      "consentTitle": "KVKK onayları",
+      "consentGranted": "Verildi",
+      "consentNotGranted": "Verilmedi",
+      "consentWithdraw": "Geri çek",
+      "consentWithdrawn": "Onay geri çekildi.",
+      "consentWithdrawFailed": "Onay geri çekilemedi.",
+      "consentLoadFailed": "Onay durumu yüklenemedi.",
+      "consentTypes": {
+        "aydinlatma_metni": "Aydınlatma metni",
+        "acik_riza_location": "Konum rızası",
+        "terms_of_service": "Kullanım koşulları"
+      },
+      "erasureTitle": "Verilerimi sil",
+      "erasureLead": "Hesabınızın ve kişisel verilerinizin kalıcı silinmesini talep edin (KVKK).",
+      "erasureConfirm": "Bu işlem geri alınamaz. Silme talebi gönderilsin mi?",
+      "erasureSubmit": "Veri silme talebi gönder",
+      "erasureSuccess": "Silme talebi alındı (durum: {status}).",
+      "erasureFailed": "Silme talebi gönderilemedi."
+    }
   }
 }
