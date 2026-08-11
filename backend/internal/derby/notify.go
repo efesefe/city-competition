@@ -34,6 +34,9 @@ type NotifPayload struct {
 type Notifier struct {
 	Store Store
 	RDB   redis.Cmdable
+	// Inbox optionally dual-writes an in-app notification for each enqueued push.
+	// Signature avoids importing the notifications package (cycle with main wiring).
+	Inbox func(ctx context.Context, userID uuid.UUID, notifType, title, body string, payload any) error
 }
 
 // EnqueueToMembers loads host+guest members and LPUSHes one payload per user.
@@ -56,7 +59,7 @@ func (n *Notifier) EnqueueToMembers(ctx context.Context, notifType string, d Der
 			continue
 		}
 		reqID, _ := logging.RequestIDFromContext(ctx)
-		payload, _ := json.Marshal(NotifPayload{
+		payload := NotifPayload{
 			Type:         notifType,
 			UserID:       userID,
 			DerbyID:      d.ID,
@@ -64,11 +67,27 @@ func (n *Notifier) EnqueueToMembers(ctx context.Context, notifType string, d Der
 			HostTribeID:  d.HostTribeID,
 			GuestTribeID: d.GuestTribeID,
 			RequestID:    reqID,
-		})
-		if err := cache.EnqueueNotif(ctx, n.RDB, string(payload)); err != nil {
+		}
+		raw, _ := json.Marshal(payload)
+		if err := cache.EnqueueNotif(ctx, n.RDB, string(raw)); err != nil {
 			return enqueued, fmt.Errorf("enqueue notif: %w", err)
+		}
+		if n.Inbox != nil {
+			title, body := derbyInboxCopy(notifType, d.IlCode)
+			_ = n.Inbox(ctx, userID, notifType, title, body, payload)
 		}
 		enqueued++
 	}
 	return enqueued, nil
+}
+
+func derbyInboxCopy(notifType, ilCode string) (title, body string) {
+	switch notifType {
+	case NotifTypeDerbyAnnounced:
+		return "Yeni derbi", fmt.Sprintf("%s ilinde yeni bir derbi duyuruldu.", ilCode)
+	case NotifTypeDerbyStarted:
+		return "Derbi başladı", fmt.Sprintf("%s ilindeki derbi başladı.", ilCode)
+	default:
+		return "City Competition", notifType
+	}
 }

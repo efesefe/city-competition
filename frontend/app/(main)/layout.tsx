@@ -9,6 +9,7 @@ import shellStyles from "@/components/shell/shell.module.css";
 import { WalletProvider, useWallet } from "@/context/WalletContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { CityDataProvider } from "@/context/CityDataContext";
+import { NotificationsProvider } from "@/context/NotificationsContext";
 import {
   fetchConsentStatus,
   hasRequiredConsents,
@@ -97,7 +98,9 @@ function MainGate({ children }: { children: ReactNode }) {
     <WalletProvider>
       <RealtimeProvider>
         <CityDataProvider>
-          <ShellChrome>{children}</ShellChrome>
+          <NotificationsProvider>
+            <ShellChrome>{children}</ShellChrome>
+          </NotificationsProvider>
         </CityDataProvider>
       </RealtimeProvider>
     </WalletProvider>

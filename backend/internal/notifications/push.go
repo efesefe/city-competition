@@ -15,7 +15,6 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/city-competition-remastered/backend/internal/cache"
-	"github.com/city-competition-remastered/backend/internal/engagement"
 	"github.com/city-competition-remastered/backend/internal/logging"
 )
 
@@ -283,7 +282,7 @@ func (w *Worker) tryPushRateLimit(ctx context.Context, env notifEnvelope) (bool,
 	var key string
 	var ttl time.Duration
 	switch env.Type {
-	case engagement.NotifTypeProvinceLeadThreatened:
+	case "province_lead_threatened":
 		key = fmt.Sprintf("notif_push:%s:%s:%s", env.Type, env.UserID.String(), env.IlCode)
 		ttl = w.leadTTL()
 	case "derby_announced", "derby_started":
@@ -307,28 +306,8 @@ func renderPush(env notifEnvelope) PushMessage {
 	if env.DerbyID != uuid.Nil {
 		data["derby_id"] = env.DerbyID.String()
 	}
-	switch env.Type {
-	case engagement.NotifTypeProvinceLeadThreatened:
-		return PushMessage{
-			Title: "Liderlik tehdit altında",
-			Body:  fmt.Sprintf("%s ilindeki liderliğiniz tehdit altında.", env.IlCode),
-			Data:  data,
-		}
-	case "derby_announced":
-		return PushMessage{
-			Title: "Yeni derbi",
-			Body:  fmt.Sprintf("%s ilinde yeni bir derbi duyuruldu.", env.IlCode),
-			Data:  data,
-		}
-	case "derby_started":
-		return PushMessage{
-			Title: "Derbi başladı",
-			Body:  fmt.Sprintf("%s ilindeki derbi başladı.", env.IlCode),
-			Data:  data,
-		}
-	default:
-		return PushMessage{Title: "City Competition", Body: env.Type, Data: data}
-	}
+	title, body := RenderCopy(env.Type, env.IlCode)
+	return PushMessage{Title: title, Body: body, Data: data}
 }
 
 // NewSenderFromEnv returns a LogSender unless credentials are present (FCM/APNs hooks).

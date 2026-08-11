@@ -22,6 +22,9 @@ const (
 	ActionAppealDismissed = "appeal_dismissed"
 
 	TargetTypeAppeal = "appeal"
+
+	NotifTypeAppealReviewed  = "appeal_reviewed"
+	NotifTypeAppealDismissed = "appeal_dismissed"
 )
 
 var (
@@ -49,6 +52,8 @@ type Appeal struct {
 // Appeals persists player appeals and audit-only resolutions.
 type Appeals struct {
 	Pool *pgxpool.Pool
+	// Inbox optionally writes an in-app notification when an appeal is resolved.
+	Inbox func(ctx context.Context, userID uuid.UUID, notifType, title, body string, payload any) error
 }
 
 // Create inserts a pending appeal if the user is eligible.
@@ -169,6 +174,21 @@ func (a *Appeals) Resolve(ctx context.Context, actorID, appealID uuid.UUID, newS
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Appeal{}, err
+	}
+	if a.Inbox != nil {
+		notifType := NotifTypeAppealReviewed
+		title := "İtiraz incelendi"
+		body := "İtirazınız incelendi ve sonuçlandırıldı."
+		if newStatus == AppealStatusDismissed {
+			notifType = NotifTypeAppealDismissed
+			title = "İtiraz reddedildi"
+			body = "İtirazınız reddedildi."
+		}
+		_ = a.Inbox(ctx, ap.UserID, notifType, title, body, map[string]any{
+			"type":      notifType,
+			"appeal_id": ap.ID.String(),
+			"status":    newStatus,
+		})
 	}
 	return ap, nil
 }

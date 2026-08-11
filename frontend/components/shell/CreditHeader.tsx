@@ -2,12 +2,10 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useNotifications } from "@/context/NotificationsContext";
 import { useWallet } from "@/context/WalletContext";
 import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
 import styles from "./CreditHeader.module.css";
-
-/** No unread API yet — badge stays hidden until backend lands. */
-const UNREAD_COUNT = 0;
 
 const creditFormatter = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 0,
@@ -16,6 +14,7 @@ const creditFormatter = new Intl.NumberFormat("tr-TR", {
 export default function CreditHeader() {
   const t = useTranslations("shell");
   const { balance, status, tribe } = useWallet();
+  const { unreadCount } = useNotifications();
   const accent = tribeAccentColor(tribe);
   const initial = tribe ? tribeCrestInitial(tribe) : "?";
 
@@ -46,17 +45,17 @@ export default function CreditHeader() {
         {balanceLabel}
       </p>
       <div className={styles.bellWrap}>
-        <button
-          type="button"
+        <Link
+          href="/notifications"
           className={styles.bell}
           aria-label={t("notificationsAria")}
           data-testid="notification-bell"
         >
           <BellIcon />
-        </button>
-        {UNREAD_COUNT > 0 ? (
+        </Link>
+        {unreadCount > 0 ? (
           <span className={styles.badge} data-testid="notification-badge">
-            {UNREAD_COUNT > 99 ? "99+" : UNREAD_COUNT}
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         ) : null}
       </div>
