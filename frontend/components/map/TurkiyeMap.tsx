@@ -9,6 +9,7 @@ import { ensureTribeCrestImage } from "@/lib/map/crestIcons";
 import {
   applyAllCityFillStates,
   buildCrestFeatureCollection,
+  buildLabelFeatureCollection,
   CITIES_FILL_LAYER_ID,
   CITIES_LABEL_LAYER_ID,
   CITIES_OUTLINE_LAYER_ID,
@@ -16,7 +17,9 @@ import {
   CITIES_SOURCE_ID,
   CRESTS_LAYER_ID,
   CRESTS_SOURCE_ID,
+  LABELS_SOURCE_ID,
   type CrestFeatureCollection,
+  type LabelFeatureCollection,
 } from "@/lib/map/ownership";
 import { TURKIYE_MAP_STYLE } from "@/lib/map/style";
 import {
@@ -67,6 +70,10 @@ export default function TurkiyeMap({
     Array<{ properties?: { il_code?: string; name_tr?: string; name_en?: string } }>
   >([]);
   const crestsRef = useRef<CrestFeatureCollection>({
+    type: "FeatureCollection",
+    features: [],
+  });
+  const labelsRef = useRef<LabelFeatureCollection>({
     type: "FeatureCollection",
     features: [],
   });
@@ -170,12 +177,19 @@ export default function TurkiyeMap({
             },
           });
 
+          const labelData = buildLabelFeatureCollection(citiesRef.current);
+          labelsRef.current = labelData;
+          map.addSource(LABELS_SOURCE_ID, {
+            type: "geojson",
+            data: labelData,
+          });
+
           map.addLayer({
             id: CITIES_LABEL_LAYER_ID,
             type: "symbol",
-            source: CITIES_SOURCE_ID,
+            source: LABELS_SOURCE_ID,
             layout: {
-              "text-field": ["get", "name_tr"],
+              "text-field": ["get", "name"],
               "text-font": ["Noto Sans Regular"],
               "text-size": [
                 "interpolate",
@@ -190,6 +204,8 @@ export default function TurkiyeMap({
               ],
               "text-padding": 2,
               "text-max-width": 8,
+              "text-anchor": "top",
+              "text-offset": [0, 0.55],
               "symbol-sort-key": ["to-number", ["get", "il_code"]],
             },
             paint: {
@@ -221,12 +237,14 @@ export default function TurkiyeMap({
                 ["linear"],
                 ["zoom"],
                 5,
-                0.35,
+                0.56,
                 7,
-                0.55,
+                0.88,
                 9,
-                0.75,
+                1.2,
               ],
+              "icon-anchor": "bottom",
+              "icon-offset": [0, -2],
               "icon-allow-overlap": true,
               "icon-ignore-placement": true,
               "text-allow-overlap": true,
@@ -358,6 +376,13 @@ export default function TurkiyeMap({
     }
 
     applyAllCityFillStates(map, cities);
+
+    const nextLabels = buildLabelFeatureCollection(cities);
+    labelsRef.current = nextLabels;
+    const labelSource = map.getSource(LABELS_SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
+    labelSource?.setData(nextLabels);
 
     const nextCrests = buildCrestFeatureCollection(cities);
     crestsRef.current = nextCrests;
