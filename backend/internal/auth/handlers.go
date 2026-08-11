@@ -21,6 +21,8 @@ type UserStore interface {
 	IsRestricted(ctx context.Context, userID uuid.UUID) (bool, error)
 	FindByEmail(ctx context.Context, email string) (MatchUser, bool, error)
 	FindByPhone(ctx context.Context, phone string) (MatchUser, bool, error)
+	FindByUsername(ctx context.Context, username string) (MatchUser, bool, error)
+	FindByID(ctx context.Context, id uuid.UUID) (MatchUser, bool, error)
 	FindSocialIdentity(ctx context.Context, provider, providerUserID string) (uuid.UUID, bool, error)
 	LinkSocialIdentity(ctx context.Context, userID uuid.UUID, provider, providerUserID string, email *string) error
 	SetUserEmail(ctx context.Context, userID uuid.UUID, email string) error
@@ -126,6 +128,38 @@ func (s *PoolUserStore) FindByPhone(ctx context.Context, phone string) (MatchUse
 	return u, true, nil
 }
 
+// FindByUsername looks up a user by exact username.
+func (s *PoolUserStore) FindByUsername(ctx context.Context, username string) (MatchUser, bool, error) {
+	var u MatchUser
+	err := s.Pool.QueryRow(ctx,
+		`SELECT id, phone, email FROM users WHERE username = $1`,
+		username,
+	).Scan(&u.ID, &u.Phone, &u.Email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MatchUser{}, false, nil
+	}
+	if err != nil {
+		return MatchUser{}, false, err
+	}
+	return u, true, nil
+}
+
+// FindByID looks up a user by id.
+func (s *PoolUserStore) FindByID(ctx context.Context, id uuid.UUID) (MatchUser, bool, error) {
+	var u MatchUser
+	err := s.Pool.QueryRow(ctx,
+		`SELECT id, phone, email FROM users WHERE id = $1`,
+		id,
+	).Scan(&u.ID, &u.Phone, &u.Email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return MatchUser{}, false, nil
+	}
+	if err != nil {
+		return MatchUser{}, false, err
+	}
+	return u, true, nil
+}
+
 // FindSocialIdentity returns the linked user id for a provider subject.
 func (s *PoolUserStore) FindSocialIdentity(ctx context.Context, provider, providerUserID string) (uuid.UUID, bool, error) {
 	var id uuid.UUID
@@ -163,10 +197,11 @@ func (s *PoolUserStore) SetUserEmail(ctx context.Context, userID uuid.UUID, emai
 
 // Handler exposes OTP, registration, and social auth HTTP endpoints.
 type Handler struct {
-	OTP      *OTPService
-	Users    UserStore
-	Sessions *SessionService
-	Social   *SocialService
+	OTP          *OTPService
+	Users        UserStore
+	Sessions     *SessionService
+	Social       *SocialService
+	DevOTPReveal bool
 }
 
 type phoneBody struct {
@@ -199,7 +234,7 @@ func (h *Handler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 		h.mapOTPError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "sent"})
+	h.writeOTPSent(w, r.Context(), body.Phone)
 }
 
 // ResendOTP handles POST /v1/auth/otp/resend
@@ -213,7 +248,40 @@ func (h *Handler) ResendOTP(w http.ResponseWriter, r *http.Request) {
 		h.mapOTPError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "sent"})
+	h.writeOTPSent(w, r.Context(), body.Phone)
+}
+
+func (h *Handler) writeOTPSent(w http.ResponseWriter, ctx context.Context, phone string) {
+	out := map[string]string{"status": "sent"}
+	if h.DevOTPReveal {
+		if code, err := h.OTP.PeekOTP(ctx, phone); err == nil && code != "" {
+			out["dev_otp"] = code
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// PeekDevOTP handles GET /v1/dev/otp?phone= (non-production / DEV_OTP_REVEAL only).
+func (h *Handler) PeekDevOTP(w http.ResponseWriter, r *http.Request) {
+	if !h.DevOTPReveal {
+		writeErr(w, http.StatusNotFound, "error_not_found")
+		return
+	}
+	phone := r.URL.Query().Get("phone")
+	if phone == "" {
+		writeErr(w, http.StatusBadRequest, ErrInvalidPhoneFormat.Error())
+		return
+	}
+	code, err := h.OTP.PeekOTP(r.Context(), phone)
+	if err != nil {
+		if errors.Is(err, ErrInvalidPhoneFormat) {
+			writeErr(w, http.StatusBadRequest, ErrInvalidPhoneFormat.Error())
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"phone": phone, "dev_otp": code})
 }
 
 // VerifyOTP handles POST /v1/auth/otp/verify
@@ -284,6 +352,57 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id":         id.String(),
+		"session_token":   token,
+		"restricted_mode": restricted,
+	})
+}
+
+type loginBody struct {
+	Phone string `json:"phone"`
+}
+
+// Login handles POST /v1/auth/login for returning phone users after OTP verify.
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	var body loginBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "error_invalid_json")
+		return
+	}
+
+	phone, err := NormalizeAndValidatePhone(body.Phone)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, ErrInvalidPhoneFormat.Error())
+		return
+	}
+
+	matched, ok, err := h.Users.FindByPhone(r.Context(), phone)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	if !ok {
+		writeErr(w, http.StatusNotFound, "error_user_not_found")
+		return
+	}
+
+	if err := h.OTP.ConsumeVerified(r.Context(), phone); err != nil {
+		h.mapOTPError(w, err)
+		return
+	}
+
+	restricted, err := h.Users.IsRestricted(r.Context(), matched.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+
+	token, err := h.Sessions.Create(r.Context(), matched.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id":         matched.ID.String(),
 		"session_token":   token,
 		"restricted_mode": restricted,
 	})

@@ -22,6 +22,8 @@ type Config struct {
 	IyzicoAPIKey       string
 	IyzicoSecretKey    string
 	IyzicoBaseURL      string
+	IyzicoMock         bool
+	PaymentsPublicBase string
 	PaparaAPIKey       string
 	PaparaSecretKey    string
 	PaparaBaseURL      string
@@ -71,6 +73,8 @@ func Load() (Config, error) {
 	cfg.IyzicoAPIKey = os.Getenv("IYZICO_API_KEY")
 	cfg.IyzicoSecretKey = os.Getenv("IYZICO_SECRET_KEY")
 	cfg.IyzicoBaseURL = getenv("IYZICO_BASE_URL", "https://sandbox-api.iyzipay.com")
+	cfg.PaymentsPublicBase = getenv("PAYMENTS_PUBLIC_BASE", "http://localhost:8081")
+	cfg.IyzicoMock = optionalBool("IYZICO_MOCK", cfg.AppEnv == "development" && cfg.IyzicoAPIKey == "")
 	cfg.PaparaAPIKey = os.Getenv("PAPARA_API_KEY")
 	cfg.PaparaSecretKey = os.Getenv("PAPARA_SECRET_KEY")
 	cfg.PaparaBaseURL = getenv("PAPARA_BASE_URL", "https://merchant-api.test.papara.com")
@@ -78,6 +82,9 @@ func Load() (Config, error) {
 	cfg.BKMSecretKey = os.Getenv("BKM_SECRET_KEY")
 	cfg.BKMBaseURL = getenv("BKM_BASE_URL", "https://sandbox-api.bkmexpress.com.tr")
 
+	if cfg.IsProduction() {
+		cfg.IyzicoMock = false
+	}
 	if cfg.DBMinConns > cfg.DBMaxConns {
 		return Config{}, fmt.Errorf("DB_MIN_CONNS (%d) cannot exceed DB_MAX_CONNS (%d)", cfg.DBMinConns, cfg.DBMaxConns)
 	}
@@ -85,6 +92,22 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("missing required env vars: %v", missing)
 	}
 	return cfg, nil
+}
+
+func (c Config) IsProduction() bool {
+	return c.AppEnv == "production"
+}
+
+func optionalBool(key string, fallback bool) bool {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		return fallback
+	}
+	return v
 }
 
 func getenv(key, fallback string) string {

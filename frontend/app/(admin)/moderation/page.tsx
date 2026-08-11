@@ -15,7 +15,14 @@ import {
   reviewFlag,
   reviewReport,
 } from "@/lib/moderation-api";
-import { getSessionToken } from "@/lib/session";
+import { impersonateUser } from "@/lib/auth-api";
+import {
+  getSessionToken,
+  getUserId,
+  isRestrictedMode,
+  pushImpersonationStack,
+  setSession,
+} from "@/lib/session";
 import styles from "@/app/(app)/derbies/derbies.module.css";
 
 type QueueStatus = "pending" | "reviewed" | "dismissed";
@@ -268,38 +275,68 @@ export default function ModerationPage() {
                 <p className={styles.sub}>
                   {formatDateTime(f.created_at)}
                 </p>
-                {f.status === "pending" ? (
-                  <div className={styles.actions} style={{ marginTop: "0.75rem" }}>
-                    <button
-                      type="button"
-                      className={styles.button}
-                      disabled={busyKey === `flag-review-${f.id}`}
-                      onClick={() =>
-                        runAction(`flag-review-${f.id}`, () =>
-                          reviewFlag(f.id),
-                        )
-                      }
-                    >
-                      {busyKey === `flag-review-${f.id}`
-                        ? "İşleniyor…"
-                        : "İncele"}
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.button} ${styles.buttonSecondary}`}
-                      disabled={busyKey === `flag-dismiss-${f.id}`}
-                      onClick={() =>
-                        runAction(`flag-dismiss-${f.id}`, () =>
-                          dismissFlag(f.id),
-                        )
-                      }
-                    >
-                      {busyKey === `flag-dismiss-${f.id}`
-                        ? "İşleniyor…"
-                        : "Reddet"}
-                    </button>
-                  </div>
-                ) : null}
+                <div className={styles.actions} style={{ marginTop: "0.75rem" }}>
+                  <button
+                    type="button"
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                    disabled={busyKey === `impersonate-${f.user_id}`}
+                    onClick={() =>
+                      runAction(`impersonate-${f.user_id}`, async () => {
+                        const token = getSessionToken();
+                        const uid = getUserId();
+                        if (!token || !uid) throw new Error("error_unauthorized");
+                        pushImpersonationStack({
+                          userId: uid,
+                          sessionToken: token,
+                          restrictedMode: isRestrictedMode(),
+                        });
+                        const res = await impersonateUser(f.user_id);
+                        setSession(
+                          res.user_id,
+                          res.session_token,
+                          res.restricted_mode,
+                        );
+                        window.location.assign("/map");
+                      })
+                    }
+                  >
+                    {busyKey === `impersonate-${f.user_id}`
+                      ? "İşleniyor…"
+                      : "Login as"}
+                  </button>
+                  {f.status === "pending" ? (
+                    <>
+                      <button
+                        type="button"
+                        className={styles.button}
+                        disabled={busyKey === `flag-review-${f.id}`}
+                        onClick={() =>
+                          runAction(`flag-review-${f.id}`, () =>
+                            reviewFlag(f.id),
+                          )
+                        }
+                      >
+                        {busyKey === `flag-review-${f.id}`
+                          ? "İşleniyor…"
+                          : "İncele"}
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.button} ${styles.buttonSecondary}`}
+                        disabled={busyKey === `flag-dismiss-${f.id}`}
+                        onClick={() =>
+                          runAction(`flag-dismiss-${f.id}`, () =>
+                            dismissFlag(f.id),
+                          )
+                        }
+                      >
+                        {busyKey === `flag-dismiss-${f.id}`
+                          ? "İşleniyor…"
+                          : "Reddet"}
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </li>
             ))
           )}

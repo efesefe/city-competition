@@ -133,9 +133,13 @@ func (s *OTPService) ConsumeVerified(ctx context.Context, phone string) error {
 	return nil
 }
 
-// PeekOTP returns the stored OTP for tests (empty if missing).
+// PeekOTP returns the stored OTP for tests/local QA (empty if missing).
 func (s *OTPService) PeekOTP(ctx context.Context, phone string) (string, error) {
-	code, err := s.RDB.Get(ctx, otpKey(phone)).Result()
+	normalized, err := NormalizeAndValidatePhone(phone)
+	if err != nil {
+		return "", err
+	}
+	code, err := s.RDB.Get(ctx, otpKey(normalized)).Result()
 	if errors.Is(err, redis.Nil) {
 		return "", nil
 	}

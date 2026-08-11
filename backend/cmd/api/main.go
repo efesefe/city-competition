@@ -18,6 +18,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/credits"
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
+	"github.com/city-competition-remastered/backend/internal/devtools"
 	"github.com/city-competition-remastered/backend/internal/engagement"
 	"github.com/city-competition-remastered/backend/internal/erasure"
 	"github.com/city-competition-remastered/backend/internal/feed"
@@ -114,10 +115,11 @@ func main() {
 		OTP:      otp,
 	}
 	authHandler := &auth.Handler{
-		OTP:      otp,
-		Users:    users,
-		Sessions: sessions,
-		Social:   social,
+		OTP:          otp,
+		Users:        users,
+		Sessions:     sessions,
+		Social:       social,
+		DevOTPReveal: cfg.DevOTPReveal,
 	}
 	consentHandler := &consent.Handler{
 		Store: &consent.PoolStore{Pool: pools.Write},
@@ -158,6 +160,11 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("tribe seed applied")
+	if err := devtools.EnsureQAPersonasSeeded(ctx, pools.Write); err != nil {
+		logger.Error("qa persona seed failed", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("qa persona seed applied")
 	tribeHandler := &tribe.Handler{
 		Store:       tribeStore,
 		Cooldown:    cfg.TribeSwitchCooldown,
@@ -289,6 +296,22 @@ func main() {
 	moderationActions := &moderation.Actions{Pool: pools.Write}
 	appealsStore := &moderation.Appeals{Pool: pools.Write, Inbox: inboxInsert}
 	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions, Appeals: appealsStore}
+	impersonateHandler := &admin.ImpersonateHandler{
+		Users:    users,
+		Sessions: sessions,
+		Audit:    auditWriter,
+	}
+	devHandler := &devtools.Handler{
+		Pool:     pools.Write,
+		Users:    users,
+		Sessions: sessions,
+		Enabled:  cfg.DevLoginAsEnabled,
+	}
+	simulateIyzicoProxy := &devtools.SimulateIyzicoHandler{
+		PaymentsURL:   cfg.PaymentsServiceURL,
+		InternalToken: cfg.PaymentsInternalToken,
+		Enabled:       !cfg.IsProduction(),
+	}
 	analyticsHandler := &analytics.Handler{Store: &analytics.Store{Pool: pools.Read}}
 	derbyHandler := &derby.Handler{Service: derbyService, Audit: auditWriter}
 	lbHandler := &leaderboard.Handler{
@@ -352,8 +375,14 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/otp/resend", authHandler.ResendOTP)
 	mux.HandleFunc("POST /v1/auth/otp/verify", authHandler.VerifyOTP)
 	mux.HandleFunc("POST /v1/auth/register", authHandler.Register)
+	mux.HandleFunc("POST /v1/auth/login", authHandler.Login)
 	mux.HandleFunc("POST /v1/auth/social/login", authHandler.SocialLogin)
 	mux.HandleFunc("POST /v1/auth/social/merge", authHandler.SocialMerge)
+	mux.HandleFunc("GET /v1/dev/otp", authHandler.PeekDevOTP)
+	mux.HandleFunc("POST /v1/dev/login-as", devHandler.LoginAs)
+	mux.HandleFunc("GET /v1/dev/qa-personas", devHandler.ListQAPersonas)
+	mux.Handle("POST /v1/dev/payments/simulate-iyzico", auth.RequireSession(sessions, users, simulateIyzicoProxy))
+	mux.Handle("POST /v1/admin/users/{id}/impersonate", auth.RequireSession(sessions, users, auth.RequireAdmin(users, impersonateHandler)))
 	mux.Handle("GET /v1/consent/status", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Status)))
 	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Grant)))
 	mux.Handle("POST /v1/consent/withdraw", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Withdraw)))

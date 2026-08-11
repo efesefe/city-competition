@@ -15,6 +15,7 @@ import (
 	"github.com/city-competition-remastered/payments/internal/httputil"
 	"github.com/city-competition-remastered/payments/internal/logging"
 	"github.com/city-competition-remastered/payments/internal/migrate"
+	"github.com/city-competition-remastered/payments/internal/mockcheckout"
 	"github.com/city-competition-remastered/payments/internal/observability"
 	"github.com/city-competition-remastered/payments/internal/providers"
 	"github.com/city-competition-remastered/payments/internal/webhook"
@@ -49,12 +50,25 @@ func main() {
 	defer runCancel()
 	metrics.StartPoolCollector(runCtx, pool)
 
-	registry := providers.Registry{
-		providers.NameIyzico: &providers.Iyzico{
+	var iyzicoProv providers.PaymentProvider
+	mockIyzico := &providers.MockIyzico{
+		SecretKey:  providers.DefaultMockIyzicoSecret,
+		PublicBase: cfg.PaymentsPublicBase,
+	}
+	if cfg.IyzicoMock {
+		iyzicoProv = mockIyzico
+		logger.Info("iyzico provider", "mode", "mock")
+	} else {
+		iyzicoProv = &providers.Iyzico{
 			APIKey:    cfg.IyzicoAPIKey,
 			SecretKey: cfg.IyzicoSecretKey,
 			BaseURL:   cfg.IyzicoBaseURL,
-		},
+		}
+		logger.Info("iyzico provider", "mode", "live_or_sandbox", "base", cfg.IyzicoBaseURL)
+	}
+
+	registry := providers.Registry{
+		providers.NameIyzico: iyzicoProv,
 		providers.NamePapara: &providers.Papara{
 			APIKey:    cfg.PaparaAPIKey,
 			SecretKey: cfg.PaparaSecretKey,
@@ -83,6 +97,25 @@ func main() {
 		Logger:    logger,
 	}
 
+	simSecret := cfg.IyzicoSecretKey
+	if cfg.IyzicoMock || simSecret == "" {
+		simSecret = providers.DefaultMockIyzicoSecret
+	}
+	devEnabled := !cfg.IsProduction()
+	mockCheckout := &mockcheckout.Handler{
+		Checkout: checkoutSvc,
+		Webhook:  webhookHandler,
+		Mock:     mockIyzico,
+		Enabled:  cfg.IyzicoMock && devEnabled,
+	}
+	simulateHandler := &mockcheckout.SimulateHandler{
+		Checkout:     checkoutSvc,
+		Webhook:      webhookHandler,
+		SecretKey:    simSecret,
+		Enabled:      devEnabled,
+		RequireToken: cfg.InternalToken,
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := pool.Ping(r.Context()); err != nil {
@@ -95,16 +128,19 @@ func main() {
 	mux.HandleFunc("POST /v1/charges", httputil.RequireInternalToken(cfg.InternalToken, chargeHandler.CreateCharge))
 	mux.HandleFunc("POST /v1/refunds", httputil.RequireInternalToken(cfg.InternalToken, chargeHandler.Refund))
 	mux.Handle("POST /v1/webhooks/{provider}", webhookHandler)
+	mux.HandleFunc("GET /v1/mock-checkout/{intent_id}", mockCheckout.ServePage)
+	mux.HandleFunc("POST /v1/mock-checkout/{intent_id}/complete", mockCheckout.Complete)
+	mux.Handle("POST /v1/dev/simulate-iyzico-webhook", simulateHandler)
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           observability.Middleware(logger, metrics)(mux),
-		ReadHeaderTimeout: 10 * time.Second,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 	go func() {
-		logger.Info("payments listening", "addr", cfg.HTTPAddr)
+		logger.Info("listening", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("listen", "error", err.Error())
+			logger.Error("serve", "error", err.Error())
 			os.Exit(1)
 		}
 	}()
@@ -112,7 +148,6 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	<-stop
-	runCancel()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)

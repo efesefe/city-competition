@@ -115,4 +115,12 @@ export function fetchInvoice(invoiceId: string) {
   );
 }
 
+export function simulateIyzicoSuccess(paymentIntentId: string) {
+  return authJSON<{ status?: string }>(
+    "POST",
+    "/v1/dev/payments/simulate-iyzico",
+    { payment_intent_id: paymentIntentId },
+  );
+}
+
 export const CHECKOUT_INTENT_STORAGE_KEY = "cc_topup_payment_intent_id";
