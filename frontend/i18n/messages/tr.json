@@ -196,6 +196,20 @@
     "title": "Profil",
     "restrictedBanner": "Kısıtlı hesap: lider tablosu ve sohbet özellikleri sınırlıdır.",
     "tribeChat": "Kabile sohbeti",
+    "chat": {
+      "back": "Profile dön",
+      "you": "Sen",
+      "placeholder": "Mesaj yaz…",
+      "send": "Gönder",
+      "empty": "Mesaj boş olamaz.",
+      "emptyThread": "Henüz mesaj yok. İlk mesajı sen yaz.",
+      "sendFailed": "Mesaj gönderilemedi.",
+      "restricted": "Kısıtlı hesaplar sohbet kullanamaz.",
+      "notMember": "Bu kabileye üye değilsiniz.",
+      "newMessages": "yeni mesajlar",
+      "underReview": "gözden geçiriliyor",
+      "loading": "Yükleniyor…"
+    },
     "tribe": {
       "detailsAria": "Kabile detayı — {tribe}",
       "members": "{count} üye",

@@ -71,6 +71,28 @@ export function switchTribe(id: string) {
   return authJSON<{ tribe_id: string }>("POST", `/v1/tribes/${id}/switch`);
 }
 
+export type TribeMessage = {
+  id: string;
+  kind: string;
+  sender_id: string;
+  tribe_id?: string | null;
+  body: string;
+  flagged: boolean;
+  created_at: string;
+};
+
+export type SendTribeMessageResponse = {
+  message: TribeMessage;
+};
+
+export function sendTribeMessage(tribeId: string, body: string) {
+  return authJSON<SendTribeMessageResponse>(
+    "POST",
+    `/v1/tribes/${tribeId}/messages`,
+    { body },
+  );
+}
+
 export function hasTribeMembership(membership: TribeMembership | null | undefined) {
   return Boolean(membership?.tribe_id);
 }

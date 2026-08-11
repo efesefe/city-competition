@@ -17,9 +17,19 @@ export type WalletBalanceChangedMessage = {
   balance: number;
 };
 
+export type TribeMessageEvent = {
+  type: "tribe_message";
+  id: string;
+  tribe_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
+
 export type RealtimeSocketEvent =
   | SupportAppliedMessage
-  | WalletBalanceChangedMessage;
+  | WalletBalanceChangedMessage
+  | TribeMessageEvent;
 
 export type RealtimeSocketStatus = "connecting" | "open" | "closed" | "error";
 
@@ -62,17 +72,57 @@ function isWalletBalanceChanged(
   );
 }
 
+function asStringId(value: unknown): string | null {
+  if (typeof value === "string" && value.length > 0) return value;
+  return null;
+}
+
+function isTribeMessage(data: unknown): data is TribeMessageEvent {
+  if (!data || typeof data !== "object") return false;
+  const msg = data as Record<string, unknown>;
+  const id = asStringId(msg.id);
+  const tribeId = asStringId(msg.tribe_id);
+  const senderId = asStringId(msg.sender_id);
+  const createdAt =
+    typeof msg.created_at === "string"
+      ? msg.created_at
+      : msg.created_at instanceof Date
+        ? msg.created_at.toISOString()
+        : null;
+  if (
+    msg.type !== "tribe_message" ||
+    !id ||
+    !tribeId ||
+    !senderId ||
+    typeof msg.body !== "string" ||
+    !createdAt
+  ) {
+    return false;
+  }
+  // Normalize in place so downstream always sees strings.
+  (msg as { id: string }).id = id;
+  (msg as { tribe_id: string }).tribe_id = tribeId;
+  (msg as { sender_id: string }).sender_id = senderId;
+  (msg as { created_at: string }).created_at = createdAt;
+  return true;
+}
+
 export type RealtimeSocketHandle = {
   /** Push current viewport (debounced internally when called from move handlers). */
   sendViewport: (bbox?: MapBBox | null) => void;
   /** Immediately send viewport without debounce (e.g. on open). */
   sendViewportNow: (bbox?: MapBBox | null) => void;
+  /** Join a Hub room (e.g. tribe:{uuid}). Re-sent on reconnect. */
+  joinRoom: (room: string) => void;
+  /** Leave a Hub room previously joined. */
+  leaveRoom: (room: string) => void;
   close: () => void;
 };
 
 /**
  * Connects to the app realtime WebSocket with exponential reconnect
- * backoff capped at 30s. Carries city support events (and future wallet events).
+ * backoff capped at 30s. Carries city support events, wallet events,
+ * and tribe chat rooms.
  */
 export function connectRealtimeSocket(
   opts: RealtimeSocketOptions,
@@ -84,6 +134,7 @@ export function connectRealtimeSocket(
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
   let generation = 0;
+  const desiredRooms = new Set<string>();
 
   const setStatus = (status: RealtimeSocketStatus) => {
     opts.onStatus?.(status);
@@ -103,13 +154,26 @@ export function connectRealtimeSocket(
     }
   };
 
+  const sendJSON = (payload: Record<string, unknown>) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    ws.send(JSON.stringify(payload));
+  };
+
   const pushViewport = (bbox: MapBBox | null | undefined) => {
     const box =
       bbox === undefined ? (opts.getBBox?.() ?? null) : bbox;
-    if (!box || !ws || ws.readyState !== WebSocket.OPEN) {
+    if (!box) {
       return;
     }
-    ws.send(JSON.stringify({ type: "viewport", bbox: box }));
+    sendJSON({ type: "viewport", bbox: box });
+  };
+
+  const pushRooms = () => {
+    for (const room of desiredRooms) {
+      sendJSON({ type: "join", room });
+    }
   };
 
   const scheduleReconnect = () => {
@@ -145,13 +209,18 @@ export function connectRealtimeSocket(
       backoffMs = INITIAL_BACKOFF_MS;
       setStatus("open");
       pushViewport(opts.getBBox?.() ?? null);
+      pushRooms();
     };
 
     socket.onmessage = (ev) => {
       if (gen !== generation) return;
       try {
         const data: unknown = JSON.parse(String(ev.data));
-        if (isSupportApplied(data) || isWalletBalanceChanged(data)) {
+        if (
+          isSupportApplied(data) ||
+          isWalletBalanceChanged(data) ||
+          isTribeMessage(data)
+        ) {
           opts.onEvent?.(data);
         }
       } catch {
@@ -190,10 +259,23 @@ export function connectRealtimeSocket(
       clearDebounce();
       pushViewport(bbox);
     },
+    joinRoom(room) {
+      const trimmed = room.trim();
+      if (!trimmed) return;
+      desiredRooms.add(trimmed);
+      sendJSON({ type: "join", room: trimmed });
+    },
+    leaveRoom(room) {
+      const trimmed = room.trim();
+      if (!trimmed) return;
+      desiredRooms.delete(trimmed);
+      sendJSON({ type: "leave", room: trimmed });
+    },
     close() {
       closedByUser = true;
       clearReconnect();
       clearDebounce();
+      desiredRooms.clear();
       generation += 1;
       const socket = ws;
       ws = null;

@@ -27,6 +27,8 @@ type RealtimeContextValue = {
   sendViewport: (bbox?: MapBBox | null) => void;
   sendViewportNow: (bbox?: MapBBox | null) => void;
   setBBoxGetter: (getter: (() => MapBBox | null) | null) => void;
+  joinRoom: (room: string) => void;
+  leaveRoom: (room: string) => void;
 };
 
 const RealtimeContext = createContext<RealtimeContextValue | null>(null);
@@ -36,6 +38,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const listenersRef = useRef(new Set<EventListener>());
   const bboxGetterRef = useRef<(() => MapBBox | null) | null>(null);
   const handleRef = useRef<RealtimeSocketHandle | null>(null);
+  /** Rooms requested by consumers; socket handle also tracks for reconnect. */
+  const roomsRef = useRef(new Set<string>());
   const [status, setStatus] = useState<RealtimeSocketStatus>("connecting");
 
   const emit = useCallback(
@@ -57,6 +61,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       onStatus: setStatus,
     });
     handleRef.current = handle;
+    // Re-apply any rooms joined before the socket finished connecting.
+    for (const room of roomsRef.current) {
+      handle.joinRoom(room);
+    }
     return () => {
       handle.close();
       handleRef.current = null;
@@ -85,6 +93,20 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     handleRef.current?.sendViewportNow(bbox);
   }, []);
 
+  const joinRoom = useCallback((room: string) => {
+    const trimmed = room.trim();
+    if (!trimmed) return;
+    roomsRef.current.add(trimmed);
+    handleRef.current?.joinRoom(trimmed);
+  }, []);
+
+  const leaveRoom = useCallback((room: string) => {
+    const trimmed = room.trim();
+    if (!trimmed) return;
+    roomsRef.current.delete(trimmed);
+    handleRef.current?.leaveRoom(trimmed);
+  }, []);
+
   const value = useMemo<RealtimeContextValue>(
     () => ({
       status,
@@ -92,8 +114,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       sendViewport,
       sendViewportNow,
       setBBoxGetter,
+      joinRoom,
+      leaveRoom,
     }),
-    [status, subscribe, sendViewport, sendViewportNow, setBBoxGetter],
+    [
+      status,
+      subscribe,
+      sendViewport,
+      sendViewportNow,
+      setBBoxGetter,
+      joinRoom,
+      leaveRoom,
+    ],
   );
 
   return (
