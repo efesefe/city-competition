@@ -1,0 +1,229 @@
+.page {
+  min-height: 100vh;
+  width: 100%;
+  overflow: auto;
+  padding: 2rem 1.25rem 7.5rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, #1a3a4a 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, #2a1f14 0%, transparent 50%),
+    linear-gradient(160deg, #0c1418 0%, #152028 45%, #1a1712 100%);
+  color: #e8efe9;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+.header {
+  max-width: 52rem;
+  margin: 0 auto 1.5rem;
+}
+
+.brand {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8fb5a8;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+  color: #a8b5b0;
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.error {
+  max-width: 52rem;
+  margin: 0 auto 1rem;
+  color: #e8a090;
+  font-size: 0.9rem;
+}
+
+.grid {
+  list-style: none;
+  margin: 0 auto;
+  padding: 0;
+  max-width: 52rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 1rem 0.7rem 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--tribe-accent, #3a4f4a) 35%, #3a4f4a);
+  border-radius: 0.65rem;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--tribe-primary, #1a3a4a) 28%, #0c1418) 0%,
+      rgba(8, 16, 18, 0.7) 70%
+    );
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--tribe-accent, #5a9e88) 65%, #3a4f4a);
+}
+
+.cardSelected {
+  border-color: var(--tribe-accent, #5a9e88);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--tribe-accent, #5a9e88) 55%, transparent);
+  transform: translateY(-2px);
+}
+
+.crest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+.crestMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.55rem;
+  height: 2.55rem;
+  border-radius: 999px;
+  background: rgba(6, 12, 11, 0.55);
+  color: #f2f7f4;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.name {
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.short {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a9e96;
+}
+
+.members {
+  font-size: 0.72rem;
+  color: #7a8f88;
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.9rem 1.25rem calc(0.9rem + env(safe-area-inset-bottom));
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(8, 14, 16, 0.92) 28%, #0c1418 100%);
+  border-top: 1px solid rgba(58, 79, 74, 0.65);
+  backdrop-filter: blur(8px);
+}
+
+.preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 52rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.previewEmpty {
+  margin: 0 auto;
+  max-width: 52rem;
+  width: 100%;
+  color: #8a9e96;
+  font-size: 0.9rem;
+}
+
+.previewCrest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  color: #f2f7f4;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.previewMeta {
+  min-width: 0;
+}
+
+.previewName {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.previewHint {
+  margin: 0.2rem 0 0;
+  color: #a8b5b0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.confirm {
+  max-width: 52rem;
+  width: 100%;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0.45rem;
+  padding: 0.85rem 1rem;
+  background: #3d8f74;
+  color: #06120e;
+  font-weight: 650;
+  font-size: 0.98rem;
+  cursor: pointer;
+}
+
+.confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

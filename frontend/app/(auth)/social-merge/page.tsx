@@ -4,9 +4,11 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import LocaleToggle from "@/components/LocaleToggle";
+import OtpInput from "@/components/onboarding/OtpInput";
 import {
   AuthApiError,
   clearPendingMerge,
+  formatTRNationalPhone,
   loadPendingMerge,
   requestOTP,
   resendOTP,
@@ -21,6 +23,10 @@ import styles from "../register/register.module.css";
 type Step = "phone" | "otp";
 
 const COOLDOWN_SEC = 60;
+
+function isCooldownError(err: unknown): boolean {
+  return err instanceof AuthApiError && err.code === "error_otp_cooldown";
+}
 
 export default function SocialMergePage() {
   const t = useTranslations("auth");
@@ -87,6 +93,9 @@ export default function SocialMergePage() {
       setStep("otp");
       setCooldownLeft(COOLDOWN_SEC);
     } catch (err) {
+      if (isCooldownError(err)) {
+        setCooldownLeft(COOLDOWN_SEC);
+      }
       setError(mapError(err));
     } finally {
       setBusy(false);
@@ -101,6 +110,9 @@ export default function SocialMergePage() {
       await resendOTP(e164);
       setCooldownLeft(COOLDOWN_SEC);
     } catch (err) {
+      if (isCooldownError(err)) {
+        setCooldownLeft(COOLDOWN_SEC);
+      }
       setError(mapError(err));
     } finally {
       setBusy(false);
@@ -158,17 +170,24 @@ export default function SocialMergePage() {
             <label className={styles.label} htmlFor="phone">
               {tMerge("phoneLabel")}
             </label>
-            <input
-              id="phone"
-              className={styles.input}
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder={t("phonePlaceholder")}
-              value={phoneInput}
-              onChange={(e) => setPhoneInput(e.target.value)}
-              disabled={busy}
-              data-testid="merge-phone"
-            />
+            <div className={styles.phoneRow}>
+              <span className={styles.phonePrefix} aria-hidden>
+                +90
+              </span>
+              <input
+                id="phone"
+                className={styles.phoneInput}
+                inputMode="tel"
+                autoComplete="tel-national"
+                placeholder={t("phonePlaceholder")}
+                value={phoneInput}
+                onChange={(e) =>
+                  setPhoneInput(formatTRNationalPhone(e.target.value))
+                }
+                disabled={busy}
+                data-testid="merge-phone"
+              />
+            </div>
             <button className={styles.button} type="submit" disabled={busy}>
               {t("sendCode")}
             </button>
@@ -177,37 +196,41 @@ export default function SocialMergePage() {
 
         {step === "otp" ? (
           <form onSubmit={onOTPSubmit} className={styles.form}>
-            <label className={styles.label} htmlFor="code">
+            <label className={styles.label} htmlFor="otp">
               {t("otpLabel")}
             </label>
-            <input
-              id="code"
-              className={styles.input}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder={t("otpPlaceholder")}
+            <OtpInput
+              id="otp"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={setCode}
               disabled={busy}
-              data-testid="merge-otp"
+              aria-label={t("otpLabel")}
             />
             <button
               className={styles.button}
               type="submit"
-              disabled={busy}
+              disabled={busy || code.length !== 6}
               data-testid="merge-confirm"
             >
               {tMerge("confirm")}
             </button>
+            {cooldownLeft > 0 ? (
+              <p
+                className={styles.cooldown}
+                data-testid="otp-cooldown"
+                aria-live="polite"
+              >
+                {t("resendIn", { seconds: cooldownLeft })}
+              </p>
+            ) : null}
             <button
               className={styles.linkBtn}
               type="button"
               onClick={onResend}
               disabled={busy || cooldownLeft > 0}
+              data-testid="otp-resend"
             >
-              {cooldownLeft > 0
-                ? t("resendIn", { seconds: cooldownLeft })
-                : t("resend")}
+              {t("resend")}
             </button>
           </form>
         ) : null}

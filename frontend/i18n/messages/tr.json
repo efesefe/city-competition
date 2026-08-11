@@ -65,7 +65,7 @@
     "registerTitle": "Kayıt ol",
     "registerLead": "Telefon veya sosyal hesapla giriş. Doğum tarihi zorunludur.",
     "phone": "Cep telefonu",
-    "phonePlaceholder": "05xx xxx xx xx",
+    "phonePlaceholder": "5xx xxx xx xx",
     "sendCode": "Kod gönder",
     "or": "veya",
     "continueGoogle": "Google ile devam",
@@ -114,6 +114,14 @@
     "versionUpdated": "Metin güncellendi. Lütfen yeni metni okuyup yeniden onaylayın.",
     "saveFailed": "Onay kaydedilemedi. Tekrar deneyin.",
     "statusFailed": "Onay durumu alınamadı."
+  },
+  "onboardingTribe": {
+    "title": "Kabileni seç",
+    "lead": "Bu seçim Derbi bonuslarını, sohbet topluluğunu ve uygulama kimliğini belirler. Önizleyip onaylayın.",
+    "pickHint": "Onaylamadan önce bir kabile seçin.",
+    "previewHint": "Derbi bonusları, sohbet ve görsel kimlik bu kabileye bağlanır.",
+    "confirm": "Bu kabileye katıl",
+    "members": "{count} üye"
   },
   "residency": {
     "TR": "Verileriniz Türkiye (TR) bölgesindeki sunucularda işlenir ve saklanır.",

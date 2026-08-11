@@ -35,7 +35,9 @@ function consentPayload(state: ConsentState) {
 
 const TRIBE_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
-async function mockShellAPIs(page: Page) {
+async function mockShellAPIs(page: Page, opts?: { hasTribe?: boolean }) {
+  const hasTribe = opts?.hasTribe !== false;
+
   await page.route("**/v1/tribes", async (route) => {
     await route.fulfill({
       status: 200,
@@ -55,7 +57,7 @@ async function mockShellAPIs(page: Page) {
           },
         ],
         membership: {
-          tribe_id: TRIBE_ID,
+          tribe_id: hasTribe ? TRIBE_ID : null,
           tribe_switched_at: null,
           switch_available_at: null,
         },
@@ -80,7 +82,11 @@ async function mockShellAPIs(page: Page) {
   });
 }
 
-async function mockConsentAPI(page: Page, initial: ConsentState) {
+async function mockConsentAPI(
+  page: Page,
+  initial: ConsentState,
+  opts?: { hasTribe?: boolean },
+) {
   const state = { ...initial };
 
   await page.addInitScript(() => {
@@ -111,7 +117,7 @@ async function mockConsentAPI(page: Page, initial: ConsentState) {
     });
   });
 
-  await mockShellAPIs(page);
+  await mockShellAPIs(page, opts);
 
   await page.route("**/v1/consent/status", async (route) => {
     await route.fulfill({
@@ -161,35 +167,42 @@ async function seedSession(page: Page) {
 }
 
 test.describe("KVKK consent gate", () => {
-  test("map is blocked until both consents are granted", async ({ page }) => {
+  test("map redirects into consent onboarding until both grants exist", async ({
+    page,
+  }) => {
     await seedSession(page);
-    const api = await mockConsentAPI(page, {
-      aydinlatma: null,
-      location: null,
-    });
+    const api = await mockConsentAPI(
+      page,
+      {
+        aydinlatma: null,
+        location: null,
+      },
+      { hasTribe: false },
+    );
 
     await page.goto("/map");
 
+    await expect(page).toHaveURL(/\/consent/);
     await expect(page.getByTestId("consent-modal")).toBeVisible();
     await expect(page.getByTestId("map-screen")).toHaveCount(0);
     await expect(page.locator(".map-canvas")).toHaveCount(0);
     expect(await api.getGeoCalls()).toBe(0);
 
-    // Only disclosure checked — submit stays disabled / map still blocked.
     await page.getByTestId("check-aydinlatma").check();
     await expect(page.getByTestId("consent-submit")).toBeDisabled();
-    await expect(page.getByTestId("map-screen")).toHaveCount(0);
 
     await page.getByTestId("check-location").check();
     await expect(page.getByTestId("consent-submit")).toBeEnabled();
     await page.getByTestId("consent-submit").click();
 
-    await expect(page.getByTestId("map-screen")).toBeVisible();
-    await expect(page.getByTestId("consent-modal")).toHaveCount(0);
+    // After consent, onboarding continues at tribe selection (not the map shell).
+    await expect(page).toHaveURL(/\/choose-tribe/);
     expect(await api.getGeoCalls()).toBe(0);
   });
 
-  test("partial prior consent still blocks the map", async ({ page }) => {
+  test("partial prior consent still redirects into onboarding consent", async ({
+    page,
+  }) => {
     await seedSession(page);
     await mockConsentAPI(page, {
       aydinlatma: true,
@@ -198,11 +211,14 @@ test.describe("KVKK consent gate", () => {
 
     await page.goto("/map");
 
+    await expect(page).toHaveURL(/\/consent/);
     await expect(page.getByTestId("consent-modal")).toBeVisible();
     await expect(page.getByTestId("map-screen")).toHaveCount(0);
   });
 
-  test("both consents already granted shows map", async ({ page }) => {
+  test("both consents already granted with tribe shows map", async ({
+    page,
+  }) => {
     await seedSession(page);
     await mockConsentAPI(page, {
       aydinlatma: true,
@@ -213,5 +229,29 @@ test.describe("KVKK consent gate", () => {
     await expect(page).toHaveURL(/\/map/);
     await expect(page.getByTestId("map-screen")).toBeVisible();
     await expect(page.getByTestId("consent-modal")).toHaveCount(0);
+  });
+});
+
+test.describe("tribe onboarding gate", () => {
+  test("map redirects to choose-tribe when consents exist but tribe does not", async ({
+    page,
+  }) => {
+    await seedSession(page);
+
+    await page.route("**/v1/consent/status", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          consentPayload({ aydinlatma: true, location: true }),
+        ),
+      });
+    });
+    await mockShellAPIs(page, { hasTribe: false });
+
+    await page.goto("/map");
+    await expect(page).toHaveURL(/\/choose-tribe/);
+    await expect(page.getByTestId("choose-tribe-page")).toBeVisible();
+    await expect(page.getByTestId("map-screen")).toHaveCount(0);
   });
 });

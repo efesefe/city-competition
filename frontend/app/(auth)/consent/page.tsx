@@ -34,7 +34,7 @@ export default function ConsentPage() {
     load()
       .then((data) => {
         if (hasRequiredConsents(data)) {
-          router.replace("/map");
+          router.replace("/choose-tribe");
         }
       })
       .catch(() => setError(t("statusFailed")));
@@ -62,7 +62,7 @@ export default function ConsentPage() {
       <ConsentModal
         status={status}
         onStatusRefresh={load}
-        onGranted={() => router.replace("/map")}
+        onGranted={() => router.replace("/choose-tribe")}
       />
     </>
   );

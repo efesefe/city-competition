@@ -62,6 +62,11 @@ export default function TribesPage() {
       return;
     }
     load()
+      .then((data) => {
+        if (!hasTribeMembership(data.membership)) {
+          router.replace("/choose-tribe");
+        }
+      })
       .catch(() => setError(t("loadFailed")))
       .finally(() => setLoading(false));
   }, [load, router, t]);
