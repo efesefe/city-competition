@@ -45,6 +45,8 @@ services:
       IYZICO_API_KEY: ${IYZICO_API_KEY:-}
       IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY:-}
       IYZICO_BASE_URL: ${IYZICO_BASE_URL:-https://sandbox-api.iyzipay.com}
+      IYZICO_MOCK: ${IYZICO_MOCK:-true}
+      PAYMENTS_PUBLIC_BASE: ${PAYMENTS_PUBLIC_BASE:-http://localhost:8081}
       PAPARA_API_KEY: ${PAPARA_API_KEY:-}
       PAPARA_SECRET_KEY: ${PAPARA_SECRET_KEY:-}
       PAPARA_BASE_URL: ${PAPARA_BASE_URL:-https://merchant-api.test.papara.com}
@@ -75,6 +77,8 @@ services:
       PAYMENTS_SERVICE_URL: ${PAYMENTS_SERVICE_URL:-http://payments:8081}
       PAYMENTS_INTERNAL_TOKEN: ${PAYMENTS_INTERNAL_TOKEN:-dev-payments-internal-token}
       PAYMENTS_DEFAULT_RETURN_URL: ${PAYMENTS_DEFAULT_RETURN_URL:-http://localhost:3000/credits}
+      DEV_OTP_REVEAL: ${DEV_OTP_REVEAL:-true}
+      DEV_LOGIN_AS_ENABLED: ${DEV_LOGIN_AS_ENABLED:-true}
     ports:
       - "8080:8080"
     depends_on:
@@ -92,9 +96,11 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
         NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+        NEXT_PUBLIC_DEV_QA_PANEL: ${NEXT_PUBLIC_DEV_QA_PANEL:-true}
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
       NEXT_PUBLIC_MAP_STYLE_URL: ${NEXT_PUBLIC_MAP_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+      NEXT_PUBLIC_DEV_QA_PANEL: ${NEXT_PUBLIC_DEV_QA_PANEL:-true}
     ports:
       - "3000:3000"
     depends_on:

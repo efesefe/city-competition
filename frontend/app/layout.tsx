@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import LocalQAPanel from "@/components/dev/LocalQAPanel";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
@@ -22,6 +23,7 @@ export default async function RootLayout({
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
+          <LocalQAPanel />
         </NextIntlClientProvider>
       </body>
     </html>

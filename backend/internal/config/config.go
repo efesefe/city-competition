@@ -48,6 +48,8 @@ type Config struct {
 	PaymentsDefaultReturnURL       string
 	KDVRateBPS                     int
 	PaymentsDatabaseURL            string // optional; used by erasure cascade
+	DevOTPReveal                   bool
+	DevLoginAsEnabled              bool
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -166,6 +168,14 @@ func Load() (Config, error) {
 	cfg.PaymentsInternalToken = os.Getenv("PAYMENTS_INTERNAL_TOKEN")
 	cfg.PaymentsDefaultReturnURL = getenv("PAYMENTS_DEFAULT_RETURN_URL", "http://localhost:3000/credits")
 	cfg.PaymentsDatabaseURL = os.Getenv("PAYMENTS_DATABASE_URL")
+
+	// Local QA helpers (always forced off in production).
+	cfg.DevOTPReveal = optionalBool("DEV_OTP_REVEAL", cfg.AppEnv == "development")
+	cfg.DevLoginAsEnabled = optionalBool("DEV_LOGIN_AS_ENABLED", cfg.AppEnv == "development")
+	if cfg.IsProduction() {
+		cfg.DevOTPReveal = false
+		cfg.DevLoginAsEnabled = false
+	}
 
 	kdvBPS, err := optionalInt64("KDV_RATE_BPS", 2000)
 	if err != nil {

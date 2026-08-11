@@ -13,6 +13,7 @@ import {
   fetchCheckoutStatus,
   fetchCreditPacks,
   fetchInvoice,
+  simulateIyzicoSuccess,
   type GrantResult,
   type InvoiceResponse,
 } from "@/lib/topup-api";
@@ -27,6 +28,10 @@ type SuccessState = {
 const creditFormatter = new Intl.NumberFormat("tr-TR", {
   maximumFractionDigits: 0,
 });
+
+const showSimulate =
+  process.env.NEXT_PUBLIC_DEV_QA_PANEL === "true" ||
+  process.env.NODE_ENV === "development";
 
 function ProfileTopupInner() {
   const t = useTranslations("profile.topup");
@@ -44,6 +49,8 @@ function ProfileTopupInner() {
   const [success, setSuccess] = useState<SuccessState | null>(null);
   const [returnPending, setReturnPending] = useState(false);
   const [returnError, setReturnError] = useState<string | null>(null);
+  const [pendingIntentId, setPendingIntentId] = useState<string | null>(null);
+  const [simBusy, setSimBusy] = useState(false);
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
@@ -98,6 +105,8 @@ function ProfileTopupInner() {
       return;
     }
 
+    setPendingIntentId(intentId);
+
     let cancelled = false;
     let attempts = 0;
     const maxAttempts = 12;
@@ -137,6 +146,36 @@ function ProfileTopupInner() {
       cancelled = true;
     };
   }, [searchParams, finishSuccess, t]);
+
+  async function handleSimulateSuccess() {
+    const intentId =
+      pendingIntentId ??
+      (typeof window !== "undefined"
+        ? window.sessionStorage.getItem(CHECKOUT_INTENT_STORAGE_KEY)
+        : null);
+    if (!intentId) return;
+    setSimBusy(true);
+    setReturnError(null);
+    try {
+      await simulateIyzicoSuccess(intentId);
+      const status = await fetchCheckoutStatus(intentId);
+      if (status.status === "succeeded") {
+        window.sessionStorage.removeItem(CHECKOUT_INTENT_STORAGE_KEY);
+        setReturnPending(false);
+        await finishSuccess({
+          creditsGranted: status.credits_granted ?? 0,
+          balanceAfter: status.balance_after,
+          invoiceId: status.invoice_id,
+        });
+      } else {
+        setReturnError(t("returnPendingTimeout"));
+      }
+    } catch {
+      setReturnError(t("simulateFailed"));
+    } finally {
+      setSimBusy(false);
+    }
+  }
 
   async function handleIapSuccess(grant: GrantResult) {
     await finishSuccess({
@@ -231,6 +270,17 @@ function ProfileTopupInner() {
         <p className={styles.error} data-testid="topup-return-error">
           {returnError}
         </p>
+      ) : null}
+      {showSimulate && (returnError || returnPending) && pendingIntentId ? (
+        <button
+          type="button"
+          className={styles.done}
+          disabled={simBusy}
+          data-testid="topup-simulate-success"
+          onClick={() => void handleSimulateSuccess()}
+        >
+          {t("simulateSuccess")}
+        </button>
       ) : null}
 
       {loading ? (

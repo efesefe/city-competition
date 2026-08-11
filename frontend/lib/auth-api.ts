@@ -48,11 +48,17 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
 }
 
 export function requestOTP(phone: string) {
-  return postJSON<{ status: string }>("/v1/auth/otp/request", { phone });
+  return postJSON<{ status: string; dev_otp?: string }>(
+    "/v1/auth/otp/request",
+    { phone },
+  );
 }
 
 export function resendOTP(phone: string) {
-  return postJSON<{ status: string }>("/v1/auth/otp/resend", { phone });
+  return postJSON<{ status: string; dev_otp?: string }>(
+    "/v1/auth/otp/resend",
+    { phone },
+  );
 }
 
 export function verifyOTP(phone: string, code: string) {
@@ -68,6 +74,106 @@ export function register(phone: string, username: string, birthDate: string) {
     phone,
     username,
     birth_date: birthDate,
+  });
+}
+
+export function login(phone: string) {
+  return postJSON<{
+    user_id: string;
+    session_token: string;
+    restricted_mode: boolean;
+  }>("/v1/auth/login", { phone });
+}
+
+export function peekDevOTP(phone: string) {
+  return fetch(
+    `${API_BASE}/v1/dev/otp?phone=${encodeURIComponent(phone)}`,
+  ).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      phone?: string;
+      dev_otp?: string;
+    };
+    if (!res.ok) {
+      throw new AuthApiError(data.error ?? "request_failed", {
+        status: res.status,
+        code: data.error ?? "request_failed",
+      });
+    }
+    return data;
+  });
+}
+
+export type QAPersona = {
+  id: string;
+  username: string;
+  phone?: string | null;
+  is_admin: boolean;
+  tribe_id?: string | null;
+  tribe_slug?: string | null;
+  tribe_name?: string | null;
+};
+
+export function fetchQAPersonas() {
+  return fetch(`${API_BASE}/v1/dev/qa-personas`).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      personas?: QAPersona[];
+    };
+    if (!res.ok) {
+      throw new AuthApiError(data.error ?? "request_failed", {
+        status: res.status,
+        code: data.error ?? "request_failed",
+      });
+    }
+    return data.personas ?? [];
+  });
+}
+
+export function loginAs(input: {
+  phone?: string;
+  user_id?: string;
+  username?: string;
+}) {
+  return postJSON<{
+    user_id: string;
+    session_token: string;
+    restricted_mode: boolean;
+  }>("/v1/dev/login-as", input);
+}
+
+export function impersonateUser(userId: string, reason?: string) {
+  const token =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("cc_session_token")
+      : null;
+  return fetch(`${API_BASE}/v1/admin/users/${encodeURIComponent(userId)}/impersonate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ reason: reason ?? "admin_impersonate" }),
+  }).then(async (res) => {
+    const data = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      user_id?: string;
+      session_token?: string;
+      restricted_mode?: boolean;
+      actor_id?: string;
+    };
+    if (!res.ok) {
+      throw new AuthApiError(data.error ?? "request_failed", {
+        status: res.status,
+        code: data.error ?? "request_failed",
+      });
+    }
+    return data as {
+      user_id: string;
+      session_token: string;
+      restricted_mode: boolean;
+      actor_id: string;
+    };
   });
 }
 

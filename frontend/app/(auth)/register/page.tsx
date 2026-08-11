@@ -11,6 +11,7 @@ import {
   isUnder18,
   obtainSocialIdToken,
   register,
+  login,
   requestOTP,
   resendOTP,
   socialLogin,
@@ -20,6 +21,7 @@ import {
   type SocialProvider,
 } from "@/lib/auth-api";
 import { setSession } from "@/lib/session";
+import Link from "next/link";
 import styles from "./register.module.css";
 
 type Step = "phone" | "otp" | "profile" | "done";
@@ -40,6 +42,7 @@ export default function RegisterPage() {
   const [phoneInput, setPhoneInput] = useState("");
   const [e164, setE164] = useState<string | null>(null);
   const [code, setCode] = useState("");
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -81,6 +84,8 @@ export default function RegisterPage() {
         return t("errors.invalidBirthDate");
       case "error_user_conflict":
         return t("errors.userConflict");
+      case "error_user_not_found":
+        return t("errors.userNotFound");
       case "error_phone_not_verified":
         return t("errors.phoneNotVerified");
       case "error_invalid_social_token":
@@ -103,8 +108,10 @@ export default function RegisterPage() {
     }
     setBusy(true);
     try {
-      await requestOTP(phone);
+      const res = await requestOTP(phone);
       setE164(phone);
+      setDevOtp(res.dev_otp ?? null);
+      if (res.dev_otp) setCode(res.dev_otp);
       setStep("otp");
       setCooldownLeft(COOLDOWN_SEC);
     } catch (err) {
@@ -122,7 +129,9 @@ export default function RegisterPage() {
     setError(null);
     setBusy(true);
     try {
-      await resendOTP(e164);
+      const res = await resendOTP(e164);
+      setDevOtp(res.dev_otp ?? null);
+      if (res.dev_otp) setCode(res.dev_otp);
       setCooldownLeft(COOLDOWN_SEC);
     } catch (err) {
       if (isCooldownError(err)) {
@@ -141,7 +150,24 @@ export default function RegisterPage() {
     setBusy(true);
     try {
       await verifyOTP(e164, code.trim());
-      setStep("profile");
+      // Returning users can login without profile step.
+      try {
+        const res = await login(e164);
+        setSession(res.user_id, res.session_token, res.restricted_mode);
+        setUserId(res.user_id);
+        setStep("done");
+        router.replace("/consent");
+        return;
+      } catch (loginErr) {
+        if (
+          loginErr instanceof AuthApiError &&
+          loginErr.code === "error_user_not_found"
+        ) {
+          setStep("profile");
+          return;
+        }
+        throw loginErr;
+      }
     } catch (err) {
       setError(mapError(err));
     } finally {
@@ -231,6 +257,11 @@ export default function RegisterPage() {
         <p className={styles.brand}>{tCommon("brand")}</p>
         <h1 className={styles.title}>{t("registerTitle")}</h1>
         <p className={styles.lead}>{t("registerLead")}</p>
+        <p className={styles.lead}>
+          <Link href="/login" data-testid="goto-login">
+            {t("haveAccountLogin")}
+          </Link>
+        </p>
 
         {error ? <p className={styles.error}>{error}</p> : null}
 
@@ -300,6 +331,11 @@ export default function RegisterPage() {
               disabled={busy}
               aria-label={t("otpLabel")}
             />
+            {devOtp ? (
+              <p className={styles.cooldown} data-testid="dev-otp-hint">
+                {t("devOtpHint", { code: devOtp })}
+              </p>
+            ) : null}
             <button
               className={styles.button}
               type="submit"

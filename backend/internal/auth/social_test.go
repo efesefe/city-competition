@@ -96,6 +96,27 @@ func (s *memUsers) FindByPhone(ctx context.Context, phone string) (auth.MatchUse
 	return auth.MatchUser{ID: id, Phone: u.Phone, Email: u.Email}, true, nil
 }
 
+func (s *memUsers) FindByUsername(ctx context.Context, username string) (auth.MatchUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, u := range s.users {
+		if u.Username == username {
+			return auth.MatchUser{ID: id, Phone: u.Phone, Email: u.Email}, true, nil
+		}
+	}
+	return auth.MatchUser{}, false, nil
+}
+
+func (s *memUsers) FindByID(ctx context.Context, id uuid.UUID) (auth.MatchUser, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.users[id]
+	if !ok {
+		return auth.MatchUser{}, false, nil
+	}
+	return auth.MatchUser{ID: id, Phone: u.Phone, Email: u.Email}, true, nil
+}
+
 func (s *memUsers) FindSocialIdentity(ctx context.Context, provider, providerUserID string) (uuid.UUID, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
