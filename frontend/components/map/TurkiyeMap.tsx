@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import maplibregl, { type ExpressionSpecification } from "maplibre-gl";
 import { useCityData } from "@/context/CityDataContext";
 import { useRealtime } from "@/context/RealtimeContext";
+import type { City } from "@/lib/cities-api";
 import { ensureTribeCrestImage } from "@/lib/map/crestIcons";
 import {
   applyAllCityFillStates,
@@ -30,6 +31,7 @@ import {
 } from "@/lib/map/turkiyeBounds";
 import { type MapBBox } from "@/lib/realtimeSocket";
 import { fetchProvincesGeoJSON } from "@/lib/support-api";
+import type { Tribe } from "@/lib/tribes-api";
 import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
 import styles from "./TurkiyeMap.module.css";
 
@@ -42,6 +44,39 @@ export type SelectedCity = {
 function boundsToBBox(map: maplibregl.Map): MapBBox {
   const b = map.getBounds();
   return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+}
+
+/** Paint fills/labels/crests from CityData — safe once polygon + overlay sources exist. */
+function syncOwnershipOverlay(
+  map: maplibregl.Map,
+  cities: City[],
+  tribesById: Record<string, Tribe>,
+  labelsRef: { current: LabelFeatureCollection },
+  crestsRef: { current: CrestFeatureCollection },
+): void {
+  if (!map.getSource(CITIES_SOURCE_ID)) {
+    return;
+  }
+
+  for (const tribe of Object.values(tribesById)) {
+    ensureTribeCrestImage(map, tribe);
+  }
+
+  applyAllCityFillStates(map, cities);
+
+  const nextLabels = buildLabelFeatureCollection(cities);
+  labelsRef.current = nextLabels;
+  const labelSource = map.getSource(LABELS_SOURCE_ID) as
+    | maplibregl.GeoJSONSource
+    | undefined;
+  labelSource?.setData(nextLabels);
+
+  const nextCrests = buildCrestFeatureCollection(cities);
+  crestsRef.current = nextCrests;
+  const crestSource = map.getSource(CRESTS_SOURCE_ID) as
+    | maplibregl.GeoJSONSource
+    | undefined;
+  crestSource?.setData(nextCrests);
 }
 
 type TurkiyeMapProps = {
@@ -63,6 +98,7 @@ export default function TurkiyeMap({
   const onSelectRef = useRef(onCitySelect);
   const citiesRef = useRef(cities);
   const tribesRef = useRef(tribesById);
+  const cityStatusRef = useRef(cityStatus);
   const sendViewportRef = useRef(sendViewport);
   const sendViewportNowRef = useRef(sendViewportNow);
   const initialIlRef = useRef(initialIlCode);
@@ -83,6 +119,7 @@ export default function TurkiyeMap({
   onSelectRef.current = onCitySelect;
   citiesRef.current = cities;
   tribesRef.current = tribesById;
+  cityStatusRef.current = cityStatus;
   sendViewportRef.current = sendViewport;
   sendViewportNowRef.current = sendViewportNow;
   initialIlRef.current = initialIlCode;
@@ -217,10 +254,6 @@ export default function TurkiyeMap({
 
           const crestData = buildCrestFeatureCollection(citiesRef.current);
           crestsRef.current = crestData;
-          for (const tribe of Object.values(tribesRef.current)) {
-            ensureTribeCrestImage(map, tribe);
-          }
-
           map.addSource(CRESTS_SOURCE_ID, {
             type: "geojson",
             data: crestData,
@@ -251,7 +284,34 @@ export default function TurkiyeMap({
             },
           });
 
-          applyAllCityFillStates(map, citiesRef.current);
+          // Re-apply once the polygon source finishes indexing so feature-state
+          // sticks even if CityData became ready before/during GeoJSON load.
+          const onCitiesSourceData = (e: maplibregl.MapSourceDataEvent) => {
+            if (e.sourceId !== CITIES_SOURCE_ID || !e.isSourceLoaded) {
+              return;
+            }
+            if (cityStatusRef.current !== "ready") {
+              return;
+            }
+            syncOwnershipOverlay(
+              map,
+              citiesRef.current,
+              tribesRef.current,
+              labelsRef,
+              crestsRef,
+            );
+          };
+          map.on("sourcedata", onCitiesSourceData);
+
+          if (cityStatusRef.current === "ready") {
+            syncOwnershipOverlay(
+              map,
+              citiesRef.current,
+              tribesRef.current,
+              labelsRef,
+              crestsRef,
+            );
+          }
           map.resize();
 
           const focus = initialIlRef.current?.trim() || null;
@@ -361,35 +421,13 @@ export default function TurkiyeMap({
     }
   }, [initialIlCode, mapReady]);
 
-  // Live ownership: feature-state + crest points only (never refetch polygons)
+  // Live ownership: feature-state + crest/label points only (never refetch polygons)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || cityStatus !== "ready") {
       return;
     }
-    if (!map.getSource(CITIES_SOURCE_ID)) {
-      return;
-    }
-
-    for (const tribe of Object.values(tribesById)) {
-      ensureTribeCrestImage(map, tribe);
-    }
-
-    applyAllCityFillStates(map, cities);
-
-    const nextLabels = buildLabelFeatureCollection(cities);
-    labelsRef.current = nextLabels;
-    const labelSource = map.getSource(LABELS_SOURCE_ID) as
-      | maplibregl.GeoJSONSource
-      | undefined;
-    labelSource?.setData(nextLabels);
-
-    const nextCrests = buildCrestFeatureCollection(cities);
-    crestsRef.current = nextCrests;
-    const crestSource = map.getSource(CRESTS_SOURCE_ID) as
-      | maplibregl.GeoJSONSource
-      | undefined;
-    crestSource?.setData(nextCrests);
+    syncOwnershipOverlay(map, cities, tribesById, labelsRef, crestsRef);
   }, [cities, tribesById, cityStatus, mapReady]);
 
   // External selection ring (e.g. parent sets selected after ?il=)
