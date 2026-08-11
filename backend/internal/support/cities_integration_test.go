@@ -36,10 +36,9 @@ func TestListCities_Returns81_WithControllingTribe(t *testing.T) {
 		t.Fatalf("seed scores: %v", err)
 	}
 
-	summary := &support.SummaryStore{Pool: pool}
-	if err := summary.RefreshAll(context.Background()); err != nil {
-		t.Fatalf("refresh summary: %v", err)
-	}
+	// Intentionally skip province_control_summary RefreshAll — ListCities must
+	// derive controlling tribe from live tribe_province_scores so map rehydrate
+	// after persona switch does not wait on the periodic summary refresher.
 
 	userID := seedUser(t, pool, &tribeA)
 	sessions := newSessionService(t)
@@ -92,6 +91,9 @@ func TestListCities_Returns81_WithControllingTribe(t *testing.T) {
 	if ankara.ControllingTribe == nil || ankara.ControllingTribe.TribeID != tribeA {
 		t.Fatalf("controlling tribe=%v want %s", ankara.ControllingTribe, tribeA)
 	}
+	if ankara.ControllingTribe.PrimaryColor == nil || *ankara.ControllingTribe.PrimaryColor == "" {
+		t.Fatalf("controlling primary_color empty: %+v", ankara.ControllingTribe)
+	}
 	if len(ankara.CompetingTribes) != 2 {
 		t.Fatalf("competing=%d want 2", len(ankara.CompetingTribes))
 	}
@@ -100,6 +102,72 @@ func TestListCities_Returns81_WithControllingTribe(t *testing.T) {
 	}
 	if ankara.Centroid.Lng == 0 && ankara.Centroid.Lat == 0 {
 		t.Fatalf("centroid empty: %+v", ankara.Centroid)
+	}
+}
+
+func TestListCities_ControllingFromScores_WithoutSummary(t *testing.T) {
+	pool := testPool(t)
+	for i := 1; i <= 81; i++ {
+		code := fmt.Sprintf("%02d", i)
+		seedBoundary(t, pool, code, "İl "+code, "Province "+code)
+	}
+
+	tribeA := seedTribe(t, pool)
+	tribeB := seedTribe(t, pool)
+
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO tribe_province_scores (tribe_id, il_code, effective_support_sum)
+		VALUES ($1, '34', 75), ($2, '34', 20)
+		ON CONFLICT (tribe_id, il_code) DO UPDATE SET
+			effective_support_sum = EXCLUDED.effective_support_sum
+	`, tribeA, tribeB)
+	if err != nil {
+		t.Fatalf("seed scores: %v", err)
+	}
+
+	userID := seedUser(t, pool, &tribeA)
+	sessions := newSessionService(t)
+	token, err := sessions.Create(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &support.Handler{
+		Cities: &support.CityStore{Pool: pool},
+	}
+	mux := http.NewServeMux()
+	mux.Handle("GET /v1/cities", auth.RequireSession(sessions, nil, http.HandlerFunc(h.ListCities)))
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/cities", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d want 200 body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Cities []support.City `json:"cities"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatal(err)
+	}
+
+	var istanbul *support.City
+	for i := range resp.Cities {
+		if resp.Cities[i].ID == "34" {
+			istanbul = &resp.Cities[i]
+			break
+		}
+	}
+	if istanbul == nil {
+		t.Fatal("missing İstanbul (34)")
+	}
+	if istanbul.ControllingTribe == nil || istanbul.ControllingTribe.TribeID != tribeA {
+		t.Fatalf("controlling=%v want %s (scores only, no summary refresh)", istanbul.ControllingTribe, tribeA)
+	}
+	if len(istanbul.CompetingTribes) == 0 || istanbul.CompetingTribes[0].TribeID != tribeA {
+		t.Fatalf("competing leader=%+v want tribeA", istanbul.CompetingTribes)
 	}
 }
 

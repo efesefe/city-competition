@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { fetchCities, type City } from "@/lib/cities-api";
-import { patchCitySupport } from "@/context/cityDataPatch";
+import { patchCitySupport, reconcileCityControl } from "@/context/cityDataPatch";
 import { useRealtime } from "@/context/RealtimeContext";
 import type { SupportAppliedMessage } from "@/lib/realtimeSocket";
 import { listTribes, type Tribe } from "@/lib/tribes-api";
@@ -50,7 +50,7 @@ function pendingSupportKey(
 
 const CityDataContext = createContext<CityDataContextValue | null>(null);
 
-export { patchCitySupport } from "@/context/cityDataPatch";
+export { patchCitySupport, reconcileCityControl } from "@/context/cityDataPatch";
 
 export function CityDataProvider({ children }: { children: ReactNode }) {
   const { subscribe } = useRealtime();
@@ -75,7 +75,9 @@ export function CityDataProvider({ children }: { children: ReactNode }) {
       }
       tribeColorsRef.current = colors;
       setTribesById(byId);
-      setCities(citiesRes.cities);
+      setCities(
+        citiesRes.cities.map((c) => reconcileCityControl(c, colors)),
+      );
       setStatus("ready");
     } catch {
       setStatus("error");

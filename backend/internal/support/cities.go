@@ -57,6 +57,8 @@ func (s *CityStore) readPool() *pgxpool.Pool {
 }
 
 // ListCities returns every row in regions with controlling tribe and competing scores.
+// Controlling tribe is derived from live tribe_province_scores (not province_control_summary),
+// so map rehydrate after persona switch / reload matches spend-updated ownership immediately.
 func (s *CityStore) ListCities(ctx context.Context) ([]City, error) {
 	pool := s.readPool()
 	if pool == nil {
@@ -69,7 +71,7 @@ func (s *CityStore) ListCities(ctx context.Context) ([]City, error) {
 			r.name,
 			ST_X(r.centroid)::float8 AS lng,
 			ST_Y(r.centroid)::float8 AS lat,
-			pcs.tribe_id,
+			lead.tribe_id,
 			t.primary_color,
 			COALESCE((
 				SELECT json_agg(
@@ -83,8 +85,15 @@ func (s *CityStore) ListCities(ctx context.Context) ([]City, error) {
 				WHERE tps.il_code = r.id
 			), '[]'::json) AS competing
 		FROM regions r
-		LEFT JOIN province_control_summary pcs ON pcs.il_code = r.id
-		LEFT JOIN tribes t ON t.id = pcs.tribe_id
+		LEFT JOIN LATERAL (
+			SELECT tribe_id, effective_support_sum
+			FROM tribe_province_scores tps
+			WHERE tps.il_code = r.id
+			  AND tps.effective_support_sum > 0
+			ORDER BY effective_support_sum DESC, tribe_id ASC
+			LIMIT 1
+		) lead ON true
+		LEFT JOIN tribes t ON t.id = lead.tribe_id
 		ORDER BY r.id ASC
 	`)
 	if err != nil {
