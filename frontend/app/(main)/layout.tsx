@@ -16,7 +16,7 @@ import {
 } from "@/lib/consent-api";
 import { getSessionToken } from "@/lib/session";
 import { hasTribeMembership, listTribes } from "@/lib/tribes-api";
-import { tribeAccentColor } from "@/lib/tribeCrest";
+import { tribeAccentOnDark } from "@/lib/tribeCrest";
 
 type Gate =
   | { kind: "loading" }
@@ -28,7 +28,7 @@ type Gate =
 function ShellChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { tribe } = useWallet();
-  const accent = tribeAccentColor(tribe);
+  const accent = tribeAccentOnDark(tribe);
   const isMap = pathname === "/map" || pathname.startsWith("/map/");
 
   return (

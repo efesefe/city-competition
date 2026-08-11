@@ -4,6 +4,12 @@
   height: 100%;
 }
 
+/* Sit +/- under the floating search / locale / perf column (top-right). */
+.root :global(.maplibregl-ctrl-top-right) {
+  top: 9.5rem;
+  right: 0.75rem;
+}
+
 .error {
   position: absolute;
   z-index: 2;

@@ -8,6 +8,7 @@ export const CITIES_FILL_LAYER_ID = "cities-fill";
 export const CITIES_OUTLINE_LAYER_ID = "cities-outline";
 export const CITIES_SELECTED_LAYER_ID = "cities-selected";
 export const CITIES_LABEL_LAYER_ID = "cities-label";
+export const LABELS_SOURCE_ID = "city-labels";
 export const CRESTS_SOURCE_ID = "city-crests";
 export const CRESTS_LAYER_ID = "cities-crest";
 
@@ -57,6 +58,46 @@ export function applyAllCityFillStates(
       sourceId,
     );
   }
+}
+
+export type LabelPointProperties = {
+  il_code: string;
+  name: string;
+};
+
+export type LabelFeatureCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    id: string;
+    properties: LabelPointProperties;
+    geometry: {
+      type: "Point";
+      coordinates: [number, number];
+    };
+  }>;
+};
+
+/** One label point per city at its API centroid (avoids MultiPolygon duplicates). */
+export function buildLabelFeatureCollection(
+  cities: City[],
+): LabelFeatureCollection {
+  const features: LabelFeatureCollection["features"] = [];
+  for (const city of cities) {
+    features.push({
+      type: "Feature",
+      id: city.id,
+      properties: {
+        il_code: city.id,
+        name: city.name,
+      },
+      geometry: {
+        type: "Point",
+        coordinates: [city.centroid.lng, city.centroid.lat],
+      },
+    });
+  }
+  return { type: "FeatureCollection", features };
 }
 
 export type CrestPointProperties = {

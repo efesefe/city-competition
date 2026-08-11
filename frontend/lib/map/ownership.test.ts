@@ -6,6 +6,7 @@ import { tribeCrestImageId } from "@/lib/map/crestIcons";
 import {
   applyCityFeatureState,
   buildCrestFeatureCollection,
+  buildLabelFeatureCollection,
   cityFillColor,
   upsertCrestFeature,
 } from "@/lib/map/ownership";
@@ -64,6 +65,28 @@ describe("ownership helpers", () => {
     expect(fc.features[0].properties.il_code).toBe("06");
     expect(fc.features[0].properties.icon).toBe(tribeCrestImageId(tribeA));
     expect(fc.features[0].geometry.coordinates).toEqual([32, 39]);
+  });
+
+  it("builds exactly one label point per city at its centroid", () => {
+    const cities = [
+      city({ id: "34", name: "İstanbul", centroid: { lng: 28.9, lat: 41.0 } }),
+      city({ id: "33", name: "Mersin", centroid: { lng: 34.6, lat: 36.8 } }),
+      city({ id: "35", name: "İzmir", centroid: { lng: 27.1, lat: 38.4 } }),
+      city({ id: "48", name: "Muğla", centroid: { lng: 28.4, lat: 37.2 } }),
+      city({ id: "17", name: "Çanakkale", centroid: { lng: 26.4, lat: 40.1 } }),
+    ];
+    const fc = buildLabelFeatureCollection(cities);
+    expect(fc.features).toHaveLength(5);
+    const names = fc.features.map((f) => f.properties.name);
+    expect(new Set(names).size).toBe(5);
+    for (const feature of fc.features) {
+      const match = cities.find((c) => c.id === feature.properties.il_code);
+      expect(feature.geometry.coordinates).toEqual([
+        match!.centroid.lng,
+        match!.centroid.lat,
+      ]);
+      expect(feature.properties.name).toBe(match!.name);
+    }
   });
 
   it("upserts a single crest without rebuilding unrelated cities", () => {
