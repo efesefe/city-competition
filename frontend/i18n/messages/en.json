@@ -196,6 +196,20 @@
     "title": "Profile",
     "restrictedBanner": "Restricted account: leaderboard and chat features are limited.",
     "tribeChat": "Tribe chat",
+    "chat": {
+      "back": "Back to profile",
+      "you": "You",
+      "placeholder": "Write a message…",
+      "send": "Send",
+      "empty": "Message cannot be empty.",
+      "emptyThread": "No messages yet. Be the first to write.",
+      "sendFailed": "Could not send message.",
+      "restricted": "Restricted accounts cannot use chat.",
+      "notMember": "You are not a member of this tribe.",
+      "newMessages": "new messages",
+      "underReview": "under review",
+      "loading": "Loading…"
+    },
     "tribe": {
       "detailsAria": "Tribe details — {tribe}",
       "members": "{count} members",

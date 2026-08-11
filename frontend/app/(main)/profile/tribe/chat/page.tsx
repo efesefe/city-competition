@@ -1,21 +1,48 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import shellStyles from "@/components/shell/shell.module.css";
+import ChatThread from "@/components/chat/ChatThread";
+import { useWallet } from "@/context/WalletContext";
+import { isRestrictedMode } from "@/lib/session";
+import styles from "@/components/chat/TribeChatPage.module.css";
 
-/** Stub until Track G tribe chat lands. */
-export default function TribeChatStubPage() {
+export default function TribeChatPage() {
   const t = useTranslations("profile");
-  const tShell = useTranslations("shell");
+  const tChat = useTranslations("profile.chat");
+  const router = useRouter();
+  const { tribeId, status } = useWallet();
+  const [gated, setGated] = useState(false);
+
+  useEffect(() => {
+    if (isRestrictedMode()) {
+      setGated(true);
+      router.replace("/profile");
+    }
+  }, [router]);
+
+  if (gated) {
+    return null;
+  }
 
   return (
-    <main className={shellStyles.placeholder} data-testid="tribe-chat-stub">
-      <h1 className={shellStyles.placeholderTitle}>{t("tribeChat")}</h1>
-      <p className={shellStyles.placeholderLead}>{tShell("comingSoon")}</p>
-      <p>
-        <Link href="/profile">{t("title")}</Link>
-      </p>
+    <main className={styles.page} data-testid="tribe-chat-screen">
+      <header className={styles.header}>
+        <Link href="/profile" className={styles.back} data-testid="tribe-chat-back">
+          {tChat("back")}
+        </Link>
+        <h1 className={styles.title}>{t("tribeChat")}</h1>
+      </header>
+
+      {status === "loading" || !tribeId ? (
+        <p className={styles.loading} data-testid="tribe-chat-loading">
+          {tChat("loading")}
+        </p>
+      ) : (
+        <ChatThread tribeId={tribeId} />
+      )}
     </main>
   );
 }
