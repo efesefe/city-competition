@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -63,6 +65,52 @@ type Invoice struct {
 	TaxKurus   int64
 	GrossKurus int64
 	Status     string
+	CreatedAt  time.Time
+}
+
+// ErrInvoiceNotFound is returned when an invoice does not exist for the caller.
+var ErrInvoiceNotFound = errors.New("invoice_not_found")
+
+// GetInvoiceForUser loads an invoice by id owned by userID.
+func GetInvoiceForUser(ctx context.Context, pool *pgxpool.Pool, userID, invoiceID uuid.UUID) (Invoice, error) {
+	var out Invoice
+	err := pool.QueryRow(ctx, `
+		SELECT id, user_id, source_type, source_id, currency,
+			kdv_rate_bps, net_kurus, tax_kurus, gross_kurus, status, created_at
+		FROM invoices
+		WHERE id = $1 AND user_id = $2
+	`, invoiceID, userID).Scan(
+		&out.ID, &out.UserID, &out.SourceType, &out.SourceID, &out.Currency,
+		&out.KDVRateBPS, &out.NetKurus, &out.TaxKurus, &out.GrossKurus, &out.Status, &out.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invoice{}, ErrInvoiceNotFound
+	}
+	if err != nil {
+		return Invoice{}, fmt.Errorf("get invoice: %w", err)
+	}
+	return out, nil
+}
+
+// LookupInvoiceBySourceOnTx loads an invoice by purchase source inside a transaction.
+func LookupInvoiceBySourceOnTx(ctx context.Context, tx pgx.Tx, sourceType string, sourceID uuid.UUID) (Invoice, error) {
+	var out Invoice
+	err := tx.QueryRow(ctx, `
+		SELECT id, user_id, source_type, source_id, currency,
+			kdv_rate_bps, net_kurus, tax_kurus, gross_kurus, status, created_at
+		FROM invoices
+		WHERE source_type = $1 AND source_id = $2
+	`, sourceType, sourceID).Scan(
+		&out.ID, &out.UserID, &out.SourceType, &out.SourceID, &out.Currency,
+		&out.KDVRateBPS, &out.NetKurus, &out.TaxKurus, &out.GrossKurus, &out.Status, &out.CreatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Invoice{}, ErrInvoiceNotFound
+	}
+	if err != nil {
+		return Invoice{}, fmt.Errorf("lookup invoice by source: %w", err)
+	}
+	return out, nil
 }
 
 // WriteOnTx inserts an invoice using the writer's current KDV rate (snapshotted).
@@ -89,19 +137,19 @@ func (w *InvoiceWriter) WriteOnTx(
 		) VALUES ($1,$2,$3,$4,'TRY',$5,$6,$7,$8,'issued')
 		ON CONFLICT (source_type, source_id) DO NOTHING
 		RETURNING id, user_id, source_type, source_id, currency,
-			kdv_rate_bps, net_kurus, tax_kurus, gross_kurus, status
+			kdv_rate_bps, net_kurus, tax_kurus, gross_kurus, status, created_at
 	`, id, userID, sourceType, sourceID, rate, net, tax, gross).Scan(
 		&out.ID, &out.UserID, &out.SourceType, &out.SourceID, &out.Currency,
-		&out.KDVRateBPS, &out.NetKurus, &out.TaxKurus, &out.GrossKurus, &out.Status,
+		&out.KDVRateBPS, &out.NetKurus, &out.TaxKurus, &out.GrossKurus, &out.Status, &out.CreatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = tx.QueryRow(ctx, `
 			SELECT id, user_id, source_type, source_id, currency,
-				kdv_rate_bps, net_kurus, tax_kurus, gross_kurus, status
+				kdv_rate_bps, net_kurus, tax_kurus, gross_kurus, status, created_at
 			FROM invoices WHERE source_type = $1 AND source_id = $2
 		`, sourceType, sourceID).Scan(
 			&out.ID, &out.UserID, &out.SourceType, &out.SourceID, &out.Currency,
-			&out.KDVRateBPS, &out.NetKurus, &out.TaxKurus, &out.GrossKurus, &out.Status,
+			&out.KDVRateBPS, &out.NetKurus, &out.TaxKurus, &out.GrossKurus, &out.Status, &out.CreatedAt,
 		)
 	}
 	if err != nil {

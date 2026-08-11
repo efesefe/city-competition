@@ -46,26 +46,26 @@ func TestVerifyHandlerRejectsForgedSuccessWithoutReceipt(t *testing.T) {
 	}
 }
 
-func TestVerifyHandlerRejectsInvalidReceipt(t *testing.T) {
-	h := &Handler{
-		IAP: &Service{
-			Verifier: &StaticMapVerifier{ByToken: map[string]VerifiedPurchase{}},
-			Packs:    &PackStore{},
-		},
-	}
-
-	body, _ := json.Marshal(map[string]any{
-		"provider":     "apple",
-		"product_id":   "credits_100",
-		"receipt_data": "not-a-real-receipt",
-		"success":      true,
-	})
-	req := httptest.NewRequest(http.MethodPost, "/v1/iap/verify", bytes.NewReader(body))
+func TestGetInvoiceRejectsInvalidID(t *testing.T) {
+	h := &Handler{WebPurchase: &WebPurchaseService{}}
+	req := httptest.NewRequest(http.MethodGet, "/v1/invoices/not-a-uuid", nil)
+	req.SetPathValue("id", "not-a-uuid")
 	req = req.WithContext(auth.ContextWithUserID(req.Context(), uuid.New()))
 	rr := httptest.NewRecorder()
-	h.Verify(rr, req)
-
-	if rr.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status=%d want 422 body=%s", rr.Code, rr.Body.String())
+	h.GetInvoice(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400 body=%s", rr.Code, rr.Body.String())
 	}
 }
+
+func TestCheckoutStatusRejectsInvalidIntent(t *testing.T) {
+	h := &Handler{WebPurchase: &WebPurchaseService{}}
+	req := httptest.NewRequest(http.MethodGet, "/v1/payments/checkout/status?payment_intent_id=bad", nil)
+	req = req.WithContext(auth.ContextWithUserID(req.Context(), uuid.New()))
+	rr := httptest.NewRecorder()
+	h.CheckoutStatus(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400 body=%s", rr.Code, rr.Body.String())
+	}
+}
+

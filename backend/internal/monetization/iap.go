@@ -27,6 +27,7 @@ type GrantResult struct {
 	BalanceAfter   int64     `json:"balance_after"`
 	CreditsGranted int64     `json:"credits_granted"`
 	PurchaseID     uuid.UUID `json:"purchase_id"`
+	InvoiceID      uuid.UUID `json:"invoice_id,omitempty"`
 	AlreadyGranted bool      `json:"already_granted"`
 }
 
@@ -151,18 +152,23 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 		return GrantResult{}, err
 	}
 
+	var invoiceID uuid.UUID
+	writer := s.Invoices
+	if writer == nil {
+		writer = &InvoiceWriter{KDVRateBPS: DefaultKDVRateBPS}
+	}
 	if !already {
 		gross := pack.AmountKurus
 		if gross <= 0 {
 			gross = 1
 		}
-		writer := s.Invoices
-		if writer == nil {
-			writer = &InvoiceWriter{KDVRateBPS: DefaultKDVRateBPS}
-		}
-		if _, err := writer.WriteOnTx(ctx, tx, userID, SourceIAPPurchase, purchaseID, gross); err != nil {
+		inv, err := writer.WriteOnTx(ctx, tx, userID, SourceIAPPurchase, purchaseID, gross)
+		if err != nil {
 			return GrantResult{}, err
 		}
+		invoiceID = inv.ID
+	} else if inv, err := LookupInvoiceBySourceOnTx(ctx, tx, SourceIAPPurchase, purchaseID); err == nil {
+		invoiceID = inv.ID
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -173,6 +179,7 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 		BalanceAfter:   balanceAfter,
 		CreditsGranted: pack.Credits,
 		PurchaseID:     purchaseID,
+		InvoiceID:      invoiceID,
 		AlreadyGranted: already,
 	}, nil
 }

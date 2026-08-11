@@ -140,14 +140,19 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 	if err != nil {
 		return GrantResult{}, err
 	}
+	var invoiceID uuid.UUID
+	writer := s.Invoices
+	if writer == nil {
+		writer = &InvoiceWriter{KDVRateBPS: DefaultKDVRateBPS}
+	}
 	if !already {
-		writer := s.Invoices
-		if writer == nil {
-			writer = &InvoiceWriter{KDVRateBPS: DefaultKDVRateBPS}
-		}
-		if _, err := writer.WriteOnTx(ctx, tx, in.UserID, SourceWebPurchase, purchaseID, amountKurus); err != nil {
+		inv, err := writer.WriteOnTx(ctx, tx, in.UserID, SourceWebPurchase, purchaseID, amountKurus)
+		if err != nil {
 			return GrantResult{}, err
 		}
+		invoiceID = inv.ID
+	} else if inv, err := LookupInvoiceBySourceOnTx(ctx, tx, SourceWebPurchase, purchaseID); err == nil {
+		invoiceID = inv.ID
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return GrantResult{}, fmt.Errorf("commit: %w", err)
@@ -156,6 +161,7 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 		BalanceAfter:   balanceAfter,
 		CreditsGranted: pack.Credits,
 		PurchaseID:     purchaseID,
+		InvoiceID:      invoiceID,
 		AlreadyGranted: already,
 	}, nil
 }
@@ -238,6 +244,60 @@ func (s *WebPurchaseService) StartCheckout(ctx context.Context, userID uuid.UUID
 		Provider:          out.Provider,
 		ProviderPaymentID: out.ProviderPaymentID,
 	}, nil
+}
+
+// CheckoutStatus is the player-facing poll result after hosted checkout return.
+type CheckoutStatus struct {
+	Status         string     `json:"status"`
+	PurchaseID     *uuid.UUID `json:"purchase_id,omitempty"`
+	InvoiceID      *uuid.UUID `json:"invoice_id,omitempty"`
+	CreditsGranted *int64     `json:"credits_granted,omitempty"`
+	BalanceAfter   *int64     `json:"balance_after,omitempty"`
+}
+
+// CheckoutStatusForUser reports whether a payment intent has been granted for the user.
+func (s *WebPurchaseService) CheckoutStatusForUser(ctx context.Context, userID, paymentIntentID uuid.UUID) (CheckoutStatus, error) {
+	var purchaseID uuid.UUID
+	var creditsGranted int64
+	err := s.Pool.QueryRow(ctx, `
+		SELECT id, credits_granted
+		FROM web_purchases
+		WHERE user_id = $1 AND payment_intent_id = $2
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, userID, paymentIntentID).Scan(&purchaseID, &creditsGranted)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return CheckoutStatus{Status: "pending"}, nil
+	}
+	if err != nil {
+		return CheckoutStatus{}, fmt.Errorf("checkout status: %w", err)
+	}
+
+	out := CheckoutStatus{
+		Status:         "succeeded",
+		PurchaseID:     &purchaseID,
+		CreditsGranted: &creditsGranted,
+	}
+
+	var invoiceID uuid.UUID
+	err = s.Pool.QueryRow(ctx, `
+		SELECT id FROM invoices
+		WHERE source_type = $1 AND source_id = $2
+	`, SourceWebPurchase, purchaseID).Scan(&invoiceID)
+	if err == nil {
+		out.InvoiceID = &invoiceID
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return CheckoutStatus{}, fmt.Errorf("checkout status invoice: %w", err)
+	}
+
+	if s.Wallet != nil {
+		bal, berr := s.Wallet.GetBalance(ctx, userID)
+		if berr != nil {
+			return CheckoutStatus{}, berr
+		}
+		out.BalanceAfter = &bal
+	}
+	return out, nil
 }
 
 // IsWebProvider reports whether provider is a Turkish web PSP.

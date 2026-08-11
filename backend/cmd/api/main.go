@@ -391,6 +391,8 @@ func main() {
 	mux.Handle("GET /v1/credit-packs", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.ListPacks)))
 	mux.Handle("POST /v1/iap/verify", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Verify))))
 	mux.Handle("POST /v1/payments/checkout", auth.RequireSession(sessions, users, creditWriteLimit(http.HandlerFunc(monetizationHandler.Checkout))))
+	mux.Handle("GET /v1/payments/checkout/status", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.CheckoutStatus)))
+	mux.Handle("GET /v1/invoices/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.GetInvoice)))
 	mux.HandleFunc("POST /internal/payments/credit-grant", monetizationHandler.CreditGrant)
 	mux.HandleFunc("POST /internal/payments/chargeback", monetizationHandler.Chargeback)
 	mux.Handle("GET /v1/battle-pass", auth.RequireSession(sessions, users, http.HandlerFunc(monetizationHandler.BattlePassStatus)))
