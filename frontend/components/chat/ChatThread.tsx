@@ -52,12 +52,6 @@ export default function ChatThread({ tribeId }: ChatThreadProps) {
     setViewerId(getUserId());
   }, []);
 
-  const isNearBottom = useCallback(() => {
-    const el = scrollerRef.current;
-    if (!el) return true;
-    return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
-  }, []);
-
   const scrollToBottom = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
