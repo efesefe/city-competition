@@ -65,6 +65,58 @@
   outline-offset: 1px;
 }
 
+.phoneRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid #3a4f4a;
+  border-radius: 0.4rem;
+  background: rgba(8, 16, 18, 0.55);
+  overflow: hidden;
+}
+
+.phoneRow:focus-within {
+  outline: 2px solid #5a9e88;
+  outline-offset: 1px;
+}
+
+.phonePrefix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border-right: 1px solid #3a4f4a;
+  color: #8fb5a8;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  background: rgba(8, 16, 18, 0.35);
+  user-select: none;
+}
+
+.phoneInput {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #e8efe9;
+  padding: 0.75rem 0.85rem;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.phoneInput:focus {
+  outline: none;
+}
+
+.cooldown {
+  margin: 0;
+  color: #c4b48a;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .button {
   margin-top: 0.35rem;
   border: 0;

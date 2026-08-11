@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import ConsentModal from "@/components/ConsentModal";
 import DataResidencyBanner from "@/components/DataResidencyBanner";
 import CreditHeader from "@/components/shell/CreditHeader";
 import TabBar from "@/components/shell/TabBar";
@@ -11,7 +10,6 @@ import { WalletProvider, useWallet } from "@/context/WalletContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { CityDataProvider } from "@/context/CityDataContext";
 import {
-  ConsentStatusResponse,
   fetchConsentStatus,
   hasRequiredConsents,
 } from "@/lib/consent-api";
@@ -22,7 +20,7 @@ import { tribeAccentColor } from "@/lib/tribeCrest";
 type Gate =
   | { kind: "loading" }
   | { kind: "need_auth" }
-  | { kind: "need_consent"; status: ConsentStatusResponse }
+  | { kind: "need_consent" }
   | { kind: "need_tribe" }
   | { kind: "ready" };
 
@@ -62,20 +60,19 @@ function MainGate({ children }: { children: ReactNode }) {
     const token = getSessionToken();
     if (!token) {
       setGate({ kind: "need_auth" });
-      return null;
+      return;
     }
     const status = await fetchConsentStatus();
     if (!hasRequiredConsents(status)) {
-      setGate({ kind: "need_consent", status });
-      return status;
+      setGate({ kind: "need_consent" });
+      return;
     }
     const tribes = await listTribes();
     if (!hasTribeMembership(tribes.membership)) {
       setGate({ kind: "need_tribe" });
-      return status;
+      return;
     }
     setGate({ kind: "ready" });
-    return status;
   }, []);
 
   useEffect(() => {
@@ -85,38 +82,15 @@ function MainGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (gate.kind === "need_auth") {
       router.replace("/register");
+    } else if (gate.kind === "need_consent") {
+      router.replace("/consent");
     } else if (gate.kind === "need_tribe") {
-      router.replace("/tribes");
+      router.replace("/choose-tribe");
     }
   }, [gate, router]);
 
-  if (
-    gate.kind === "loading" ||
-    gate.kind === "need_auth" ||
-    gate.kind === "need_tribe"
-  ) {
+  if (gate.kind !== "ready") {
     return <main className="map-root" aria-busy="true" />;
-  }
-
-  if (gate.kind === "need_consent") {
-    return (
-      <>
-        <DataResidencyBanner />
-        <ConsentModal
-          status={gate.status}
-          onStatusRefresh={async () => {
-            const status = await refresh();
-            if (!status) {
-              throw new Error("error_unauthorized");
-            }
-            return status;
-          }}
-          onGranted={() => {
-            void refresh();
-          }}
-        />
-      </>
-    );
   }
 
   return (

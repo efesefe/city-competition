@@ -56,7 +56,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const redirectOnboarding = useCallback(
     (kind: "auth" | "tribe") => {
-      router.replace(kind === "auth" ? "/register" : "/tribes");
+      router.replace(kind === "auth" ? "/register" : "/choose-tribe");
     },
     [router],
   );

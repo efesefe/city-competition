@@ -1,5 +1,13 @@
+import { nationalToE164TR } from "@/lib/phoneFormat";
+
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
+export {
+  extractTRNationalDigits,
+  formatTRNationalPhone,
+  nationalToE164TR,
+} from "@/lib/phoneFormat";
 
 export type ApiError = { error: string; merge_token?: string; phone_hint?: string };
 
@@ -96,16 +104,7 @@ export function socialMerge(mergeToken: string, phone: string) {
 
 /** Normalize common TR local formats to E.164 (+90…). */
 export function toE164TR(input: string): string | null {
-  const digits = input.replace(/\D/g, "");
-  let national = digits;
-  if (national.startsWith("90") && national.length === 12) {
-    national = national.slice(2);
-  }
-  if (national.startsWith("0") && national.length === 11) {
-    national = national.slice(1);
-  }
-  if (national.length !== 10) return null;
-  return `+90${national}`;
+  return nationalToE164TR(input);
 }
 
 /** True when birth date is under 18 (local calendar). */

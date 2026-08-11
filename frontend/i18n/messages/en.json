@@ -65,7 +65,7 @@
     "registerTitle": "Sign up",
     "registerLead": "Sign in with phone or social account. Birth date is required.",
     "phone": "Mobile phone",
-    "phonePlaceholder": "05xx xxx xx xx",
+    "phonePlaceholder": "5xx xxx xx xx",
     "sendCode": "Send code",
     "or": "or",
     "continueGoogle": "Continue with Google",
@@ -114,6 +114,14 @@
     "versionUpdated": "The text was updated. Please read and accept again.",
     "saveFailed": "Could not save consents. Please try again.",
     "statusFailed": "Could not load consent status."
+  },
+  "onboardingTribe": {
+    "title": "Choose your tribe",
+    "lead": "This choice sets Derbi bonuses, chat community, and your visual identity. Preview, then confirm.",
+    "pickHint": "Select a tribe before confirming.",
+    "previewHint": "Derbi bonuses, chat, and visual identity follow this tribe.",
+    "confirm": "Join this tribe",
+    "members": "{count} members"
   },
   "residency": {
     "TR": "Your data is processed and stored on servers in the Türkiye (TR) region.",
