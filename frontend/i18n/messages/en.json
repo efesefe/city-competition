@@ -138,6 +138,25 @@
       "generic": "Something went wrong. Please try again."
     }
   },
+  "leaderboard": {
+    "title": "Leaderboard",
+    "tabsAria": "Leaderboard scopes",
+    "tabGlobal": "Global",
+    "tabTribes": "Tribes",
+    "tabDerbi": "Derbi",
+    "loading": "Loading…",
+    "empty": "No rankings yet.",
+    "loadFailed": "Could not load the leaderboard.",
+    "yourRank": "Your rank",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "ended": "Ended",
+    "remaining": "{hours}:{minutes}:{seconds} left",
+    "host": "Home",
+    "guest": "Away",
+    "scoreBarAria": "Derbi score {host} to {guest}",
+    "provinceFallback": "Province {ilCode}"
+  },
   "derbies": {
     "title": "Derbies",
     "lead": "Match-day events between tribes. Live scores update for active derbies.",

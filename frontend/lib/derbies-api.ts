@@ -72,3 +72,20 @@ export function createDerby(input: CreateDerbyInput) {
 export function forceResolveDerby(id: string) {
   return authJSON<Derby>("POST", `/v1/admin/derbies/${id}/force-resolve`);
 }
+
+export type DerbyStandings = {
+  derby_id: string;
+  il_code: string;
+  status: string;
+  host_tribe_id: string;
+  guest_tribe_id: string;
+  host_effective_total: number;
+  guest_effective_total: number;
+};
+
+export function getDerbyStandings(id: string) {
+  return authJSON<DerbyStandings>(
+    "GET",
+    `/v1/derbies/${encodeURIComponent(id)}/standings`,
+  );
+}

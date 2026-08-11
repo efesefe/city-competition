@@ -138,6 +138,25 @@
       "generic": "Bir hata oluştu. Lütfen tekrar deneyin."
     }
   },
+  "leaderboard": {
+    "title": "Lider Tablosu",
+    "tabsAria": "Lider tablosu kapsamları",
+    "tabGlobal": "Genel",
+    "tabTribes": "Takımlar",
+    "tabDerbi": "Derbi",
+    "loading": "Yükleniyor…",
+    "empty": "Henüz sıralama yok.",
+    "loadFailed": "Lider tablosu yüklenemedi.",
+    "yourRank": "Senin sıran",
+    "refresh": "Yenile",
+    "refreshing": "Yenileniyor…",
+    "ended": "Sona erdi",
+    "remaining": "{hours}:{minutes}:{seconds} kaldı",
+    "host": "Ev",
+    "guest": "Dep",
+    "scoreBarAria": "Derbi skoru {host} – {guest}",
+    "provinceFallback": "İl {ilCode}"
+  },
   "derbies": {
     "title": "Derbiler",
     "lead": "Kabileler arası maç günü etkinlikleri. Canlı skorlar aktif derbilerde güncellenir.",
