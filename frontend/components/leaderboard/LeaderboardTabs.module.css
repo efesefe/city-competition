@@ -1,0 +1,25 @@
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+  padding: 0.65rem 0.85rem 0.35rem;
+  border-bottom: 1px solid #2a3c36;
+}
+
+.tab,
+.tabActive {
+  flex: 1;
+  padding: 0.55rem 0.4rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.4rem;
+  background: rgba(10, 18, 16, 0.55);
+  color: #a8b5b0;
+  font-size: 0.88rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.tabActive {
+  background: rgba(58, 110, 92, 0.35);
+  border-color: #5a8a76;
+  color: #e8efe9;
+}

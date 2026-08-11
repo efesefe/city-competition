@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #a8b5b0;
+  font-size: 0.82rem;
+  transition: height 0.12s ease-out;
+}
+
+.scroller {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.desktopRefresh {
+  display: none;
+  align-self: flex-end;
+  margin: 0.35rem 0.85rem 0.5rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #c5d0cb;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.desktopRefresh:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .desktopRefresh {
+    display: inline-flex;
+  }
+}
