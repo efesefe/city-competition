@@ -5,8 +5,10 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/credits"
@@ -166,6 +168,97 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 		h.Breaker.RecordSuccess()
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+type invoiceDTO struct {
+	ID         string `json:"id"`
+	Currency   string `json:"currency"`
+	KDVRateBPS int    `json:"kdv_rate_bps"`
+	NetKurus   int64  `json:"net_kurus"`
+	TaxKurus   int64  `json:"tax_kurus"`
+	GrossKurus int64  `json:"gross_kurus"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"created_at"`
+	SourceType string `json:"source_type"`
+	SourceID   string `json:"source_id"`
+}
+
+// GetInvoice handles GET /v1/invoices/{id}.
+func (h *Handler) GetInvoice(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	invoiceID, err := uuid.Parse(strings.TrimSpace(r.PathValue("id")))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_invoice_id")
+		return
+	}
+	pool := invoicePool(h)
+	if pool == nil {
+		writeErr(w, http.StatusServiceUnavailable, ErrVerifierUnavailable.Error())
+		return
+	}
+	inv, err := GetInvoiceForUser(r.Context(), pool, userID, invoiceID)
+	if err != nil {
+		if errors.Is(err, ErrInvoiceNotFound) {
+			writeErr(w, http.StatusNotFound, ErrInvoiceNotFound.Error())
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, invoiceDTO{
+		ID:         inv.ID.String(),
+		Currency:   inv.Currency,
+		KDVRateBPS: inv.KDVRateBPS,
+		NetKurus:   inv.NetKurus,
+		TaxKurus:   inv.TaxKurus,
+		GrossKurus: inv.GrossKurus,
+		Status:     inv.Status,
+		CreatedAt:  inv.CreatedAt.UTC().Format(time.RFC3339),
+		SourceType: inv.SourceType,
+		SourceID:   inv.SourceID.String(),
+	})
+}
+
+// CheckoutStatus handles GET /v1/payments/checkout/status?payment_intent_id=.
+func (h *Handler) CheckoutStatus(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.WebPurchase == nil {
+		writeErr(w, http.StatusServiceUnavailable, ErrVerifierUnavailable.Error())
+		return
+	}
+	intentRaw := strings.TrimSpace(r.URL.Query().Get("payment_intent_id"))
+	intentID, err := uuid.Parse(intentRaw)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid_payment_intent_id")
+		return
+	}
+	status, err := h.WebPurchase.CheckoutStatusForUser(r.Context(), userID, intentID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+func invoicePool(h *Handler) *pgxpool.Pool {
+	if h.WebPurchase != nil && h.WebPurchase.Pool != nil {
+		return h.WebPurchase.Pool
+	}
+	if h.IAP != nil && h.IAP.Pool != nil {
+		return h.IAP.Pool
+	}
+	if h.Refunds != nil && h.Refunds.Pool != nil {
+		return h.Refunds.Pool
+	}
+	return nil
 }
 
 // CreditGrant handles POST /internal/payments/credit-grant from the payments service.
@@ -367,6 +460,7 @@ func isIAPBusinessErr(err error) bool {
 		errors.Is(err, ErrNoActiveSeason),
 		errors.Is(err, ErrTierNotEligible),
 		errors.Is(err, ErrPurchaseNotFound),
+		errors.Is(err, ErrInvoiceNotFound),
 		errors.Is(err, ErrAlreadyRefunded),
 		errors.Is(err, ErrPaymentsRefundFailed),
 		errors.Is(err, credits.ErrIdempotencyConflict),
@@ -393,7 +487,8 @@ func writeIAPErr(w http.ResponseWriter, err error) {
 		errors.Is(err, ErrPaymentsRefundFailed):
 		writeErr(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, ErrNoActiveSeason),
-		errors.Is(err, ErrPurchaseNotFound):
+		errors.Is(err, ErrPurchaseNotFound),
+		errors.Is(err, ErrInvoiceNotFound):
 		writeErr(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, ErrTierNotEligible),
 		errors.Is(err, ErrAlreadyRefunded):
