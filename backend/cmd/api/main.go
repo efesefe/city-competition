@@ -40,6 +40,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/tribe"
 	"github.com/city-competition-remastered/backend/internal/user"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -223,7 +224,12 @@ func main() {
 	feedStore := &feed.PostgresStore{Pool: pools.Write}
 	feedHandler := &feed.Handler{Store: feedStore, Pool: pools.Read}
 	pushTokens := &notifications.PoolTokenStore{Pool: pools.Write}
-	pushHandler := &notifications.Handler{Tokens: pushTokens}
+	inboxStore := &notifications.PoolInbox{Pool: pools.Write}
+	pushHandler := &notifications.Handler{Tokens: pushTokens, Inbox: inboxStore}
+	inboxInsert := func(ctx context.Context, userID uuid.UUID, notifType, title, body string, payload any) error {
+		_, err := inboxStore.Insert(ctx, userID, notifType, title, body, payload)
+		return err
+	}
 	engagementHooks := &engagement.Hooks{
 		Streaks: &engagement.StreakStore{},
 		Rivals: &engagement.RivalAlerter{
@@ -231,6 +237,7 @@ func main() {
 			RDB:       rdb,
 			GapRatio:  cfg.LeadThreatenedGapRatio,
 			RateLimit: cfg.LeadThreatenedRateLimit,
+			Inbox:     inboxInsert,
 		},
 	}
 	lbStore := &leaderboard.LeaderboardStore{RDB: rdb}
@@ -264,7 +271,7 @@ func main() {
 	derbyStore := &derby.PoolStore{Pool: pools.Write}
 	derbyResolver := &derby.Resolver{Store: derbyStore, RDB: rdb}
 	supportService.MultiplierFn = derbyResolver.ResolveSupportMultiplier
-	derbyNotifier := &derby.Notifier{Store: derbyStore, RDB: rdb}
+	derbyNotifier := &derby.Notifier{Store: derbyStore, RDB: rdb, Inbox: inboxInsert}
 	derbyService := &derby.Service{
 		Store:     derbyStore,
 		Provinces: provinceStore,
@@ -280,7 +287,7 @@ func main() {
 	}
 	auditWriter := &admin.PoolWriter{Pool: pools.Write}
 	moderationActions := &moderation.Actions{Pool: pools.Write}
-	appealsStore := &moderation.Appeals{Pool: pools.Write}
+	appealsStore := &moderation.Appeals{Pool: pools.Write, Inbox: inboxInsert}
 	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions, Appeals: appealsStore}
 	analyticsHandler := &analytics.Handler{Store: &analytics.Store{Pool: pools.Read}}
 	derbyHandler := &derby.Handler{Service: derbyService, Audit: auditWriter}
@@ -426,6 +433,9 @@ func main() {
 	mux.Handle("POST /v1/referrals/redeem", auth.RequireSession(sessions, users, http.HandlerFunc(socialHandler.RedeemReferral)))
 	mux.Handle("PUT /v1/me/push-tokens", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.PutPushToken)))
 	mux.Handle("DELETE /v1/me/push-tokens", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.DeletePushToken)))
+	mux.Handle("GET /v1/notifications", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.ListNotifications)))
+	mux.Handle("GET /v1/notifications/unread-count", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.UnreadCount)))
+	mux.Handle("POST /v1/notifications/mark-read", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.MarkRead)))
 	mux.HandleFunc("GET /v1/achievements/{public_id}", achievementHandler.GetPublic)
 	mux.Handle("GET /v1/me/achievements", auth.RequireSession(sessions, users, http.HandlerFunc(achievementHandler.ListMine)))
 	mux.HandleFunc("GET /share/{public_id}", achievementHandler.SharePage)

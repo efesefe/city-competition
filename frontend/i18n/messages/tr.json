@@ -15,6 +15,28 @@
     "notificationsAria": "Bildirimler",
     "comingSoon": "Yakında"
   },
+  "notifications": {
+    "title": "Bildirimler",
+    "loading": "Yükleniyor…",
+    "empty": "Henüz bildirim yok.",
+    "loadFailed": "Bildirimler yüklenemedi."
+  },
+  "derbiBanner": {
+    "aria": "{city} derbisi. Skor tablosunu aç.",
+    "startsIn": "{hours}:{minutes}:{seconds} sonra başlar",
+    "remaining": "{hours}:{minutes}:{seconds} kaldı",
+    "scoreboardTitle": "Derbi",
+    "closeScoreboard": "Skor tablosunu kapat",
+    "standingsFailed": "Derbi skorları yüklenemedi.",
+    "provinceFallback": "İl {ilCode}"
+  },
+  "pushPrompt": {
+    "copy": "Derbi ve çekişmeli şehir uyarılarını alın.",
+    "enable": "Aç",
+    "later": "Şimdi değil",
+    "enabling": "Açılıyor…",
+    "enableFailed": "Bildirimler açılamadı."
+  },
   "map": {
     "ariaLabel": "Türkiye il haritası",
     "title": "Bir ili destekle",

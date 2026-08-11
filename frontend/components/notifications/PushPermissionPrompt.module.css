@@ -1,0 +1,65 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0.85rem;
+  background: rgba(4, 10, 12, 0.5);
+}
+
+.card {
+  width: min(100%, 22rem);
+  padding: 1.1rem 1rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid #3a524a;
+  background: rgba(12, 20, 24, 0.98);
+  color: #e8efe9;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.copy {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: #d5e2dc;
+}
+
+.actions {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.primary,
+.secondary {
+  flex: 1;
+  min-height: 2.4rem;
+  border-radius: 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary {
+  border: none;
+  background: var(--tribe-accent, #2f6f5e);
+  color: #fff;
+}
+
+.primary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.secondary {
+  border: 1px solid #3a524a;
+  background: transparent;
+  color: #c5d4ce;
+}
+
+.error {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #f0a8a8;
+}

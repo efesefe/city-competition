@@ -15,6 +15,28 @@
     "notificationsAria": "Notifications",
     "comingSoon": "Coming soon"
   },
+  "notifications": {
+    "title": "Notifications",
+    "loading": "Loading…",
+    "empty": "No notifications yet.",
+    "loadFailed": "Could not load notifications."
+  },
+  "derbiBanner": {
+    "aria": "Derbi in {city}. Open scoreboard.",
+    "startsIn": "Starts in {hours}:{minutes}:{seconds}",
+    "remaining": "{hours}:{minutes}:{seconds} left",
+    "scoreboardTitle": "Derbi",
+    "closeScoreboard": "Close scoreboard",
+    "standingsFailed": "Could not load derbi standings.",
+    "provinceFallback": "Province {ilCode}"
+  },
+  "pushPrompt": {
+    "copy": "Get alerts for Derbi events and contested cities.",
+    "enable": "Enable",
+    "later": "Not now",
+    "enabling": "Enabling…",
+    "enableFailed": "Could not enable notifications."
+  },
   "map": {
     "ariaLabel": "Türkiye province map",
     "title": "Support a province",

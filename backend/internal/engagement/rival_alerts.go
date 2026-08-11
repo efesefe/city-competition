@@ -106,6 +106,8 @@ type RivalAlerter struct {
 	RDB       redis.Cmdable
 	GapRatio  float64
 	RateLimit time.Duration
+	// Inbox optionally dual-writes an in-app notification for each enqueued push.
+	Inbox func(ctx context.Context, userID uuid.UUID, notifType, title, body string, payload any) error
 }
 
 func (a *RivalAlerter) gapRatio() float64 {
@@ -159,15 +161,21 @@ func (a *RivalAlerter) DetectAndEnqueue(
 			continue
 		}
 		reqID, _ := logging.RequestIDFromContext(ctx)
-		payload, _ := json.Marshal(LeadThreatenedPayload{
+		payload := LeadThreatenedPayload{
 			Type:      NotifTypeProvinceLeadThreatened,
 			UserID:    userID,
 			IlCode:    ilCode,
 			TribeID:   leaderID,
 			RequestID: reqID,
-		})
-		if err := cache.EnqueueNotif(ctx, a.RDB, string(payload)); err != nil {
+		}
+		raw, _ := json.Marshal(payload)
+		if err := cache.EnqueueNotif(ctx, a.RDB, string(raw)); err != nil {
 			return enqueued, fmt.Errorf("enqueue notif: %w", err)
+		}
+		if a.Inbox != nil {
+			title := "Liderlik tehdit altında"
+			body := fmt.Sprintf("%s ilindeki liderliğiniz tehdit altında.", ilCode)
+			_ = a.Inbox(ctx, userID, NotifTypeProvinceLeadThreatened, title, body, payload)
 		}
 		enqueued++
 	}

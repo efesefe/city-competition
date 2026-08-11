@@ -1,0 +1,71 @@
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: none;
+  border-bottom: 1px solid #2a3a36;
+  background: linear-gradient(90deg, #13201c 0%, #1a2e28 55%, #13201c 100%);
+  color: #e8efe9;
+  text-align: left;
+  cursor: pointer;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.banner:focus-visible {
+  outline: 2px solid #e8efe9;
+  outline-offset: -2px;
+}
+
+.crests {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.crest {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.vs {
+  font-size: 0.65rem;
+  color: #8fb5a8;
+  font-weight: 600;
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.city {
+  font-size: 0.85rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.countdown {
+  font-size: 0.72rem;
+  color: #9fc4b6;
+  font-variant-numeric: tabular-nums;
+}

@@ -73,7 +73,13 @@
   border-radius: 999px;
   background: transparent;
   color: #c5d4ce;
-  cursor: default;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.bell:focus-visible {
+  outline: 2px solid #e8efe9;
+  outline-offset: 2px;
 }
 
 .badge {
