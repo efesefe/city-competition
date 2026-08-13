@@ -532,3 +532,49 @@ func TestFanOut_RegionSupported_DeliveredOutsideViewport(t *testing.T) {
 		t.Fatal("expected app-wide region_supported delivery even outside viewport")
 	}
 }
+
+func TestFanOut_ActivityFeed_DeliveredOutsideViewport(t *testing.T) {
+	_, rdb := startMiniRedis(t)
+	hub := NewHub(rdb, fixedResolver{codes: []string{"34"}}, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(ctx)
+
+	client := newClient()
+	hub.Register(client)
+	defer hub.Unregister(client)
+
+	if err := hub.SetViewport(ctx, client, geo.BBox{28, 40, 30, 42}); err != nil {
+		t.Fatalf("viewport: %v", err)
+	}
+
+	id := uuid.New()
+	tribe := uuid.New()
+	payload, _ := json.Marshal(activityFeedPayload{
+		ID:            id,
+		Kind:          "conquest",
+		IlCode:        "06",
+		CityName:      "Ankara",
+		TribeID:       tribe,
+		Credits:       40,
+		WasDerbiBonus: false,
+		OccurredAt:    time.Now().UTC(),
+	})
+	hub.DeliverActivityFeedForTest(payload)
+
+	select {
+	case msg := <-client.Send:
+		var ev ActivityFeedEvent
+		if err := json.Unmarshal(msg, &ev); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if ev.Type != "activity_feed" || ev.IlCode != "06" || ev.Kind != "conquest" || ev.ID != id {
+			t.Fatalf("unexpected event: %+v", ev)
+		}
+		if ev.CityName != "Ankara" || ev.Credits != 40 {
+			t.Fatalf("unexpected event: %+v", ev)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected app-wide activity_feed delivery even outside viewport")
+	}
+}

@@ -22,6 +22,9 @@ export type City = {
   centroid: CityCentroid;
   controlling_tribe: ControllingTribe;
   competing_tribes: CompetingTribe[];
+  flips_today?: number;
+  current_streak_days?: number;
+  contest_tension?: number;
 };
 
 export type CitiesListResponse = {

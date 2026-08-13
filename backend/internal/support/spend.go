@@ -67,6 +67,12 @@ type Service struct {
 	// Nil skips attribution (tests that only care about the log row). A non-nil
 	// error rolls back the entire spend, same integrity rule as RecordFlip.
 	AttributeFlip func(ctx context.Context, tx pgx.Tx, rec conquest.Attribution) error
+	// Momentum is optional. On flip, Invalidate is called so GET /v1/cities
+	// badges refresh without waiting out the Redis TTL.
+	Momentum *conquest.MomentumStore
+	// ActivityLargeSupportMin is credits_spent at/above which a non-flip,
+	// non-derby support is published to activity:feed. Zero uses DefaultLargeSupportMin.
+	ActivityLargeSupportMin int64
 	// SpendAnomaly is invoked after a real (non-inert) support commit (best-effort).
 	SpendAnomaly *moderation.SpendAnomalyDetector
 }
@@ -84,6 +90,13 @@ func (s *Service) now() time.Time {
 		return s.Now()
 	}
 	return time.Now().UTC()
+}
+
+func (s *Service) activityMin() int64 {
+	if s != nil && s.ActivityLargeSupportMin > 0 {
+		return s.ActivityLargeSupportMin
+	}
+	return conquest.DefaultLargeSupportMin
 }
 
 // Result is returned after a successful support spend.
@@ -345,6 +358,11 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 				_ = err
 			}
 		}
+		s.publishActivityFeed(ctx, flip, supportID, *tribeID, ilCode, cityName, creditsSpent, derbyID, now)
+	}
+
+	if flip != nil && s.Momentum != nil {
+		_ = s.Momentum.Invalidate(ctx)
 	}
 
 	if s.OnSupportApplied != nil {
@@ -434,4 +452,62 @@ func leaderChanged(prev, next *uuid.UUID) bool {
 		return true
 	}
 	return *prev != *next
+}
+
+func (s *Service) publishActivityFeed(
+	ctx context.Context,
+	flip *conquest.Entry,
+	supportID, tribeID uuid.UUID,
+	ilCode, cityName string,
+	creditsSpent int64,
+	derbyID *uuid.UUID,
+	now time.Time,
+) {
+	if s == nil || s.RDB == nil {
+		return
+	}
+	var item *conquest.FeedItem
+	switch {
+	case flip != nil:
+		item = &conquest.FeedItem{
+			ID:              flip.ID,
+			Kind:            conquest.KindConquest,
+			IlCode:          flip.IlCode,
+			CityName:        flip.CityName,
+			TribeID:         flip.NewTribeID,
+			PreviousTribeID: flip.PreviousTribeID,
+			Credits:         flip.WinningCommittedCredits,
+			WasDerbiBonus:   flip.WasDerbiBonus,
+			OccurredAt:      flip.OccurredAt,
+		}
+	case derbyID != nil:
+		item = &conquest.FeedItem{
+			ID:            supportID,
+			Kind:          conquest.KindDerbySupport,
+			IlCode:        ilCode,
+			CityName:      cityName,
+			TribeID:       tribeID,
+			Credits:       float64(creditsSpent),
+			WasDerbiBonus: true,
+			OccurredAt:    now,
+		}
+	case creditsSpent >= s.activityMin():
+		item = &conquest.FeedItem{
+			ID:            supportID,
+			Kind:          conquest.KindLargeSupport,
+			IlCode:        ilCode,
+			CityName:      cityName,
+			TribeID:       tribeID,
+			Credits:       float64(creditsSpent),
+			WasDerbiBonus: false,
+			OccurredAt:    now,
+		}
+	default:
+		return
+	}
+	payload, err := json.Marshal(item)
+	if err != nil {
+		return
+	}
+	_ = cache.Publish(ctx, s.RDB, conquest.ActivityFeedChannel, string(payload))
 }
