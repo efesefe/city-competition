@@ -128,10 +128,11 @@ func grantCredits(t *testing.T, pool *pgxpool.Pool, userID uuid.UUID, amount int
 func newSpendService(pool *pgxpool.Pool) *support.Service {
 	store := &conquest.Store{Pool: pool}
 	return &support.Service{
-		Pool:       pool,
-		Wallet:     &credits.Wallet{Pool: pool},
-		Provinces:  &geo.Store{Pool: pool},
-		RecordFlip: store.InsertOnTx,
+		Pool:          pool,
+		Wallet:        &credits.Wallet{Pool: pool},
+		Provinces:     &geo.Store{Pool: pool},
+		RecordFlip:    store.InsertOnTx,
+		AttributeFlip: store.AttributeSupportsOnTx,
 	}
 }
 

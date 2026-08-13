@@ -19,11 +19,11 @@ import (
 
 // Job statuses.
 const (
-	StatusPending         = "pending"
-	StatusRunning         = "running"
-	StatusPartialFailure  = "partial_failure"
-	StatusCompleted       = "completed"
-	StatusFailed          = "failed"
+	StatusPending        = "pending"
+	StatusRunning        = "running"
+	StatusPartialFailure = "partial_failure"
+	StatusCompleted      = "completed"
+	StatusFailed         = "failed"
 )
 
 // Step names executed in order.
@@ -527,7 +527,8 @@ func (w *Worker) anonymizeUser(ctx context.Context, userID uuid.UUID) error {
 		    username = $2,
 		    birth_date = DATE '1900-01-01',
 		    status = 'erased',
-		    tribe_id = NULL
+		    tribe_id = NULL,
+		    avatar_url = NULL
 		WHERE id = $1
 	`, userID, tombstone)
 	if err != nil {

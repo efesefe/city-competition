@@ -50,6 +50,7 @@ type Config struct {
 	PaymentsDatabaseURL            string // optional; used by erasure cascade
 	DevOTPReveal                   bool
 	DevLoginAsEnabled              bool
+	AvatarDataDir                  string
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -60,6 +61,7 @@ func Load() (Config, error) {
 	cfg.AppEnv = getenv("APP_ENV", "development")
 	cfg.HTTPAddr = getenv("HTTP_ADDR", ":8080")
 	cfg.MigrationsPath = getenv("MIGRATIONS_PATH", "../migrations")
+	cfg.AvatarDataDir = getenv("AVATAR_DATA_DIR", "data/avatars")
 	cfg.GoogleClientID = os.Getenv("GOOGLE_CLIENT_ID")
 	cfg.AppleClientID = os.Getenv("APPLE_CLIENT_ID")
 
