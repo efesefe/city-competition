@@ -1,0 +1,15 @@
+---
+description: Automatically create and update markdown files in the docs/ folder whenever implementing or modifying features to preserve long-term context.
+globs: *
+alwaysApply: true
+---
+
+# Persistent Documentation & Context Rule
+
+You must maintain an up-to-date documentation trail inside the project's `docs/` folder so future AI chat sessions retain context.
+
+## Core Requirements:
+- **Write/Update on Change:** Whenever you add, refactor, or significantly change a feature, architecture, or workflow, immediately create or update the corresponding `.md` file inside `docs/`.
+- **Log Decisions & Setup:** Document *what* was changed, *why* the decision was made, how to test it, and any new dependencies or environment setups.
+- **Index Sync:** Keep a main index file (e.g., `docs/index.md` or `docs/overview.md`) updated if you introduce completely new modules or structural components.
+- **Timing:** Perform these documentation updates in the exact same response or agent turn right after you finish modifying the codebase.
