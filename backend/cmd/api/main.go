@@ -253,16 +253,17 @@ func main() {
 	progEngine := &progression.Engine{Pool: pools.Write, Logger: logger}
 	conquestStore := &conquest.Store{Pool: pools.Write, Read: pools.Read}
 	supportService := &support.Service{
-		Pool:         pools.Write,
-		Wallet:       creditsWallet,
-		Provinces:    provinceStore,
-		RDB:          rdb,
-		Cache:        supportCache,
-		Engagement:   engagementHooks,
-		Achievements: achievementStore,
-		Breaker:      writeBreaker,
-		SpendAnomaly: spendAnomaly,
-		RecordFlip:   conquestStore.InsertOnTx,
+		Pool:          pools.Write,
+		Wallet:        creditsWallet,
+		Provinces:     provinceStore,
+		RDB:           rdb,
+		Cache:         supportCache,
+		Engagement:    engagementHooks,
+		Achievements:  achievementStore,
+		Breaker:       writeBreaker,
+		SpendAnomaly:  spendAnomaly,
+		RecordFlip:    conquestStore.InsertOnTx,
+		AttributeFlip: conquestStore.AttributeSupportsOnTx,
 		OnSupportApplied: func(ctx context.Context, ev support.SupportAppliedEvent) {
 			lbUpdater.OnSupportApplied(ctx, ev)
 			progEngine.OnSupportApplied(ctx, ev)
@@ -279,6 +280,8 @@ func main() {
 		History: historyStore,
 	}
 	conquestHandler := &conquest.Handler{Store: conquestStore}
+	avatarBlobs := user.NewDirBlobStore(cfg.AvatarDataDir)
+	avatarHandler := &user.Handler{Pool: pools.Write, Blobs: avatarBlobs, UserID: auth.UserIDFromContext}
 	derbyStore := &derby.PoolStore{Pool: pools.Write}
 	derbyResolver := &derby.Resolver{Store: derbyStore, RDB: rdb}
 	supportService.MultiplierFn = derbyResolver.ResolveSupportMultiplier
@@ -351,7 +354,7 @@ func main() {
 		Store:         erasureStore,
 		RDB:           rdb,
 		Sessions:      sessions,
-		ObjectStorage: erasure.StubObjectStorage{},
+		ObjectStorage: avatarBlobs,
 		PaymentsPool:  paymentsPool,
 		Logger:        logging.New(observability.ServiceWorkerErasure, cfg.IsProduction()),
 		Concurrency:   10,
@@ -474,6 +477,9 @@ func main() {
 	mux.Handle("GET /v1/conquest-log", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.List)))
 	mux.Handle("GET /v1/conquest-log/unread-count", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.UnreadCount)))
 	mux.Handle("POST /v1/conquest-log/mark-read", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.MarkRead)))
+	mux.Handle("GET /v1/conquest-log/{log_id}/supporters", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.Supporters)))
+	mux.Handle("POST /v1/me/avatar", auth.RequireSession(sessions, users, http.HandlerFunc(avatarHandler.PostAvatar)))
+	mux.HandleFunc("GET /v1/users/{user_id}/avatar", avatarHandler.GetAvatar)
 	mux.HandleFunc("GET /v1/achievements/{public_id}", achievementHandler.GetPublic)
 	mux.Handle("GET /v1/me/achievements", auth.RequireSession(sessions, users, http.HandlerFunc(achievementHandler.ListMine)))
 	mux.HandleFunc("GET /share/{public_id}", achievementHandler.SharePage)

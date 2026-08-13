@@ -21,6 +21,10 @@ frontend/playwright-report/
 frontend/blob-report/
 backend/api
 
+# Local uploaded avatars (GET /v1/users/{id}/avatar falls back to generated SVG).
+data/avatars/
+
 # Full province polygons — import via `make import-boundaries` (see data/README-boundaries.md)
 data/turkiye-il.geojson
 data/geoBoundaries-TUR-ADM1*.geojson
+

@@ -62,6 +62,11 @@ type Service struct {
 	// (existing tests that do not care about the log). A non-nil error rolls back the
 	// entire spend — a flip that is not logged is a data-integrity bug.
 	RecordFlip func(ctx context.Context, tx pgx.Tx, rec conquest.Entry) error
+	// AttributeFlip tags the in-window supports for a logged flip and records the
+	// causing support id. Production wires conquest.Store.AttributeSupportsOnTx.
+	// Nil skips attribution (tests that only care about the log row). A non-nil
+	// error rolls back the entire spend, same integrity rule as RecordFlip.
+	AttributeFlip func(ctx context.Context, tx pgx.Tx, rec conquest.Attribution) error
 	// SpendAnomaly is invoked after a real (non-inert) support commit (best-effort).
 	SpendAnomaly *moderation.SpendAnomalyDetector
 }
@@ -279,6 +284,17 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		}
 		if err := s.RecordFlip(ctx, tx, entry); err != nil {
 			return nil, fmt.Errorf("insert conquest_log: %w", err)
+		}
+		if s.AttributeFlip != nil {
+			if err := s.AttributeFlip(ctx, tx, conquest.Attribution{
+				LogID:            entry.ID,
+				IlCode:           ilCode,
+				WinningTribeID:   *newLeader,
+				CausingSupportID: supportID,
+				OccurredAt:       now,
+			}); err != nil {
+				return nil, fmt.Errorf("attribute conquest flip: %w", err)
+			}
 		}
 		flip = &entry
 	}

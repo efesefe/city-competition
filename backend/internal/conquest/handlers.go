@@ -29,7 +29,8 @@ type markReadBody struct {
 // List handles GET /v1/conquest-log — paginated reverse-chronological flips.
 // Query params: limit (default 20, max 100), offset (default 0).
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.UserIDFromContext(r.Context()); !ok {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
 		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
 		return
 	}
@@ -42,7 +43,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	limit := parseLimit(q.Get("limit"))
 	offset := parseOffset(q.Get("offset"))
 
-	items, err := h.Store.List(r.Context(), limit, offset)
+	items, err := h.Store.List(r.Context(), userID, limit, offset)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "error_internal")
 		return
@@ -111,6 +112,52 @@ func (h *Handler) MarkRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"updated": updated})
+}
+
+// Supporters handles GET /v1/conquest-log/{log_id}/supporters.
+// Query params: limit (default 10, max 50).
+func (h *Handler) Supporters(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserIDFromContext(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Store == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+
+	logID, err := uuid.Parse(r.PathValue("log_id"))
+	if err != nil || logID == uuid.Nil {
+		writeErr(w, http.StatusBadRequest, "invalid_log_id")
+		return
+	}
+
+	limit := parseSupporterLimit(r.URL.Query().Get("limit"))
+	result, err := h.Store.Supporters(r.Context(), logID, userID, limit)
+	if err != nil {
+		if errors.Is(err, ErrUnknownLog) {
+			writeErr(w, http.StatusNotFound, ErrUnknownLog.Error())
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func parseSupporterLimit(raw string) int {
+	if raw == "" {
+		return defaultSupporterLimit
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return defaultSupporterLimit
+	}
+	if n > maxSupporterLimit {
+		return maxSupporterLimit
+	}
+	return n
 }
 
 func parseLimit(raw string) int {

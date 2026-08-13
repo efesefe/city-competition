@@ -29,6 +29,7 @@ type Entry struct {
 	WinningCommittedCredits float64    `json:"winning_committed_credits"`
 	OccurredAt              time.Time  `json:"occurred_at"`
 	WasDerbiBonus           bool       `json:"was_derbi_bonus"`
+	CausedFlip              bool       `json:"caused_flip"`
 }
 
 // Store reads and writes conquest_log and the per-user unread cursor.
@@ -78,7 +79,9 @@ func (s *Store) InsertOnTx(ctx context.Context, tx pgx.Tx, e Entry) error {
 }
 
 // List returns reverse-chronological entries (newest first).
-func (s *Store) List(ctx context.Context, limit, offset int) ([]Entry, error) {
+// caused_flip is true when viewerID owns the single support that crossed the
+// flip threshold for that entry.
+func (s *Store) List(ctx context.Context, viewerID uuid.UUID, limit, offset int) ([]Entry, error) {
 	pool := s.readPool()
 	if pool == nil {
 		return nil, fmt.Errorf("conquest log: no pool configured")
@@ -86,12 +89,14 @@ func (s *Store) List(ctx context.Context, limit, offset int) ([]Entry, error) {
 	limit, offset = clampListBounds(limit, offset)
 
 	rows, err := pool.Query(ctx, `
-		SELECT id, il_code, city_name, previous_tribe_id, new_tribe_id,
-		       winning_committed_credits::float8, occurred_at, was_derbi_bonus
-		FROM conquest_log
-		ORDER BY occurred_at DESC, id DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		SELECT cl.id, cl.il_code, cl.city_name, cl.previous_tribe_id, cl.new_tribe_id,
+		       cl.winning_committed_credits::float8, cl.occurred_at, cl.was_derbi_bonus,
+		       COALESCE(s.user_id = $1, false) AS caused_flip
+		FROM conquest_log cl
+		LEFT JOIN supports s ON s.id = cl.causing_support_id
+		ORDER BY cl.occurred_at DESC, cl.id DESC
+		LIMIT $2 OFFSET $3
+	`, viewerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list conquest_log: %w", err)
 	}
@@ -109,6 +114,7 @@ func (s *Store) List(ctx context.Context, limit, offset int) ([]Entry, error) {
 			&e.WinningCommittedCredits,
 			&e.OccurredAt,
 			&e.WasDerbiBonus,
+			&e.CausedFlip,
 		); err != nil {
 			return nil, fmt.Errorf("scan conquest_log: %w", err)
 		}
