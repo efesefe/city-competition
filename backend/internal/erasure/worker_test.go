@@ -41,6 +41,38 @@ func TestScanDelete_UsesScanNotKeys(t *testing.T) {
 	}
 }
 
+func TestCleanupRedis_RemovesPresenceKeys(t *testing.T) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mr.Close()
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer rdb.Close()
+
+	ctx := context.Background()
+	userID := uuid.New()
+	tribeID := uuid.New()
+	uid := userID.String()
+	_ = rdb.Set(ctx, "online:"+uid, tribeID.String(), time.Minute).Err()
+	_ = rdb.SAdd(ctx, "online:users", uid).Err()
+	_ = rdb.SAdd(ctx, "online:tribe:"+tribeID.String(), uid).Err()
+
+	w := &Worker{RDB: rdb}
+	if err := w.cleanupRedis(ctx, userID); err != nil {
+		t.Fatal(err)
+	}
+	if mr.Exists("online:" + uid) {
+		t.Fatal("expected online TTL key deleted")
+	}
+	if rdb.SIsMember(ctx, "online:users", uid).Val() {
+		t.Fatal("expected user removed from online:users")
+	}
+	if rdb.SIsMember(ctx, "online:tribe:"+tribeID.String(), uid).Val() {
+		t.Fatal("expected user removed from tribe set")
+	}
+}
+
 func TestProcessJob_SkipsCompletedSteps(t *testing.T) {
 	completed := []string{StepLocationHistory, StepTileOwnership, StepPostgresCascade}
 	remaining := 0

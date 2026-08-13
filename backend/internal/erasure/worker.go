@@ -15,6 +15,7 @@ import (
 
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/logging"
+	"github.com/city-competition-remastered/backend/internal/presence"
 )
 
 // Job statuses.
@@ -445,6 +446,9 @@ func (w *Worker) cleanupRedis(ctx context.Context, userID uuid.UUID) error {
 		}
 	}
 	if err := zremUserFromLeaderboards(ctx, w.RDB, uid); err != nil {
+		return err
+	}
+	if err := presence.ClearUser(ctx, w.RDB, userID); err != nil {
 		return err
 	}
 	return nil
