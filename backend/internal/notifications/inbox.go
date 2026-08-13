@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,7 +14,9 @@ import (
 const (
 	NotifTypeAppealReviewed  = "appeal_reviewed"
 	NotifTypeAppealDismissed = "appeal_dismissed"
-	inboxListLimit           = 100
+	// NotifTypeRivalThreat mirrors conquest.NotifTypeRivalThreat without importing conquest.
+	NotifTypeRivalThreat = "rival_threat"
+	inboxListLimit       = 100
 )
 
 // UserNotification is one in-app inbox row.
@@ -157,6 +160,8 @@ func RenderCopy(notifType, ilCode string) (title, body string) {
 		return "Yeni derbi", fmt.Sprintf("%s ilinde yeni bir derbi duyuruldu.", ilCode)
 	case "derby_started":
 		return "Derbi başladı", fmt.Sprintf("%s ilindeki derbi başladı.", ilCode)
+	case NotifTypeRivalThreat:
+		return "Şehriniz tehdit altında", fmt.Sprintf("%s ilindeki şehriniz tehdit altında.", ilCode)
 	case NotifTypeAppealReviewed:
 		return "İtiraz incelendi", "İtirazınız incelendi ve sonuçlandırıldı."
 	case NotifTypeAppealDismissed:
@@ -164,6 +169,18 @@ func RenderCopy(notifType, ilCode string) (title, body string) {
 	default:
 		return "City Competition", notifType
 	}
+}
+
+// RenderRivalThreatCopy returns urgency-specific Turkish copy for contest-tension alerts.
+func RenderRivalThreatCopy(cityName string, tensionPercent, level int) (title, body string) {
+	name := strings.TrimSpace(cityName)
+	if name == "" {
+		name = "Şehir"
+	}
+	if level >= 90 {
+		return "Acil savunma", fmt.Sprintf("%s %%%d gerilimle kaybedilmek üzere.", name, tensionPercent)
+	}
+	return "Şehriniz tehdit altında", fmt.Sprintf("%s %%%d gerilimle el değiştirmek üzere.", name, tensionPercent)
 }
 
 // engagementLeadThreatened mirrors engagement.NotifTypeProvinceLeadThreatened without importing engagement
