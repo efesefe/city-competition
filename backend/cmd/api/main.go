@@ -14,6 +14,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/cache"
 	"github.com/city-competition-remastered/backend/internal/config"
+	"github.com/city-competition-remastered/backend/internal/conquest"
 	"github.com/city-competition-remastered/backend/internal/consent"
 	"github.com/city-competition-remastered/backend/internal/credits"
 	"github.com/city-competition-remastered/backend/internal/db"
@@ -250,6 +251,7 @@ func main() {
 	lbStore := &leaderboard.LeaderboardStore{RDB: rdb}
 	lbUpdater := &leaderboard.Updater{Store: lbStore, Logger: logger}
 	progEngine := &progression.Engine{Pool: pools.Write, Logger: logger}
+	conquestStore := &conquest.Store{Pool: pools.Write, Read: pools.Read}
 	supportService := &support.Service{
 		Pool:         pools.Write,
 		Wallet:       creditsWallet,
@@ -260,6 +262,7 @@ func main() {
 		Achievements: achievementStore,
 		Breaker:      writeBreaker,
 		SpendAnomaly: spendAnomaly,
+		RecordFlip:   conquestStore.InsertOnTx,
 		OnSupportApplied: func(ctx context.Context, ev support.SupportAppliedEvent) {
 			lbUpdater.OnSupportApplied(ctx, ev)
 			progEngine.OnSupportApplied(ctx, ev)
@@ -275,6 +278,7 @@ func main() {
 		Cities:  cityStore,
 		History: historyStore,
 	}
+	conquestHandler := &conquest.Handler{Store: conquestStore}
 	derbyStore := &derby.PoolStore{Pool: pools.Write}
 	derbyResolver := &derby.Resolver{Store: derbyStore, RDB: rdb}
 	supportService.MultiplierFn = derbyResolver.ResolveSupportMultiplier
@@ -467,6 +471,9 @@ func main() {
 	mux.Handle("GET /v1/notifications", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.ListNotifications)))
 	mux.Handle("GET /v1/notifications/unread-count", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.UnreadCount)))
 	mux.Handle("POST /v1/notifications/mark-read", auth.RequireSession(sessions, users, http.HandlerFunc(pushHandler.MarkRead)))
+	mux.Handle("GET /v1/conquest-log", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.List)))
+	mux.Handle("GET /v1/conquest-log/unread-count", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.UnreadCount)))
+	mux.Handle("POST /v1/conquest-log/mark-read", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.MarkRead)))
 	mux.HandleFunc("GET /v1/achievements/{public_id}", achievementHandler.GetPublic)
 	mux.Handle("GET /v1/me/achievements", auth.RequireSession(sessions, users, http.HandlerFunc(achievementHandler.ListMine)))
 	mux.HandleFunc("GET /share/{public_id}", achievementHandler.SharePage)
