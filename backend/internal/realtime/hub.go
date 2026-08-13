@@ -2,11 +2,11 @@
 //
 // Redis choice: each Go process runs one Hub that PSubscribe pattern channels.
 // Publishers use support_applied:{il_code}, region_supported:{il_code},
-// tribe:{id}, and dm:{userId}.
+// activity:feed, tribe:{id}, and dm:{userId}.
 // A single pattern subscription plus in-memory per-client interest sets scales
 // to thousands of WS connections without a Redis PubSub connection (or goroutine)
-// per client. region_supported is app-wide (every connected client); support_applied
-// remains viewport-filtered.
+// per client. region_supported and activity:feed are app-wide (every connected
+// client); support_applied remains viewport-filtered.
 package realtime
 
 import (
@@ -33,6 +33,7 @@ const (
 	tribePattern           = "tribe:*"
 	dmPrefix               = "dm:"
 	dmPattern              = "dm:*"
+	activityFeedChannel    = "activity:feed"
 	clientSendBuffer       = 64
 )
 
@@ -77,6 +78,33 @@ type regionSupportedPayload struct {
 	WinningCommittedCredits float64    `json:"winning_committed_credits"`
 	OccurredAt              time.Time  `json:"occurred_at"`
 	WasDerbiBonus           bool       `json:"was_derbi_bonus"`
+}
+
+// ActivityFeedEvent is the outbound WS payload for a nationwide ticker item.
+// Delivered to every connected client (not viewport-filtered).
+type ActivityFeedEvent struct {
+	Type            string     `json:"type"`
+	ID              uuid.UUID  `json:"id"`
+	Kind            string     `json:"kind"`
+	IlCode          string     `json:"il_code"`
+	CityName        string     `json:"city_name"`
+	TribeID         uuid.UUID  `json:"tribe_id"`
+	PreviousTribeID *uuid.UUID `json:"previous_tribe_id,omitempty"`
+	Credits         float64    `json:"credits"`
+	WasDerbiBonus   bool       `json:"was_derbi_bonus"`
+	OccurredAt      time.Time  `json:"occurred_at"`
+}
+
+type activityFeedPayload struct {
+	ID              uuid.UUID  `json:"id"`
+	Kind            string     `json:"kind"`
+	IlCode          string     `json:"il_code"`
+	CityName        string     `json:"city_name"`
+	TribeID         uuid.UUID  `json:"tribe_id"`
+	PreviousTribeID *uuid.UUID `json:"previous_tribe_id,omitempty"`
+	Credits         float64    `json:"credits"`
+	WasDerbiBonus   bool       `json:"was_derbi_bonus"`
+	OccurredAt      time.Time  `json:"occurred_at"`
 }
 
 // Client is one WebSocket subscriber with viewport, room, and DM interest.
@@ -299,6 +327,11 @@ func (h *Hub) DeliverRegionSupportedForTest(payload []byte) {
 	h.fanOutRegionSupported(payload)
 }
 
+// DeliverActivityFeedForTest fans out an activity:feed payload as if received from Redis.
+func (h *Hub) DeliverActivityFeedForTest(payload []byte) {
+	h.fanOutActivityFeed(payload)
+}
+
 // DeliverChatForTest fans out a chat channel payload as if received from Redis.
 func (h *Hub) DeliverChatForTest(channel string, payload []byte) {
 	h.fanOutChat(channel, payload)
@@ -316,7 +349,7 @@ func (h *Hub) redisLoop(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		pubsub := client.PSubscribe(ctx, supportAppliedPattern, regionSupportedPattern, tribePattern, dmPattern)
+		pubsub := client.PSubscribe(ctx, supportAppliedPattern, regionSupportedPattern, tribePattern, dmPattern, activityFeedChannel)
 		if err := h.consumePubSub(ctx, pubsub); err != nil && ctx.Err() == nil {
 			h.Logger.Error("realtime redis loop error", "error", err)
 			select {
@@ -354,6 +387,10 @@ func (h *Hub) consumePubSub(ctx context.Context, pubsub *redis.PubSub) error {
 			}
 			if strings.HasPrefix(channel, regionSupportedPrefix) {
 				h.fanOutRegionSupported(payload)
+				continue
+			}
+			if channel == activityFeedChannel {
+				h.fanOutActivityFeed(payload)
 				continue
 			}
 			if strings.HasPrefix(channel, tribePrefix) || strings.HasPrefix(channel, dmPrefix) {
@@ -407,6 +444,38 @@ func (h *Hub) fanOutRegionSupported(rawPayload []byte) {
 		WinningCommittedCredits: in.WinningCommittedCredits,
 		OccurredAt:              in.OccurredAt,
 		WasDerbiBonus:           in.WasDerbiBonus,
+	})
+	if err != nil {
+		return
+	}
+
+	h.mu.RLock()
+	targets := make([]*Client, 0, len(h.clients))
+	for _, c := range h.clients {
+		targets = append(targets, c)
+	}
+	h.mu.RUnlock()
+
+	h.deliver(targets, out)
+}
+
+func (h *Hub) fanOutActivityFeed(rawPayload []byte) {
+	var in activityFeedPayload
+	if err := json.Unmarshal(rawPayload, &in); err != nil {
+		h.Logger.Warn("realtime invalid activity_feed payload", "error", err)
+		return
+	}
+	out, err := json.Marshal(ActivityFeedEvent{
+		Type:            "activity_feed",
+		ID:              in.ID,
+		Kind:            in.Kind,
+		IlCode:          in.IlCode,
+		CityName:        in.CityName,
+		TribeID:         in.TribeID,
+		PreviousTribeID: in.PreviousTribeID,
+		Credits:         in.Credits,
+		WasDerbiBonus:   in.WasDerbiBonus,
+		OccurredAt:      in.OccurredAt,
 	})
 	if err != nil {
 		return

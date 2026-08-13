@@ -51,6 +51,7 @@ type Config struct {
 	DevOTPReveal                   bool
 	DevLoginAsEnabled              bool
 	AvatarDataDir                  string
+	ActivityFeedLargeSupportMin    int64
 }
 
 // Load reads configuration from environment variables and fails fast on missing required values.
@@ -161,6 +162,16 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("REFERRAL_CREDIT_AMOUNT must be positive")
 	}
 	cfg.ReferralCreditAmount = referralAmount
+
+	activityMin, err := optionalInt64("ACTIVITY_FEED_LARGE_SUPPORT_MIN", 50)
+	if err != nil {
+		return Config{}, err
+	}
+	if activityMin < 1 {
+		return Config{}, fmt.Errorf("ACTIVITY_FEED_LARGE_SUPPORT_MIN must be >= 1")
+	}
+	cfg.ActivityFeedLargeSupportMin = activityMin
+
 	cfg.FCMProjectID = os.Getenv("FCM_PROJECT_ID")
 	cfg.APNSKeyID = os.Getenv("APNS_KEY_ID")
 	cfg.AppleIAPSharedSecret = os.Getenv("APPLE_IAP_SHARED_SECRET")

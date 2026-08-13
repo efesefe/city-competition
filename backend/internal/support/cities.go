@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/city-competition-remastered/backend/internal/conquest"
 )
 
 // Centroid is a WGS84 point for map anchoring.
@@ -29,11 +31,14 @@ type ControllingTribe struct {
 
 // City is one of the 81 il provinces for the map / city-picker listing.
 type City struct {
-	ID               string            `json:"id"`
-	Name             string            `json:"name"`
-	Centroid         Centroid          `json:"centroid"`
-	ControllingTribe *ControllingTribe `json:"controlling_tribe"`
-	CompetingTribes  []CompetingTribe  `json:"competing_tribes"`
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	Centroid          Centroid          `json:"centroid"`
+	ControllingTribe  *ControllingTribe `json:"controlling_tribe"`
+	CompetingTribes   []CompetingTribe  `json:"competing_tribes"`
+	FlipsToday        int               `json:"flips_today"`
+	CurrentStreakDays int               `json:"current_streak_days"`
+	ContestTension    float64           `json:"contest_tension"`
 }
 
 type citiesListResponse struct {
@@ -42,8 +47,9 @@ type citiesListResponse struct {
 
 // CityStore lists cities from the regions view + support scores.
 type CityStore struct {
-	Pool *pgxpool.Pool
-	Read *pgxpool.Pool
+	Pool     *pgxpool.Pool
+	Read     *pgxpool.Pool
+	Momentum *conquest.MomentumStore
 }
 
 func (s *CityStore) readPool() *pgxpool.Pool {
@@ -135,10 +141,40 @@ func (s *CityStore) ListCities(ctx context.Context) ([]City, error) {
 				city.CompetingTribes = []CompetingTribe{}
 			}
 		}
+		city.ContestTension = contestTension(city.CompetingTribes)
 		out = append(out, city)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate cities: %w", err)
 	}
+	if err := s.applyMomentum(ctx, out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+func contestTension(competing []CompetingTribe) float64 {
+	if len(competing) < 2 {
+		return 0
+	}
+	return conquest.ContestTension(competing[0].CommittedCredits, competing[1].CommittedCredits)
+}
+
+func (s *CityStore) applyMomentum(ctx context.Context, cities []City) error {
+	if s == nil || s.Momentum == nil || len(cities) == 0 {
+		return nil
+	}
+	stats, err := s.Momentum.Stats(ctx)
+	if err != nil {
+		return fmt.Errorf("city momentum: %w", err)
+	}
+	for i := range cities {
+		m, ok := stats[cities[i].ID]
+		if !ok {
+			continue
+		}
+		cities[i].FlipsToday = m.FlipsToday
+		cities[i].CurrentStreakDays = m.CurrentStreakDays
+	}
+	return nil
 }

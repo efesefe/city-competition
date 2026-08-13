@@ -252,18 +252,26 @@ func main() {
 	lbUpdater := &leaderboard.Updater{Store: lbStore, Logger: logger}
 	progEngine := &progression.Engine{Pool: pools.Write, Logger: logger}
 	conquestStore := &conquest.Store{Pool: pools.Write, Read: pools.Read}
+	momentumStore := &conquest.MomentumStore{Pool: pools.Write, Read: pools.Read, RDB: rdb}
+	activityStore := &conquest.ActivityStore{
+		Pool:            pools.Write,
+		Read:            pools.Read,
+		LargeSupportMin: cfg.ActivityFeedLargeSupportMin,
+	}
 	supportService := &support.Service{
-		Pool:          pools.Write,
-		Wallet:        creditsWallet,
-		Provinces:     provinceStore,
-		RDB:           rdb,
-		Cache:         supportCache,
-		Engagement:    engagementHooks,
-		Achievements:  achievementStore,
-		Breaker:       writeBreaker,
-		SpendAnomaly:  spendAnomaly,
-		RecordFlip:    conquestStore.InsertOnTx,
-		AttributeFlip: conquestStore.AttributeSupportsOnTx,
+		Pool:                    pools.Write,
+		Wallet:                  creditsWallet,
+		Provinces:               provinceStore,
+		RDB:                     rdb,
+		Cache:                   supportCache,
+		Engagement:              engagementHooks,
+		Achievements:            achievementStore,
+		Breaker:                 writeBreaker,
+		SpendAnomaly:            spendAnomaly,
+		RecordFlip:              conquestStore.InsertOnTx,
+		AttributeFlip:           conquestStore.AttributeSupportsOnTx,
+		Momentum:                momentumStore,
+		ActivityLargeSupportMin: cfg.ActivityFeedLargeSupportMin,
 		OnSupportApplied: func(ctx context.Context, ev support.SupportAppliedEvent) {
 			lbUpdater.OnSupportApplied(ctx, ev)
 			progEngine.OnSupportApplied(ctx, ev)
@@ -271,7 +279,7 @@ func main() {
 		OnStreakUpdated: progEngine.OnStreakUpdated,
 	}
 	summaryStore := &support.SummaryStore{Pool: pools.Write, Read: pools.Read}
-	cityStore := &support.CityStore{Pool: pools.Write, Read: pools.Read}
+	cityStore := &support.CityStore{Pool: pools.Write, Read: pools.Read, Momentum: momentumStore}
 	historyStore := &support.HistoryStore{Pool: pools.Read}
 	supportHandler := &support.Handler{
 		Service: supportService,
@@ -279,7 +287,7 @@ func main() {
 		Cities:  cityStore,
 		History: historyStore,
 	}
-	conquestHandler := &conquest.Handler{Store: conquestStore}
+	conquestHandler := &conquest.Handler{Store: conquestStore, Activity: activityStore}
 	avatarBlobs := user.NewDirBlobStore(cfg.AvatarDataDir)
 	avatarHandler := &user.Handler{Pool: pools.Write, Blobs: avatarBlobs, UserID: auth.UserIDFromContext}
 	derbyStore := &derby.PoolStore{Pool: pools.Write}
@@ -478,6 +486,7 @@ func main() {
 	mux.Handle("GET /v1/conquest-log/unread-count", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.UnreadCount)))
 	mux.Handle("POST /v1/conquest-log/mark-read", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.MarkRead)))
 	mux.Handle("GET /v1/conquest-log/{log_id}/supporters", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.Supporters)))
+	mux.Handle("GET /v1/activity-feed", auth.RequireSession(sessions, users, http.HandlerFunc(conquestHandler.ListActivityFeed)))
 	mux.Handle("POST /v1/me/avatar", auth.RequireSession(sessions, users, http.HandlerFunc(avatarHandler.PostAvatar)))
 	mux.HandleFunc("GET /v1/users/{user_id}/avatar", avatarHandler.GetAvatar)
 	mux.HandleFunc("GET /v1/achievements/{public_id}", achievementHandler.GetPublic)

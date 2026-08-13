@@ -13,7 +13,8 @@ import (
 
 // Handler exposes the durable conquest log HTTP API.
 type Handler struct {
-	Store *Store
+	Store    *Store
+	Activity *ActivityStore
 }
 
 type listResponse struct {
@@ -144,6 +145,63 @@ func (h *Handler) Supporters(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+type activityListResponse struct {
+	Events []FeedItem `json:"events"`
+}
+
+// ListActivityFeed handles GET /v1/activity-feed — merged reverse-chronological ticker.
+// Query params: limit (default 50, max 100), since_id (exclusive cursor of a feed-eligible event).
+func (h *Handler) ListActivityFeed(w http.ResponseWriter, r *http.Request) {
+	if _, ok := auth.UserIDFromContext(r.Context()); !ok {
+		writeErr(w, http.StatusUnauthorized, auth.ErrUnauthorized.Error())
+		return
+	}
+	if h.Activity == nil {
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+
+	q := r.URL.Query()
+	limit := parseActivityLimit(q.Get("limit"))
+	var sinceID *uuid.UUID
+	if raw := q.Get("since_id"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil || id == uuid.Nil {
+			writeErr(w, http.StatusBadRequest, "error_invalid_input")
+			return
+		}
+		sinceID = &id
+	}
+
+	items, err := h.Activity.List(r.Context(), sinceID, limit)
+	if err != nil {
+		if errors.Is(err, ErrUnknownSinceID) {
+			writeErr(w, http.StatusBadRequest, ErrUnknownSinceID.Error())
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, "error_internal")
+		return
+	}
+	if items == nil {
+		items = []FeedItem{}
+	}
+	writeJSON(w, http.StatusOK, activityListResponse{Events: items})
+}
+
+func parseActivityLimit(raw string) int {
+	if raw == "" {
+		return defaultActivityLimit
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return defaultActivityLimit
+	}
+	if n > maxActivityLimit {
+		return maxActivityLimit
+	}
+	return n
 }
 
 func parseSupporterLimit(raw string) int {
