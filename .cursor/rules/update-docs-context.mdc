@@ -1,9 +1,6 @@
 ---
-description: Automatically create and update markdown files in the docs/ folder whenever implementing or modifying features to preserve long-term context.
-globs: *
 alwaysApply: true
 ---
-
 # Persistent Documentation & Context Rule
 
 You must maintain an up-to-date documentation trail inside the project's `docs/` folder so future AI chat sessions retain context.
