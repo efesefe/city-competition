@@ -1,10 +1,12 @@
 // Package realtime fans out Redis events to WebSocket clients.
 //
 // Redis choice: each Go process runs one Hub that PSubscribe pattern channels.
-// Publishers use support_applied:{il_code}, tribe:{id}, and dm:{userId}.
+// Publishers use support_applied:{il_code}, region_supported:{il_code},
+// tribe:{id}, and dm:{userId}.
 // A single pattern subscription plus in-memory per-client interest sets scales
 // to thousands of WS connections without a Redis PubSub connection (or goroutine)
-// per client.
+// per client. region_supported is app-wide (every connected client); support_applied
+// remains viewport-filtered.
 package realtime
 
 import (
@@ -23,13 +25,15 @@ import (
 )
 
 const (
-	supportAppliedPrefix  = "support_applied:"
-	supportAppliedPattern = "support_applied:*"
-	tribePrefix           = "tribe:"
-	tribePattern          = "tribe:*"
-	dmPrefix              = "dm:"
-	dmPattern             = "dm:*"
-	clientSendBuffer      = 64
+	supportAppliedPrefix   = "support_applied:"
+	supportAppliedPattern  = "support_applied:*"
+	regionSupportedPrefix  = "region_supported:"
+	regionSupportedPattern = "region_supported:*"
+	tribePrefix            = "tribe:"
+	tribePattern           = "tribe:*"
+	dmPrefix               = "dm:"
+	dmPattern              = "dm:*"
+	clientSendBuffer       = 64
 )
 
 // ProvinceResolver maps a viewport bbox to intersecting province codes.
@@ -48,6 +52,31 @@ type SupportAppliedEvent struct {
 type redisPayload struct {
 	TribeID uuid.UUID `json:"tribe_id"`
 	Delta   float64   `json:"delta"`
+}
+
+// RegionSupportedEvent is the outbound WS payload for a city ownership flip.
+// Delivered to every connected client (not viewport-filtered).
+type RegionSupportedEvent struct {
+	Type                    string     `json:"type"`
+	ID                      uuid.UUID  `json:"id"`
+	IlCode                  string     `json:"il_code"`
+	CityName                string     `json:"city_name"`
+	PreviousTribeID         *uuid.UUID `json:"previous_tribe_id"`
+	NewTribeID              uuid.UUID  `json:"new_tribe_id"`
+	WinningCommittedCredits float64    `json:"winning_committed_credits"`
+	OccurredAt              time.Time  `json:"occurred_at"`
+	WasDerbiBonus           bool       `json:"was_derbi_bonus"`
+}
+
+type regionSupportedPayload struct {
+	ID                      uuid.UUID  `json:"id"`
+	IlCode                  string     `json:"il_code"`
+	CityName                string     `json:"city_name"`
+	PreviousTribeID         *uuid.UUID `json:"previous_tribe_id"`
+	NewTribeID              uuid.UUID  `json:"new_tribe_id"`
+	WinningCommittedCredits float64    `json:"winning_committed_credits"`
+	OccurredAt              time.Time  `json:"occurred_at"`
+	WasDerbiBonus           bool       `json:"was_derbi_bonus"`
 }
 
 // Client is one WebSocket subscriber with viewport, room, and DM interest.
@@ -265,6 +294,11 @@ func (h *Hub) DeliverForTest(ilCode string, payload []byte) {
 	h.fanOutSupport(ilCode, payload)
 }
 
+// DeliverRegionSupportedForTest fans out a region_supported payload as if received from Redis.
+func (h *Hub) DeliverRegionSupportedForTest(payload []byte) {
+	h.fanOutRegionSupported(payload)
+}
+
 // DeliverChatForTest fans out a chat channel payload as if received from Redis.
 func (h *Hub) DeliverChatForTest(channel string, payload []byte) {
 	h.fanOutChat(channel, payload)
@@ -282,7 +316,7 @@ func (h *Hub) redisLoop(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
-		pubsub := client.PSubscribe(ctx, supportAppliedPattern, tribePattern, dmPattern)
+		pubsub := client.PSubscribe(ctx, supportAppliedPattern, regionSupportedPattern, tribePattern, dmPattern)
 		if err := h.consumePubSub(ctx, pubsub); err != nil && ctx.Err() == nil {
 			h.Logger.Error("realtime redis loop error", "error", err)
 			select {
@@ -318,6 +352,10 @@ func (h *Hub) consumePubSub(ctx context.Context, pubsub *redis.PubSub) error {
 				}
 				continue
 			}
+			if strings.HasPrefix(channel, regionSupportedPrefix) {
+				h.fanOutRegionSupported(payload)
+				continue
+			}
 			if strings.HasPrefix(channel, tribePrefix) || strings.HasPrefix(channel, dmPrefix) {
 				h.fanOutChat(channel, payload)
 			}
@@ -347,6 +385,37 @@ func (h *Hub) fanOutSupport(ilCode string, rawPayload []byte) {
 		if c.InterestContains(ilCode) {
 			targets = append(targets, c)
 		}
+	}
+	h.mu.RUnlock()
+
+	h.deliver(targets, out)
+}
+
+func (h *Hub) fanOutRegionSupported(rawPayload []byte) {
+	var in regionSupportedPayload
+	if err := json.Unmarshal(rawPayload, &in); err != nil {
+		h.Logger.Warn("realtime invalid region_supported payload", "error", err)
+		return
+	}
+	out, err := json.Marshal(RegionSupportedEvent{
+		Type:                    "region_supported",
+		ID:                      in.ID,
+		IlCode:                  in.IlCode,
+		CityName:                in.CityName,
+		PreviousTribeID:         in.PreviousTribeID,
+		NewTribeID:              in.NewTribeID,
+		WinningCommittedCredits: in.WinningCommittedCredits,
+		OccurredAt:              in.OccurredAt,
+		WasDerbiBonus:           in.WasDerbiBonus,
+	})
+	if err != nil {
+		return
+	}
+
+	h.mu.RLock()
+	targets := make([]*Client, 0, len(h.clients))
+	for _, c := range h.clients {
+		targets = append(targets, c)
 	}
 	h.mu.RUnlock()
 

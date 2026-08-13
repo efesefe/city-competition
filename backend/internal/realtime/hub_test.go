@@ -481,3 +481,54 @@ func TestLoad_GoroutineGrowthBounded(t *testing.T) {
 		time.Sleep(50 * time.Millisecond)
 	}
 }
+
+func TestFanOut_RegionSupported_DeliveredOutsideViewport(t *testing.T) {
+	_, rdb := startMiniRedis(t)
+	hub := NewHub(rdb, fixedResolver{codes: []string{"34"}}, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go hub.Run(ctx)
+
+	client := newClient()
+	hub.Register(client)
+	defer hub.Unregister(client)
+
+	if err := hub.SetViewport(ctx, client, geo.BBox{28, 40, 30, 42}); err != nil {
+		t.Fatalf("viewport: %v", err)
+	}
+	if !client.InterestContains("34") {
+		t.Fatal("expected interest in 34")
+	}
+
+	prev := uuid.New()
+	payload, _ := json.Marshal(regionSupportedPayload{
+		ID:                      uuid.New(),
+		IlCode:                  "06",
+		CityName:                "Ankara",
+		PreviousTribeID:         &prev,
+		NewTribeID:              uuid.New(),
+		WinningCommittedCredits: 40,
+		OccurredAt:              time.Now().UTC(),
+		WasDerbiBonus:           false,
+	})
+	hub.DeliverRegionSupportedForTest(payload)
+
+	select {
+	case msg := <-client.Send:
+		var ev RegionSupportedEvent
+		if err := json.Unmarshal(msg, &ev); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		if ev.Type != "region_supported" || ev.IlCode != "06" || ev.CityName != "Ankara" {
+			t.Fatalf("unexpected event: %+v", ev)
+		}
+		if ev.PreviousTribeID == nil || *ev.PreviousTribeID != prev {
+			t.Fatalf("previous_tribe_id=%v want %s", ev.PreviousTribeID, prev)
+		}
+		if ev.WinningCommittedCredits != 40 {
+			t.Fatalf("winning=%v want 40", ev.WinningCommittedCredits)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected app-wide region_supported delivery even outside viewport")
+	}
+}

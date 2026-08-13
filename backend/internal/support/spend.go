@@ -14,6 +14,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"github.com/city-competition-remastered/backend/internal/cache"
+	"github.com/city-competition-remastered/backend/internal/conquest"
 	"github.com/city-competition-remastered/backend/internal/credits"
 	"github.com/city-competition-remastered/backend/internal/db"
 	"github.com/city-competition-remastered/backend/internal/derby"
@@ -56,6 +57,11 @@ type Service struct {
 	OnSupportApplied func(ctx context.Context, ev SupportAppliedEvent)
 	// OnStreakUpdated is invoked after a successful spend with the streak snapshot (best-effort).
 	OnStreakUpdated func(ctx context.Context, ev StreakUpdatedEvent)
+	// RecordFlip inserts a conquest_log row on the spend transaction when leadership
+	// changes. Production wires conquest.Store.InsertOnTx. Nil skips durable logging
+	// (existing tests that do not care about the log). A non-nil error rolls back the
+	// entire spend — a flip that is not logged is a data-integrity bug.
+	RecordFlip func(ctx context.Context, tx pgx.Tx, rec conquest.Entry) error
 	// SpendAnomaly is invoked after a real (non-inert) support commit (best-effort).
 	SpendAnomaly *moderation.SpendAnomalyDetector
 }
@@ -94,6 +100,24 @@ type SupportAppliedEvent struct {
 	IlCode  string     `json:"il_code"`
 	Delta   float64    `json:"delta"`
 	DerbyID *uuid.UUID `json:"derby_id,omitempty"`
+}
+
+// RegionSupportedEvent is published on region_supported:{il_code} after a committed
+// ownership flip. The realtime hub fans this out app-wide (not viewport-filtered).
+type RegionSupportedEvent struct {
+	ID                      uuid.UUID  `json:"id"`
+	IlCode                  string     `json:"il_code"`
+	CityName                string     `json:"city_name"`
+	PreviousTribeID         *uuid.UUID `json:"previous_tribe_id"`
+	NewTribeID              uuid.UUID  `json:"new_tribe_id"`
+	WinningCommittedCredits float64    `json:"winning_committed_credits"`
+	OccurredAt              time.Time  `json:"occurred_at"`
+	WasDerbiBonus           bool       `json:"was_derbi_bonus"`
+}
+
+// RegionSupportedChannel is the Redis Pub/Sub channel for a city ownership flip.
+func RegionSupportedChannel(ilCode string) string {
+	return "region_supported:" + ilCode
 }
 
 // Apply spends credits for the user's tribe in il_code inside one DB transaction,
@@ -180,6 +204,26 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 	}
 	defer tx.Rollback(ctx)
 
+	// Serialize concurrent spends on this city, including first-ever capture
+	// (no tribe_province_scores rows exist yet to lock).
+	var cityName string
+	if err := tx.QueryRow(ctx, `
+		SELECT name_tr FROM admin_boundaries WHERE il_code = $1 FOR UPDATE
+	`, ilCode).Scan(&cityName); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInvalidIlCode
+		}
+		return nil, fmt.Errorf("lock city: %w", err)
+	}
+	// Stamp times after the lock so concurrent flips order by occurred_at
+	// in commit order rather than lock-wait start time.
+	now = s.now()
+
+	prevLeader, _, err := loadProvinceLeader(ctx, tx, ilCode)
+	if err != nil {
+		return nil, err
+	}
+
 	balanceAfter, err := s.Wallet.SpendCreditsOnTx(ctx, tx, credits.ApplyInput{
 		UserID:         userID,
 		Amount:         creditsSpent,
@@ -216,6 +260,29 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		return nil, err
 	}
 
+	newLeader, newSum, err := loadProvinceLeader(ctx, tx, ilCode)
+	if err != nil {
+		return nil, err
+	}
+
+	var flip *conquest.Entry
+	if s.RecordFlip != nil && leaderChanged(prevLeader, newLeader) {
+		entry := conquest.Entry{
+			ID:                      uuid.New(),
+			IlCode:                  ilCode,
+			CityName:                cityName,
+			PreviousTribeID:         prevLeader,
+			NewTribeID:              *newLeader,
+			WinningCommittedCredits: newSum,
+			OccurredAt:              now,
+			WasDerbiBonus:           derbyID != nil,
+		}
+		if err := s.RecordFlip(ctx, tx, entry); err != nil {
+			return nil, fmt.Errorf("insert conquest_log: %w", err)
+		}
+		flip = &entry
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
@@ -245,6 +312,22 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		if derbyID != nil && (derbySide == "host" || derbySide == "guest") {
 			// Best-effort derby score update; spend already committed.
 			_ = derby.IncrScore(ctx, s.RDB, *derbyID, derbySide, effective)
+		}
+		if flip != nil {
+			regionEv := RegionSupportedEvent{
+				ID:                      flip.ID,
+				IlCode:                  flip.IlCode,
+				CityName:                flip.CityName,
+				PreviousTribeID:         flip.PreviousTribeID,
+				NewTribeID:              flip.NewTribeID,
+				WinningCommittedCredits: flip.WinningCommittedCredits,
+				OccurredAt:              flip.OccurredAt,
+				WasDerbiBonus:           flip.WasDerbiBonus,
+			}
+			regionPayload, _ := json.Marshal(regionEv)
+			if err := cache.Publish(ctx, s.RDB, RegionSupportedChannel(ilCode), string(regionPayload)); err != nil {
+				_ = err
+			}
 		}
 	}
 
@@ -304,4 +387,35 @@ func normalizeIlCode(raw string) string {
 		return raw
 	}
 	return raw
+}
+
+// loadProvinceLeader returns the controlling tribe for il_code using the same
+// ranking as GET /v1/cities: highest effective_support_sum, tribe_id ASC tie-break.
+func loadProvinceLeader(ctx context.Context, tx pgx.Tx, ilCode string) (*uuid.UUID, float64, error) {
+	var id uuid.UUID
+	var sum float64
+	err := tx.QueryRow(ctx, `
+		SELECT tribe_id, effective_support_sum::float8
+		FROM tribe_province_scores
+		WHERE il_code = $1 AND effective_support_sum > 0
+		ORDER BY effective_support_sum DESC, tribe_id ASC
+		LIMIT 1
+	`, ilCode).Scan(&id, &sum)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, 0, nil
+	}
+	if err != nil {
+		return nil, 0, fmt.Errorf("load province leader: %w", err)
+	}
+	return &id, sum, nil
+}
+
+func leaderChanged(prev, next *uuid.UUID) bool {
+	if next == nil {
+		return false
+	}
+	if prev == nil {
+		return true
+	}
+	return *prev != *next
 }
