@@ -272,6 +272,13 @@ func main() {
 		AttributeFlip:           conquestStore.AttributeSupportsOnTx,
 		Momentum:                momentumStore,
 		ActivityLargeSupportMin: cfg.ActivityFeedLargeSupportMin,
+		Threats: &conquest.ThreatAlerter{
+			Pool:       pools.Write,
+			RDB:        rdb,
+			Thresholds: []float64{cfg.ThreatAlertLow, cfg.ThreatAlertHigh},
+			Cooldown:   cfg.ThreatAlertCooldown,
+			Inbox:      inboxInsert,
+		},
 		OnSupportApplied: func(ctx context.Context, ev support.SupportAppliedEvent) {
 			lbUpdater.OnSupportApplied(ctx, ev)
 			progEngine.OnSupportApplied(ctx, ev)
@@ -351,11 +358,12 @@ func main() {
 	}
 	go derbyScheduler.Run(hubCtx)
 	pushWorker := &notifications.Worker{
-		RDB:           rdb,
-		Tokens:        pushTokens,
-		Sender:        notifications.NewSenderFromEnv(logger, cfg.FCMProjectID, cfg.APNSKeyID),
-		Logger:        logger,
-		LeadRateLimit: cfg.LeadThreatenedRateLimit,
+		RDB:             rdb,
+		Tokens:          pushTokens,
+		Sender:          notifications.NewSenderFromEnv(logger, cfg.FCMProjectID, cfg.APNSKeyID),
+		Logger:          logger,
+		LeadRateLimit:   cfg.LeadThreatenedRateLimit,
+		ThreatRateLimit: cfg.ThreatAlertCooldown,
 	}
 	go pushWorker.Run(hubCtx)
 	erasureWorker := &erasure.Worker{

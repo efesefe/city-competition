@@ -2,6 +2,7 @@ package notifications_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -96,4 +97,31 @@ func TestRenderCopyKnownTypes(t *testing.T) {
 	if title == "" || body == "" {
 		t.Fatal("expected appeal copy")
 	}
+	title, body = notifications.RenderCopy(notifications.NotifTypeRivalThreat, "34")
+	if title == "" || body == "" {
+		t.Fatal("expected rival-threat copy")
+	}
+	title, body = notifications.RenderRivalThreatCopy("İstanbul", 71, 70)
+	if title != "Şehriniz tehdit altında" {
+		t.Fatalf("70-level title=%q", title)
+	}
+	if body == "" || !containsAll(body, "İstanbul", "%71") {
+		t.Fatalf("70-level body=%q", body)
+	}
+	title, body = notifications.RenderRivalThreatCopy("Ankara", 92, 90)
+	if title != "Acil savunma" {
+		t.Fatalf("90-level title=%q", title)
+	}
+	if body == "" || !containsAll(body, "Ankara", "%92") {
+		t.Fatalf("90-level body=%q", body)
+	}
+}
+
+func containsAll(s string, parts ...string) bool {
+	for _, p := range parts {
+		if !strings.Contains(s, p) {
+			return false
+		}
+	}
+	return true
 }

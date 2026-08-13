@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,9 +20,10 @@ import (
 )
 
 const (
-	defaultLeadRateLimit = 30 * time.Minute
-	derbyOnceTTL         = 365 * 24 * time.Hour
-	brpopTimeout         = 2 * time.Second
+	defaultLeadRateLimit   = 30 * time.Minute
+	defaultThreatRateLimit = 10 * time.Minute
+	derbyOnceTTL           = 365 * 24 * time.Hour
+	brpopTimeout           = 2 * time.Second
 )
 
 // PushMessage is a platform-agnostic notification payload.
@@ -160,11 +162,12 @@ func (s *PoolTokenStore) Delete(ctx context.Context, userID uuid.UUID, token str
 
 // Worker drains notif_queue and delivers pushes with per-user rate limits.
 type Worker struct {
-	RDB            redis.Cmdable
-	Tokens         TokenStore
-	Sender         PushSender
-	Logger         *slog.Logger
-	LeadRateLimit  time.Duration
+	RDB             redis.Cmdable
+	Tokens          TokenStore
+	Sender          PushSender
+	Logger          *slog.Logger
+	LeadRateLimit   time.Duration
+	ThreatRateLimit time.Duration
 	// ProcessOne drains a single item without blocking (for tests). Returns false if empty.
 	// When nil, Run uses BRPOP.
 }
@@ -181,6 +184,13 @@ func (w *Worker) leadTTL() time.Duration {
 		return w.LeadRateLimit
 	}
 	return defaultLeadRateLimit
+}
+
+func (w *Worker) threatTTL() time.Duration {
+	if w.ThreatRateLimit > 0 {
+		return w.ThreatRateLimit
+	}
+	return defaultThreatRateLimit
 }
 
 // Run blocks until ctx is cancelled, BRPOPing notif_queue.
@@ -226,12 +236,17 @@ func (w *Worker) DrainOnce(ctx context.Context) (bool, error) {
 
 // notifEnvelope is the common subset of queued payloads.
 type notifEnvelope struct {
-	Type      string    `json:"type"`
-	UserID    uuid.UUID `json:"user_id"`
-	IlCode    string    `json:"il_code"`
-	TribeID   uuid.UUID `json:"tribe_id"`
-	DerbyID   uuid.UUID `json:"derby_id"`
-	RequestID string    `json:"request_id,omitempty"`
+	Type           string    `json:"type"`
+	UserID         uuid.UUID `json:"user_id"`
+	IlCode         string    `json:"il_code"`
+	TribeID        uuid.UUID `json:"tribe_id"`
+	DerbyID        uuid.UUID `json:"derby_id"`
+	RequestID      string    `json:"request_id,omitempty"`
+	CityName       string    `json:"city_name,omitempty"`
+	ContestTension float64   `json:"contest_tension,omitempty"`
+	TensionPercent int       `json:"tension_percent,omitempty"`
+	Level          int       `json:"level,omitempty"`
+	DeepLink       string    `json:"deep_link,omitempty"`
 }
 
 // HandlePayload rate-limits and delivers one queued JSON notification.
@@ -285,6 +300,9 @@ func (w *Worker) tryPushRateLimit(ctx context.Context, env notifEnvelope) (bool,
 	case "province_lead_threatened":
 		key = fmt.Sprintf("notif_push:%s:%s:%s", env.Type, env.UserID.String(), env.IlCode)
 		ttl = w.leadTTL()
+	case NotifTypeRivalThreat:
+		key = fmt.Sprintf("notif_push:%s:%s:%s:%d", env.Type, env.UserID.String(), env.IlCode, env.Level)
+		ttl = w.threatTTL()
 	case "derby_announced", "derby_started":
 		key = fmt.Sprintf("notif_push:%s:%s:%s", env.Type, env.UserID.String(), env.DerbyID.String())
 		ttl = derbyOnceTTL
@@ -306,7 +324,22 @@ func renderPush(env notifEnvelope) PushMessage {
 	if env.DerbyID != uuid.Nil {
 		data["derby_id"] = env.DerbyID.String()
 	}
+	if env.CityName != "" {
+		data["city_name"] = env.CityName
+	}
+	if env.DeepLink != "" {
+		data["deep_link"] = env.DeepLink
+	}
+	if env.TensionPercent > 0 {
+		data["tension_percent"] = strconv.Itoa(env.TensionPercent)
+	}
+	if env.Level > 0 {
+		data["level"] = strconv.Itoa(env.Level)
+	}
 	title, body := RenderCopy(env.Type, env.IlCode)
+	if env.Type == NotifTypeRivalThreat {
+		title, body = RenderRivalThreatCopy(env.CityName, env.TensionPercent, env.Level)
+	}
 	return PushMessage{Title: title, Body: body, Data: data}
 }
 

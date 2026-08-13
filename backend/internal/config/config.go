@@ -34,6 +34,9 @@ type Config struct {
 	ProvinceControlRefreshInterval time.Duration
 	LeadThreatenedGapRatio         float64
 	LeadThreatenedRateLimit        time.Duration
+	ThreatAlertLow                 float64
+	ThreatAlertHigh                float64
+	ThreatAlertCooldown            time.Duration
 	DerbySchedulerInterval         time.Duration
 	DerbyScoreTTL                  time.Duration
 	RestrictedDMDisabled           bool
@@ -139,6 +142,33 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.LeadThreatenedRateLimit = leadRate
+
+	threatLow, err := optionalFloat64("THREAT_ALERT_LOW", 0.70)
+	if err != nil {
+		return Config{}, err
+	}
+	if threatLow <= 0 || threatLow > 1 {
+		return Config{}, fmt.Errorf("THREAT_ALERT_LOW must be in (0, 1]")
+	}
+	cfg.ThreatAlertLow = threatLow
+
+	threatHigh, err := optionalFloat64("THREAT_ALERT_HIGH", 0.90)
+	if err != nil {
+		return Config{}, err
+	}
+	if threatHigh <= 0 || threatHigh > 1 {
+		return Config{}, fmt.Errorf("THREAT_ALERT_HIGH must be in (0, 1]")
+	}
+	if threatLow >= threatHigh {
+		return Config{}, fmt.Errorf("THREAT_ALERT_LOW must be < THREAT_ALERT_HIGH")
+	}
+	cfg.ThreatAlertHigh = threatHigh
+
+	threatCooldown, err := optionalDuration("THREAT_ALERT_COOLDOWN", 10*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.ThreatAlertCooldown = threatCooldown
 
 	derbyInterval, err := optionalDuration("DERBY_SCHEDULER_INTERVAL", 5*time.Second)
 	if err != nil {

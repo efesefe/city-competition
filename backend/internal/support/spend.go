@@ -75,6 +75,9 @@ type Service struct {
 	ActivityLargeSupportMin int64
 	// SpendAnomaly is invoked after a real (non-inert) support commit (best-effort).
 	SpendAnomaly *moderation.SpendAnomalyDetector
+	// Threats detects contest-tension threshold crossings and notifies the
+	// controlling tribe. Nil skips alerts (tests that do not care).
+	Threats *conquest.ThreatAlerter
 }
 
 // StreakUpdatedEvent is passed to OnStreakUpdated after support spend commits.
@@ -377,7 +380,12 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		})
 	}
 
-	// Best-effort retention alert; never fail the successful spend.
+	// Best-effort retention alerts; never fail the successful spend.
+	if flip != nil {
+		_ = s.Threats.ClearCooldown(ctx, ilCode)
+	} else {
+		_, _ = s.Threats.DetectAndEnqueue(ctx, ilCode, cityName, *tribeID, effective)
+	}
 	_, _ = s.Engagement.MaybeLeadThreatened(ctx, ilCode, *tribeID, effective)
 	_ = share.MaybeFirstSupport(ctx, s.Achievements, userID, ilCode)
 	_ = share.MaybeStreakAchievements(ctx, s.Achievements, userID, streak.CurrentStreak, nil)
