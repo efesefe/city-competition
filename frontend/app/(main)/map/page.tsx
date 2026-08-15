@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import DerbiBanner from "@/components/derbi/DerbiBanner";
 import DerbiScoreboardSheet from "@/components/derbi/DerbiScoreboardSheet";
 import ActivityTicker from "@/components/map/ActivityTicker";
+import OnlineCounter from "@/components/shell/OnlineCounter";
 import CityPicker from "@/components/map/CityPicker";
 import CitySupportSheet from "@/components/map/CitySupportSheet";
 import PushPermissionPrompt from "@/components/notifications/PushPermissionPrompt";
@@ -211,6 +212,9 @@ function MapInner() {
             setLiveMessage(null);
           }}
         />
+        <div className={mapChrome.online}>
+          <OnlineCounter />
+        </div>
         <div className={mapChrome.floating}>
           <button
             type="button"

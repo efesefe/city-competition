@@ -49,6 +49,7 @@
     "hint": "Select a province to spend credits.",
     "supported": "Supported {province} with {credits} credits (balance {balance}).",
     "liveSupport": "Live: +{delta} support on {ilCode} (tribe {tribeId}…)",
+    "onlineCount": "~{count} people on the map",
     "perfModeLabel": "Performance mode",
     "perfMode": {
       "auto": "Auto",

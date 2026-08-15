@@ -49,6 +49,7 @@
     "hint": "Kredi harcamak için bir il seç.",
     "supported": "{province} için {credits} kredi harcandı (bakiye {balance}).",
     "liveSupport": "Canlı: {ilCode} üzerinde +{delta} destek (kabile {tribeId}…)",
+    "onlineCount": "~{count} kişi haritada",
     "perfModeLabel": "Performans modu",
     "perfMode": {
       "auto": "Otomatik",

@@ -9,7 +9,20 @@ import {
 } from "react";
 import { useTranslations } from "next-intl";
 import { useRealtime } from "@/context/RealtimeContext";
+import {
+  hueFromUserId,
+  resolveAvatarSrc,
+  supporterInitials,
+} from "@/lib/conquest/supporterDisplay";
 import { formatTime } from "@/lib/dateFormat";
+import {
+  PRESENCE_POLL_MS,
+  expireStaleOnlineIds,
+  getOnlineMembers,
+  isMemberOnline,
+  replaceOnlineIds,
+  userAvatarPath,
+} from "@/lib/presence";
 import { getUserId } from "@/lib/session";
 import type { TribeMessage } from "@/lib/tribes-api";
 import MessageComposer from "./MessageComposer";
@@ -43,10 +56,12 @@ export default function ChatThread({ tribeId }: ChatThreadProps) {
   const [messages, setMessages] = useState<ChatThreadMessage[]>([]);
   const [hasNewBelow, setHasNewBelow] = useState(false);
   const [viewerId, setViewerId] = useState<string | null>(null);
+  const [onlineIds, setOnlineIds] = useState<Set<string>>(() => new Set());
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const stickToBottomRef = useRef(true);
   const idsRef = useRef(new Set<string>());
+  const lastSuccessAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     setViewerId(getUserId());
@@ -111,6 +126,66 @@ export default function ChatThread({ tribeId }: ChatThreadProps) {
     });
   }, [subscribe, tribeId, appendMessage]);
 
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | null = null;
+    let seq = 0;
+    lastSuccessAtRef.current = null;
+    setOnlineIds(new Set());
+
+    function applyExpiry(now = Date.now()) {
+      setOnlineIds((prev) =>
+        expireStaleOnlineIds(prev, lastSuccessAtRef.current, now),
+      );
+    }
+
+    async function refresh() {
+      const mine = ++seq;
+      applyExpiry();
+      try {
+        const res = await getOnlineMembers(tribeId);
+        if (cancelled || mine !== seq) return;
+        lastSuccessAtRef.current = Date.now();
+        setOnlineIds(replaceOnlineIds(res.user_ids));
+      } catch {
+        if (!cancelled && mine === seq) {
+          applyExpiry();
+        }
+      }
+    }
+
+    function schedule() {
+      timer = window.setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          void refresh();
+        } else {
+          applyExpiry();
+        }
+        if (!cancelled) {
+          schedule();
+        }
+      }, PRESENCE_POLL_MS);
+    }
+
+    void refresh();
+    schedule();
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      cancelled = true;
+      if (timer != null) {
+        window.clearTimeout(timer);
+      }
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [tribeId]);
+
   function onScroll(e: UIEvent<HTMLDivElement>) {
     const el = e.currentTarget;
     const near = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
@@ -151,6 +226,7 @@ export default function ChatThread({ tribeId }: ChatThreadProps) {
         ) : (
           messages.map((msg) => {
             const own = Boolean(viewerId && msg.senderId === viewerId);
+            const online = isMemberOnline(msg.senderId, onlineIds);
             return (
               <article
                 key={msg.id}
@@ -165,11 +241,14 @@ export default function ChatThread({ tribeId }: ChatThreadProps) {
                 data-message-id={msg.id}
                 data-under-review={msg.underReview ? "true" : "false"}
               >
-                <div className={styles.meta}>
-                  <span className={styles.sender}>{senderLabel(msg.senderId)}</span>
-                  <time className={styles.time} dateTime={msg.createdAt}>
-                    {formatTime(msg.createdAt)}
-                  </time>
+                <div className={styles.head}>
+                  <SenderAvatar senderId={msg.senderId} online={online} />
+                  <div className={styles.meta}>
+                    <span className={styles.sender}>{senderLabel(msg.senderId)}</span>
+                    <time className={styles.time} dateTime={msg.createdAt}>
+                      {formatTime(msg.createdAt)}
+                    </time>
+                  </div>
                 </div>
                 <p className={styles.body}>{msg.body}</p>
                 {msg.underReview ? (
@@ -199,5 +278,42 @@ export default function ChatThread({ tribeId }: ChatThreadProps) {
 
       <MessageComposer tribeId={tribeId} onSent={onLocalSent} />
     </div>
+  );
+}
+
+function SenderAvatar({
+  senderId,
+  online,
+}: {
+  senderId: string;
+  online: boolean;
+}) {
+  const src = resolveAvatarSrc(userAvatarPath(senderId));
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [src, senderId]);
+  const showImg = Boolean(src) && !broken;
+  const hue = hueFromUserId(senderId);
+  return (
+    <span className={styles.avatarWrap} aria-hidden>
+      <span
+        className={styles.avatar}
+        style={{ background: `hsl(${hue}, 55%, 42%)` }}
+      >
+        <span className={styles.initials}>{supporterInitials(shortSender(senderId))}</span>
+        {showImg ? (
+          <img
+            className={styles.photo}
+            src={src}
+            alt=""
+            onError={() => setBroken(true)}
+          />
+        ) : null}
+      </span>
+      {online ? (
+        <span className={styles.presenceDot} data-testid="presence-dot" />
+      ) : null}
+    </span>
   );
 }
