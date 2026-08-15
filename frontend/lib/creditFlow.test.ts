@@ -4,7 +4,6 @@ import {
   CREDIT_FLOW_ARC_LIFT_PX,
   CREDIT_FLOW_COIN_COUNT,
   decideCreditFlow,
-  defaultSheetRect,
   insetRect,
   isFlightTargetVisible,
   mapPointToViewport,
@@ -34,7 +33,6 @@ function baseInput(
     origin: ORIGIN,
     mapPoint: { x: 200, y: 120 },
     mapRect: MAP,
-    sheetRect: defaultSheetRect(390, 844),
     random: () => 0.5,
     ...overrides,
   };
@@ -68,14 +66,11 @@ describe("rectCenter / insetRect", () => {
 });
 
 describe("isFlightTargetVisible", () => {
-  const sheet: Rect = { left: 0, top: 500, right: 390, bottom: 844 };
-
-  it("accepts a point on the canvas and above the sheet", () => {
+  it("accepts a point on the canvas", () => {
     expect(
       isFlightTargetVisible({
         target: { x: 200, y: 180 },
         mapRect: MAP,
-        sheetRect: sheet,
       }),
     ).toBe(true);
   });
@@ -85,26 +80,23 @@ describe("isFlightTargetVisible", () => {
       isFlightTargetVisible({
         target: { x: 200, y: 10 },
         mapRect: MAP,
-        sheetRect: sheet,
       }),
     ).toBe(false);
     expect(
       isFlightTargetVisible({
         target: { x: 800, y: 200 },
         mapRect: MAP,
-        sheetRect: sheet,
       }),
     ).toBe(false);
   });
 
-  it("rejects a point covered by the support sheet", () => {
+  it("accepts a point on-canvas even where the support sheet would sit", () => {
     expect(
       isFlightTargetVisible({
         target: { x: 200, y: 620 },
         mapRect: MAP,
-        sheetRect: sheet,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 
@@ -158,14 +150,15 @@ describe("decideCreditFlow", () => {
     expect(decision).toEqual({ kind: "skip" });
   });
 
-  it("skips when the landing point sits inside the support sheet", () => {
+  it("plays when the landing point is on-canvas under the open support sheet", () => {
     const decision = decideCreditFlow(
       baseInput({
         mapPoint: { x: 180, y: 600 },
-        sheetRect: { left: 0, top: 500, right: 390, bottom: 844 },
       }),
     );
-    expect(decision).toEqual({ kind: "skip" });
+    expect(decision.kind).toBe("flight");
+    if (decision.kind !== "flight") return;
+    expect(decision.target).toEqual({ x: 180, y: 652 });
   });
 
   it("skips when projectCity / the map container is missing (picker, first paint)", () => {
