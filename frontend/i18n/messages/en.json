@@ -357,6 +357,19 @@
     "toastCaptured": "Captured",
     "toastDerbi": "Derbi capture",
     "derbiHint": "Derbi bonus",
-    "celebrationKicker": "You flipped it"
+    "celebrationKicker": "You flipped it",
+    "openDetail": "Details",
+    "supporters": {
+      "youLabel": "you",
+      "morePeople": "+{n} more people",
+      "rankAria": "Rank {rank}",
+      "credits": "{n} credits",
+      "loadFailed": "Could not load supporters.",
+      "loading": "Loading supporters…",
+      "crownAria": "Top contributor",
+      "expandAria": "Show supporters",
+      "collapseAria": "Hide supporters",
+      "empty": "No attributed supporters for this capture."
+    }
   }
 }

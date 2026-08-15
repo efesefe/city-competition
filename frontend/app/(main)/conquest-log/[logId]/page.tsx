@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import TribeCrestDisc from "@/components/conquest/TribeCrestDisc";
+import SupporterBadge from "@/components/conquest/SupporterBadge";
 import { useCityData } from "@/context/CityDataContext";
 import {
   findConquestLogEntry,
@@ -71,6 +72,7 @@ export default function ConquestLogDetailPage() {
           {entry.was_derbi_bonus ? (
             <p className={styles.meta}>{t("derbiHint")}</p>
           ) : null}
+          <SupporterBadge logId={entry.id} enabled />
           <Link
             href={`/map?il=${encodeURIComponent(entry.il_code)}`}
             className={styles.mapLink}

@@ -357,6 +357,19 @@
     "toastCaptured": "Fethedildi",
     "toastDerbi": "Derbi fethi",
     "derbiHint": "Derbi bonusu",
-    "celebrationKicker": "Sen çevirdin"
+    "celebrationKicker": "Sen çevirdin",
+    "openDetail": "Detay",
+    "supporters": {
+      "youLabel": "sen",
+      "morePeople": "+{n} kişi daha",
+      "rankAria": "Sıra {rank}",
+      "credits": "{n} kredi",
+      "loadFailed": "Destekçiler yüklenemedi.",
+      "loading": "Destekçiler yükleniyor…",
+      "crownAria": "Birinci destekçi",
+      "expandAria": "Destekçileri göster",
+      "collapseAria": "Destekçileri gizle",
+      "empty": "Bu fetih için atfedilmiş destekçi yok."
+    }
   }
 }

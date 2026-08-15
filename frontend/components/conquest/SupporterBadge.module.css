@@ -1,0 +1,155 @@
+.wrap {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.status {
+  margin: 0;
+  padding: 0.2rem 0;
+  color: #8fb5a8;
+  font-size: 0.75rem;
+  list-style: none;
+}
+
+.row {
+  --weight: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  padding: 0.28rem 0.4rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  opacity: calc(0.52 + 0.48 * var(--weight));
+}
+
+.you {
+  border-color: #5ee0b5;
+  background: rgba(94, 224, 181, 0.08);
+  box-shadow: 0 0 0 1px rgba(94, 224, 181, 0.35);
+}
+
+.rankMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.12rem;
+  flex-shrink: 0;
+  min-width: 2.1rem;
+  color: #c5d0cb;
+  font-variant-numeric: tabular-nums;
+}
+
+.crown {
+  color: #e8c15a;
+  font-size: calc(0.72rem + 0.18rem * var(--weight));
+  line-height: 1;
+}
+
+.rankNum {
+  font-size: calc(0.62rem + 0.16rem * var(--weight));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: calc(1.35rem + 0.7rem * var(--weight));
+  height: calc(1.35rem + 0.7rem * var(--weight));
+  border-radius: 999px;
+  overflow: hidden;
+  color: #fff;
+  font-weight: 700;
+}
+
+.you .avatar {
+  box-shadow: 0 0 0 2px #5ee0b5;
+}
+
+.initials {
+  font-size: calc(0.48rem + 0.18rem * var(--weight));
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  font-size: calc(0.72rem + 0.14rem * var(--weight));
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.youChip {
+  flex-shrink: 0;
+  padding: 0.04rem 0.32rem;
+  border-radius: 999px;
+  background: #5ee0b5;
+  color: #0c1412;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+.credits {
+  flex-shrink: 0;
+  color: #8fb5a8;
+  font-size: calc(0.62rem + 0.1rem * var(--weight));
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  margin: 0.1rem 0 0;
+  padding: 0.15rem 0.4rem 0.05rem;
+  color: #8fb5a8;
+  font-size: 0.72rem;
+  list-style: none;
+}
+
+.compact {
+  gap: 0.16rem;
+  padding-top: 0.2rem;
+}
+
+.compact .row {
+  padding: 0.16rem 0.28rem;
+  gap: 0.32rem;
+}
+
+.compact .rankMark {
+  min-width: 1.75rem;
+}
+
+.compact .credits {
+  font-size: 0.62rem;
+}

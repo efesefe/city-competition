@@ -71,11 +71,14 @@ async function authJSON<T>(
   return data;
 }
 
-export function listConquestLog(limit = 20, offset = 0) {
+export function listConquestLog(limit = 20, offset = 0, ilCode?: string) {
   const params = new URLSearchParams({
     limit: String(limit),
     offset: String(offset),
   });
+  if (ilCode) {
+    params.set("il_code", ilCode);
+  }
   return authJSON<ConquestLogListResponse>(
     "GET",
     `/v1/conquest-log?${params}`,

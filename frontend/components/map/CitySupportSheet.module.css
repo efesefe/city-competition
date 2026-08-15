@@ -78,6 +78,10 @@
   color: #c5d0cb;
 }
 
+.supporters {
+  margin: -0.25rem 0 0.65rem;
+}
+
 .bar {
   display: flex;
   height: 0.55rem;
