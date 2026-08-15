@@ -1,3 +1,4 @@
+import { isActivityKind, type ActivityKind } from "@/lib/activity-feed-api";
 import { API_BASE } from "@/lib/auth-api";
 import { getSessionToken } from "@/lib/session";
 
@@ -26,6 +27,20 @@ export type TribeMessageEvent = {
   created_at: string;
 };
 
+/** App-wide nationwide ticker item. Backend fans this out to every connected client. */
+export type ActivityFeedMessage = {
+  type: "activity_feed";
+  id: string;
+  kind: ActivityKind;
+  il_code: string;
+  city_name: string;
+  tribe_id: string;
+  previous_tribe_id: string | null;
+  credits: number;
+  was_derbi_bonus: boolean;
+  occurred_at: string;
+};
+
 /** App-wide ownership flip. Backend fans this out to every connected client. */
 export type RegionSupportedMessage = {
   type: "region_supported";
@@ -43,7 +58,8 @@ export type RealtimeSocketEvent =
   | SupportAppliedMessage
   | WalletBalanceChangedMessage
   | TribeMessageEvent
-  | RegionSupportedMessage;
+  | RegionSupportedMessage
+  | ActivityFeedMessage;
 
 export type RealtimeSocketStatus = "connecting" | "open" | "closed" | "error";
 
@@ -127,6 +143,38 @@ export function isRegionSupported(data: unknown): data is RegionSupportedMessage
   return true;
 }
 
+export function isActivityFeed(data: unknown): data is ActivityFeedMessage {
+  if (!data || typeof data !== "object") return false;
+  const msg = data as Record<string, unknown>;
+  const id = asStringId(msg.id);
+  const ilCode = typeof msg.il_code === "string" ? msg.il_code : null;
+  const cityName = typeof msg.city_name === "string" ? msg.city_name : null;
+  const tribeId = asStringId(msg.tribe_id);
+  const occurredAt = asIsoTime(msg.occurred_at);
+  const prev = msg.previous_tribe_id;
+  const prevOk = prev === null || prev === undefined || typeof prev === "string";
+  if (
+    msg.type !== "activity_feed" ||
+    !id ||
+    !isActivityKind(msg.kind) ||
+    !ilCode ||
+    !cityName ||
+    !tribeId ||
+    !occurredAt ||
+    !prevOk ||
+    typeof msg.credits !== "number" ||
+    typeof msg.was_derbi_bonus !== "boolean"
+  ) {
+    return false;
+  }
+  (msg as { id: string }).id = id;
+  (msg as { occurred_at: string }).occurred_at = occurredAt;
+  (msg as { tribe_id: string }).tribe_id = tribeId;
+  (msg as { previous_tribe_id: string | null }).previous_tribe_id =
+    typeof prev === "string" && prev.length > 0 ? prev : null;
+  return true;
+}
+
 /** Returns a typed realtime event or null when the frame is unknown/malformed. */
 export function parseRealtimeSocketEvent(
   data: unknown,
@@ -135,6 +183,7 @@ export function parseRealtimeSocketEvent(
   if (isWalletBalanceChanged(data)) return data;
   if (isTribeMessage(data)) return data;
   if (isRegionSupported(data)) return data;
+  if (isActivityFeed(data)) return data;
   return null;
 }
 

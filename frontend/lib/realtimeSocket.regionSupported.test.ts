@@ -23,6 +23,7 @@ describe("parseRealtimeSocketEvent region_supported", () => {
   });
 
   it("drops unknown or incomplete frames", () => {
+    expect(parseRealtimeSocketEvent({ type: "not_a_real_event" })).toBeNull();
     expect(parseRealtimeSocketEvent({ type: "activity_feed" })).toBeNull();
     expect(
       parseRealtimeSocketEvent({
@@ -31,5 +32,29 @@ describe("parseRealtimeSocketEvent region_supported", () => {
         il_code: "06",
       }),
     ).toBeNull();
+  });
+});
+
+describe("parseRealtimeSocketEvent activity_feed", () => {
+  it("accepts a full nationwide ticker payload", () => {
+    const event = parseRealtimeSocketEvent({
+      type: "activity_feed",
+      id: "11111111-1111-4111-8111-111111111111",
+      kind: "conquest",
+      il_code: "35",
+      city_name: "İzmir",
+      tribe_id: "22222222-2222-4222-8222-222222222222",
+      previous_tribe_id: null,
+      credits: 80,
+      was_derbi_bonus: false,
+      occurred_at: "2026-08-15T10:00:00Z",
+    });
+    expect(event?.type).toBe("activity_feed");
+    if (event?.type === "activity_feed") {
+      expect(event.kind).toBe("conquest");
+      expect(event.il_code).toBe("35");
+      expect(event.city_name).toBe("İzmir");
+      expect(event.previous_tribe_id).toBeNull();
+    }
   });
 });

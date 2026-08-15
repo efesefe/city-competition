@@ -350,6 +350,13 @@
       "erasureFailed": "Silme talebi gönderilemedi."
     }
   },
+  "activityTicker": {
+    "aria": "Ülke çapında canlı aktivite",
+    "itemAria": "{city} konumuna git",
+    "conquest": "{tribe}, {place} fethetti",
+    "large_support": "{tribe}, {place} destek verdi",
+    "derby_support": "{tribe}, {place} derbi desteği verdi"
+  },
   "conquest": {
     "title": "Fetih günlüğü",
     "lead": "El değiştiren her şehir, en yeniden eskiye.",
