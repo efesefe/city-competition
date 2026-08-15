@@ -5,6 +5,7 @@ import { patchCitySupport } from "@/context/cityDataPatch";
 import { tribeCrestImageId } from "@/lib/map/crestIcons";
 import {
   applyCityFeatureState,
+  applyDerbiActiveStates,
   buildCrestFeatureCollection,
   buildLabelFeatureCollection,
   cityFillColor,
@@ -129,6 +130,35 @@ describe("ownership helpers", () => {
     expect(setFeatureState).toHaveBeenCalledWith(
       { source: "cities", id: "34" },
       { primary_color: "#336699" },
+    );
+  });
+
+  it("sets derbi_active and clears cities that dropped out of the urgency set", () => {
+    const setFeatureState = vi.fn();
+    const getSource = vi.fn(() => ({}));
+    const map = { setFeatureState, getSource } as unknown as MaplibreMap;
+
+    const first = applyDerbiActiveStates(map, ["34", "06"], []);
+    expect([...first].sort()).toEqual(["06", "34"]);
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "34" },
+      { derbi_active: true },
+    );
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "06" },
+      { derbi_active: true },
+    );
+
+    setFeatureState.mockClear();
+    const next = applyDerbiActiveStates(map, ["34"], first);
+    expect([...next]).toEqual(["34"]);
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "06" },
+      { derbi_active: false },
+    );
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "34" },
+      { derbi_active: true },
     );
   });
 });

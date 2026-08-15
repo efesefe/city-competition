@@ -2,16 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import maplibregl, { type ExpressionSpecification } from "maplibre-gl";
+import maplibregl from "maplibre-gl";
 import { useCityData } from "@/context/CityDataContext";
 import { useConquest } from "@/context/ConquestContext";
 import { useRealtime } from "@/context/RealtimeContext";
 import type { City } from "@/lib/cities-api";
+import type { Derby } from "@/lib/derbies-api";
 import { ensureTribeCrestImage } from "@/lib/map/crestIcons";
 import {
+  applyDerbiActiveStates,
   applyAllCityFillStates,
   buildCrestFeatureCollection,
   buildLabelFeatureCollection,
+  CITIES_DERBI_GLOW_LAYER_ID,
   CITIES_FILL_LAYER_ID,
   CITIES_LABEL_LAYER_ID,
   CITIES_OUTLINE_LAYER_ID,
@@ -23,7 +26,22 @@ import {
   type CrestFeatureCollection,
   type LabelFeatureCollection,
 } from "@/lib/map/ownership";
+import {
+  DERBI_GLOW_BLUR,
+  DERBI_GLOW_COLOR,
+  DERBI_GLOW_STATIC_OPACITY,
+  DERBI_GLOW_STATIC_WIDTH,
+  derbiFillColorPaint,
+  derbiFillOpacityPaint,
+  derbiGlowOpacityExpression,
+  derbiGlowWidthExpression,
+  nextUrgencyTransitionMs,
+  prefersReducedMotion,
+  startDerbiGlowPulse,
+  urgencyIlCodes,
+} from "@/lib/map/derbiUrgency";
 import { TURKIYE_MAP_STYLE } from "@/lib/map/style";
+import DerbiCityOverlay from "./DerbiCityOverlay";
 import {
   TURKIYE_BOUNDS,
   TURKIYE_MAX_BOUNDS,
@@ -33,7 +51,6 @@ import {
 import { type MapBBox } from "@/lib/realtimeSocket";
 import { fetchProvincesGeoJSON } from "@/lib/support-api";
 import type { Tribe } from "@/lib/tribes-api";
-import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
 import styles from "./TurkiyeMap.module.css";
 
 export type SelectedCity = {
@@ -54,6 +71,8 @@ function syncOwnershipOverlay(
   tribesById: Record<string, Tribe>,
   labelsRef: { current: LabelFeatureCollection },
   crestsRef: { current: CrestFeatureCollection },
+  derbies: Derby[] = [],
+  previousDerbiIl?: { current: Set<string> },
 ): void {
   if (!map.getSource(CITIES_SOURCE_ID)) {
     return;
@@ -64,6 +83,13 @@ function syncOwnershipOverlay(
   }
 
   applyAllCityFillStates(map, cities);
+  if (previousDerbiIl) {
+    previousDerbiIl.current = applyDerbiActiveStates(
+      map,
+      urgencyIlCodes(derbies, Date.now()),
+      previousDerbiIl.current,
+    );
+  }
 
   const nextLabels = buildLabelFeatureCollection(cities);
   labelsRef.current = nextLabels;
@@ -84,12 +110,16 @@ type TurkiyeMapProps = {
   initialIlCode?: string | null;
   selectedIlCode?: string | null;
   onCitySelect?: (city: SelectedCity) => void;
+  derbies?: Derby[];
+  perfModeEnabled?: boolean;
 };
 
 export default function TurkiyeMap({
   initialIlCode,
   selectedIlCode,
   onCitySelect,
+  derbies = [],
+  perfModeEnabled = false,
 }: TurkiyeMapProps) {
   const t = useTranslations("map");
   const { cities, tribesById, status: cityStatus } = useCityData();
@@ -116,8 +146,11 @@ export default function TurkiyeMap({
     features: [],
   });
   const lastFlownRef = useRef<string | null>(null);
+  const derbiesRef = useRef(derbies);
+  const previousDerbiIlRef = useRef<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   onSelectRef.current = onCitySelect;
   citiesRef.current = cities;
@@ -126,6 +159,7 @@ export default function TurkiyeMap({
   sendViewportRef.current = sendViewport;
   sendViewportNowRef.current = sendViewportNow;
   initialIlRef.current = initialIlCode;
+  derbiesRef.current = derbies;
 
   // Init map once (stable deps — viewport callbacks via refs)
   useEffect(() => {
@@ -184,13 +218,8 @@ export default function TurkiyeMap({
             type: "fill",
             source: CITIES_SOURCE_ID,
             paint: {
-              "fill-color": [
-                "case",
-                ["!=", ["feature-state", "primary_color"], null],
-                ["feature-state", "primary_color"],
-                NEUTRAL_TRIBE_COLOR,
-              ] as unknown as ExpressionSpecification,
-              "fill-opacity": 0.88,
+              "fill-color": derbiFillColorPaint(),
+              "fill-opacity": derbiFillOpacityPaint(),
             },
           });
 
@@ -202,6 +231,24 @@ export default function TurkiyeMap({
               "line-color": "#060e0c",
               "line-width": 1,
               "line-opacity": 0.85,
+            },
+          });
+
+          map.addLayer({
+            id: CITIES_DERBI_GLOW_LAYER_ID,
+            type: "line",
+            source: CITIES_SOURCE_ID,
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-color": DERBI_GLOW_COLOR,
+              "line-blur": DERBI_GLOW_BLUR,
+              "line-opacity": derbiGlowOpacityExpression(
+                DERBI_GLOW_STATIC_OPACITY,
+              ),
+              "line-width": derbiGlowWidthExpression(DERBI_GLOW_STATIC_WIDTH),
             },
           });
 
@@ -302,6 +349,8 @@ export default function TurkiyeMap({
               tribesRef.current,
               labelsRef,
               crestsRef,
+              derbiesRef.current,
+              previousDerbiIlRef,
             );
           };
           map.on("sourcedata", onCitiesSourceData);
@@ -313,6 +362,8 @@ export default function TurkiyeMap({
               tribesRef.current,
               labelsRef,
               crestsRef,
+              derbiesRef.current,
+              previousDerbiIlRef,
             );
           }
           map.resize();
@@ -430,8 +481,59 @@ export default function TurkiyeMap({
     if (!map || !mapReady || cityStatus !== "ready") {
       return;
     }
-    syncOwnershipOverlay(map, cities, tribesById, labelsRef, crestsRef);
+    syncOwnershipOverlay(
+      map,
+      cities,
+      tribesById,
+      labelsRef,
+      crestsRef,
+      derbiesRef.current,
+      previousDerbiIlRef,
+    );
   }, [cities, tribesById, cityStatus, mapReady]);
+
+  // Derby urgency: feature-state + local clock so styling clears at ends_at
+  // without waiting for the 60s HTTP poll.
+  useEffect(() => {
+    const tick = () => setNowMs(Date.now());
+    const intervalId = window.setInterval(tick, 60_000);
+    const nextAt = nextUrgencyTransitionMs(derbies, Date.now());
+    let timeoutId: number | undefined;
+    if (nextAt !== null) {
+      timeoutId = window.setTimeout(tick, Math.max(0, nextAt - Date.now() + 25));
+    }
+    return () => {
+      window.clearInterval(intervalId);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [derbies, nowMs]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) {
+      return;
+    }
+    previousDerbiIlRef.current = applyDerbiActiveStates(
+      map,
+      urgencyIlCodes(derbies, nowMs),
+      previousDerbiIlRef.current,
+    );
+  }, [derbies, nowMs, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) {
+      return;
+    }
+    const hasUrgency = urgencyIlCodes(derbies, nowMs).size > 0;
+    if (!hasUrgency) {
+      return;
+    }
+    const animate = !perfModeEnabled && !prefersReducedMotion();
+    return startDerbiGlowPulse(map, animate);
+  }, [derbies, nowMs, mapReady, perfModeEnabled]);
 
   // External selection ring (e.g. parent sets selected after ?il=)
   useEffect(() => {
@@ -492,6 +594,14 @@ export default function TurkiyeMap({
         data-testid="turkiye-map"
         data-map-ready={mapReady ? "true" : "false"}
       />
+      {mapReady && mapRef.current ? (
+        <DerbiCityOverlay
+          map={mapRef.current}
+          cities={cities}
+          derbies={derbies}
+          nowMs={nowMs}
+        />
+      ) : null}
       {loadError ? (
         <p className={styles.error} role="alert">
           {loadError === "empty_city_geojson"

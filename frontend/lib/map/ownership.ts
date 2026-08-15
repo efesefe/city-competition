@@ -6,6 +6,7 @@ import { tribeCrestImageId } from "@/lib/map/crestIcons";
 export const CITIES_SOURCE_ID = "cities";
 export const CITIES_FILL_LAYER_ID = "cities-fill";
 export const CITIES_OUTLINE_LAYER_ID = "cities-outline";
+export const CITIES_DERBI_GLOW_LAYER_ID = "cities-derbi-glow";
 export const CITIES_SELECTED_LAYER_ID = "cities-selected";
 export const CITIES_LABEL_LAYER_ID = "cities-label";
 export const LABELS_SOURCE_ID = "city-labels";
@@ -14,6 +15,7 @@ export const CRESTS_LAYER_ID = "cities-crest";
 
 export type CityFillState = {
   primary_color: string;
+  derbi_active?: boolean;
 };
 
 /** Resolve fill color for feature-state from a city's controlling tribe. */
@@ -58,6 +60,42 @@ export function applyAllCityFillStates(
       sourceId,
     );
   }
+}
+
+/** Set or clear the derbi urgency flag for one city. Merges with fill color. */
+export function applyDerbiActiveState(
+  map: MaplibreMap,
+  ilCode: string,
+  active: boolean,
+  sourceId: string = CITIES_SOURCE_ID,
+): void {
+  if (!map.getSource(sourceId)) {
+    return;
+  }
+  map.setFeatureState({ source: sourceId, id: ilCode }, { derbi_active: active });
+}
+
+/**
+ * Sync derbi_active feature-state. Clears cities that dropped out of the
+ * urgency set so glow/fill never linger after a derby ends.
+ */
+export function applyDerbiActiveStates(
+  map: MaplibreMap,
+  activeIlCodes: Iterable<string>,
+  previousIlCodes: Iterable<string> = [],
+  sourceId: string = CITIES_SOURCE_ID,
+): Set<string> {
+  const next = new Set(activeIlCodes);
+  const previous = new Set(previousIlCodes);
+  for (const ilCode of previous) {
+    if (!next.has(ilCode)) {
+      applyDerbiActiveState(map, ilCode, false, sourceId);
+    }
+  }
+  for (const ilCode of next) {
+    applyDerbiActiveState(map, ilCode, true, sourceId);
+  }
+  return next;
 }
 
 export type LabelPointProperties = {

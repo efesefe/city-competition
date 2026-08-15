@@ -25,6 +25,7 @@ import { markMapSeen, wasMapSeenBefore } from "@/lib/mapSeen";
 import type { SupportAppliedMessage } from "@/lib/realtimeSocket";
 import {
   getPerformanceModePreference,
+  isPerformanceModeEnabled,
   type PerformanceModePreference,
 } from "@/lib/performanceMode";
 import styles from "@/components/ProvinceMap.module.css";
@@ -189,6 +190,8 @@ function MapInner() {
         <TurkiyeMap
           initialIlCode={focusIl}
           selectedIlCode={selectedIl ?? focusIl}
+          derbies={derbies}
+          perfModeEnabled={isPerformanceModeEnabled(perfPref)}
           onCitySelect={(city) => {
             setSelectedIl(city.il_code);
             setLiveMessage(null);
