@@ -58,7 +58,6 @@ export default function ActivityTicker({ onSelectCity }: Props) {
   const resumeTimerRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number | null>(null);
-  const reduceMotionRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +123,6 @@ export default function ActivityTicker({ onSelectCity }: Props) {
       return;
     }
     const reduce = prefersReducedMotion();
-    reduceMotionRef.current = reduce;
     const contentWidth = group.offsetWidth;
     const viewWidth = viewport.clientWidth;
     const shouldLoop = !reduce && contentWidth > viewWidth && contentWidth > 0;
