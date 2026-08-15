@@ -9,10 +9,7 @@ import { useRealtime } from "@/context/RealtimeContext";
 import type { City } from "@/lib/cities-api";
 import type { Derby } from "@/lib/derbies-api";
 import { ensureTribeCrestImage } from "@/lib/map/crestIcons";
-import {
-  ensureStripeNoneImage,
-  ensureTribeStripeImage,
-} from "@/lib/map/stripePatterns";
+import { ensureTribeStripeLayer } from "@/lib/map/stripePatterns";
 import {
   applyDerbiActiveStates,
   applyAllCityFillStates,
@@ -23,7 +20,6 @@ import {
   CITIES_LABEL_LAYER_ID,
   CITIES_OUTLINE_LAYER_ID,
   CITIES_SELECTED_LAYER_ID,
-  CITIES_STRIPES_LAYER_ID,
   CITIES_TENSION_RING_LAYER_ID,
   CITIES_TICKER_HIGHLIGHT_LAYER_ID,
   CITIES_SOURCE_ID,
@@ -45,9 +41,7 @@ import {
   DERBI_GLOW_STATIC_OPACITY,
   DERBI_GLOW_STATIC_WIDTH,
   derbiFillColorPaint,
-  derbiFillOpacityPaint,
-  stripeFillOpacityPaint,
-  stripeFillPatternPaint,
+  cityFillUnderlayOpacityPaint,
   derbiGlowOpacityExpression,
   derbiGlowWidthExpression,
   nextUrgencyTransitionMs,
@@ -97,7 +91,7 @@ function syncOwnershipOverlay(
 
   for (const tribe of Object.values(tribesById)) {
     ensureTribeCrestImage(map, tribe);
-    ensureTribeStripeImage(map, tribe);
+    ensureTribeStripeLayer(map, tribe, CITIES_OUTLINE_LAYER_ID);
   }
 
   applyAllCityFillStates(map, cities, tribesById);
@@ -250,18 +244,7 @@ export default function TurkiyeMap({
             source: CITIES_SOURCE_ID,
             paint: {
               "fill-color": derbiFillColorPaint(),
-              "fill-opacity": derbiFillOpacityPaint(),
-            },
-          });
-
-          ensureStripeNoneImage(map);
-          map.addLayer({
-            id: CITIES_STRIPES_LAYER_ID,
-            type: "fill",
-            source: CITIES_SOURCE_ID,
-            paint: {
-              "fill-pattern": stripeFillPatternPaint(),
-              "fill-opacity": stripeFillOpacityPaint(),
+              "fill-opacity": cityFillUnderlayOpacityPaint(),
             },
           });
 
@@ -463,20 +446,27 @@ export default function TurkiyeMap({
             }
           }
 
-          const onCityFillClick = (
-            e: maplibregl.MapLayerMouseEvent,
-          ) => {
-            const feature = e.features?.[0];
-            if (!feature?.properties) {
+          const cityPaintLayerIds = (): string[] => {
+            const layers = map.getStyle()?.layers ?? [];
+            return layers
+              .map((layer) => layer.id)
+              .filter(
+                (id) =>
+                  id === CITIES_FILL_LAYER_ID ||
+                  id.startsWith("cities-stripes-"),
+              );
+          };
+          const selectCityFromFeature = (feature: {
+            properties?: Record<string, unknown> | null;
+          }) => {
+            if (!feature.properties) {
               return;
             }
             const ilCode = String(feature.properties.il_code);
-            const nameTr = String(feature.properties.name_tr ?? "");
-            const nameEn = String(feature.properties.name_en ?? "");
             onSelectRef.current?.({
               il_code: ilCode,
-              name_tr: nameTr,
-              name_en: nameEn,
+              name_tr: String(feature.properties.name_tr ?? ""),
+              name_en: String(feature.properties.name_en ?? ""),
             });
             if (map.getLayer(CITIES_SELECTED_LAYER_ID)) {
               map.setFilter(CITIES_SELECTED_LAYER_ID, [
@@ -486,17 +476,23 @@ export default function TurkiyeMap({
               ]);
             }
           };
-          const setPointer = () => {
-            map.getCanvas().style.cursor = "pointer";
-          };
-          const clearPointer = () => {
-            map.getCanvas().style.cursor = "";
-          };
-          for (const layerId of [CITIES_FILL_LAYER_ID, CITIES_STRIPES_LAYER_ID]) {
-            map.on("click", layerId, onCityFillClick);
-            map.on("mouseenter", layerId, setPointer);
-            map.on("mouseleave", layerId, clearPointer);
-          }
+          map.on("click", (e) => {
+            const layers = cityPaintLayerIds();
+            if (layers.length === 0) {
+              return;
+            }
+            const feature = map.queryRenderedFeatures(e.point, { layers })[0];
+            if (feature) {
+              selectCityFromFeature(feature);
+            }
+          });
+          map.on("mousemove", (e) => {
+            const layers = cityPaintLayerIds();
+            const hit =
+              layers.length > 0 &&
+              map.queryRenderedFeatures(e.point, { layers }).length > 0;
+            map.getCanvas().style.cursor = hit ? "pointer" : "";
+          });
 
           const pushViewport = () => {
             const m = mapRef.current;

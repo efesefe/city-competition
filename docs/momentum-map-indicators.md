@@ -31,7 +31,7 @@ Offset is `[-16, -26]` (crest-adjacent), opposite the derby lightning at `[16, -
 
 ## Layers (bottom → top)
 
-`cities-fill` → **`cities-stripes`** → `cities-outline` → **`cities-tension-ring`** → `cities-derbi-glow` → `cities-selected` → `cities-ticker-highlight` → labels → crests → HTML overlays (derby + momentum)
+`cities-fill` → **`cities-stripes-{tribeId}`** → `cities-outline` → **`cities-tension-ring`** → `cities-derbi-glow` → `cities-selected` → `cities-ticker-highlight` → labels → crests → HTML overlays (derby + momentum)
 
 ## How to test
 

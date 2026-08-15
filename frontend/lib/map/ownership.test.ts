@@ -9,7 +9,6 @@ import {
   applyDerbiActiveStates,
   buildCrestFeatureCollection,
   buildLabelFeatureCollection,
-  CITIES_STRIPES_LAYER_ID,
   CITIES_TENSION_RING_LAYER_ID,
   cityFillColor,
   upsertCrestFeature,
@@ -161,13 +160,13 @@ describe("ownership helpers", () => {
       },
     );
 
-    expect(CITIES_STRIPES_LAYER_ID).toBe("cities-stripes");
     expect(setFeatureState).toHaveBeenCalledWith(
       { source: "cities", id: "34" },
       {
         primary_color: "#111111",
         stripe_pattern: tribeStripeImageId(tribeA),
         striped: true,
+        controlling_tribe_id: tribeA,
       },
     );
     expect(setFeatureState).toHaveBeenCalledWith(
@@ -176,6 +175,7 @@ describe("ownership helpers", () => {
         primary_color: NEUTRAL_TRIBE_COLOR,
         stripe_pattern: STRIPE_NONE_IMAGE_ID,
         striped: false,
+        controlling_tribe_id: "",
       },
     );
   });

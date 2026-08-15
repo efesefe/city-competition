@@ -4,7 +4,6 @@ import { BANNER_SCHEDULED_SOON_MS, isBannerEligible } from "@/lib/derbiBanner";
 import { formatTime } from "@/lib/dateFormat";
 import { formatRemaining } from "@/lib/leaderboardVisibility";
 import { CITIES_DERBI_GLOW_LAYER_ID } from "@/lib/map/ownership";
-import { STRIPE_NONE_IMAGE_ID } from "@/lib/map/stripePatterns";
 import { shouldReduceMotion } from "@/lib/reduceMotion";
 import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
 
@@ -177,21 +176,13 @@ export function derbiFillOpacityPaint(): ExpressionSpecification {
   ] as unknown as ExpressionSpecification;
 }
 
-export function stripeFillPatternPaint(): ExpressionSpecification {
-  return [
-    "coalesce",
-    ["feature-state", "stripe_pattern"],
-    STRIPE_NONE_IMAGE_ID,
-  ] as unknown as ExpressionSpecification;
-}
-
-/** Kit stripes overlay: hidden when unowned, derby-muted otherwise. */
-export function stripeFillOpacityPaint(): ExpressionSpecification {
+/** Hide the solid underlay once kit stripes are showing. */
+export function cityFillUnderlayOpacityPaint(): ExpressionSpecification {
   return [
     "case",
     ["boolean", ["feature-state", "striped"], false],
-    derbiFillOpacityPaint(),
     0,
+    derbiFillOpacityPaint(),
   ] as unknown as ExpressionSpecification;
 }
 

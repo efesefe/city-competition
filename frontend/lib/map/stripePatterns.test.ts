@@ -7,7 +7,9 @@ import {
   cityStripeState,
   stripeBandColors,
   stripeImagePixelSize,
+  stripeLayerOpacityPaint,
   tribeStripeImageId,
+  tribeStripeLayerId,
 } from "@/lib/map/stripePatterns";
 
 const tribeA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -55,6 +57,7 @@ describe("stripePatterns", () => {
     expect(pattern).toEqual({
       stripe_pattern: tribeStripeImageId(tribeA),
       striped: true,
+      controlling_tribe_id: tribeA,
     });
     expect(pattern.stripe_pattern).toBe(`tribe-stripes-${tribeA}`);
   });
@@ -63,6 +66,7 @@ describe("stripePatterns", () => {
     expect(cityStripeState(city({ id: "06" }), {})).toEqual({
       stripe_pattern: STRIPE_NONE_IMAGE_ID,
       striped: false,
+      controlling_tribe_id: "",
     });
     expect(
       cityStripeState(
@@ -75,6 +79,14 @@ describe("stripePatterns", () => {
     ).toEqual({
       stripe_pattern: STRIPE_NONE_IMAGE_ID,
       striped: false,
+      controlling_tribe_id: "",
     });
+  });
+
+  it("keys a per-tribe stripe layer id", () => {
+    expect(tribeStripeLayerId(tribeA)).toBe(`cities-stripes-${tribeA}`);
+    expect(JSON.stringify(stripeLayerOpacityPaint(tribeA))).toContain(
+      "controlling_tribe_id",
+    );
   });
 });
