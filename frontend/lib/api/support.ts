@@ -9,6 +9,8 @@ export type SupportResult = {
   effective_support: number;
   tribe_id: string;
   balance_after: number;
+  caused_flip?: boolean;
+  conquest_log_id?: string | null;
 };
 
 async function authJSON<T>(

@@ -19,7 +19,9 @@
     "title": "Bildirimler",
     "loading": "Yükleniyor…",
     "empty": "Henüz bildirim yok.",
-    "loadFailed": "Bildirimler yüklenemedi."
+    "loadFailed": "Bildirimler yüklenemedi.",
+    "conquestLog": "Fetih günlüğü",
+    "conquestLogLead": "Her şehir fethi, sırayla."
   },
   "derbiBanner": {
     "aria": "{city} derbisi. Skor tablosunu aç.",
@@ -225,6 +227,7 @@
     "title": "Profil",
     "restrictedBanner": "Kısıtlı hesap: lider tablosu ve sohbet özellikleri sınırlıdır.",
     "tribeChat": "Kabile sohbeti",
+    "conquestLog": "Fetih günlüğü",
     "chat": {
       "back": "Profile dön",
       "you": "Sen",
@@ -316,6 +319,11 @@
       "notificationsDisable": "Kapat",
       "notificationsDenied": "Bildirim izni tarayıcıda reddedildi.",
       "notificationsFailed": "Bildirim tercihi güncellenemedi.",
+      "captureSound": "Fetih kutlama sesi",
+      "captureSoundOn": "Açık",
+      "captureSoundOff": "Kapalı",
+      "captureSoundEnable": "Aç",
+      "captureSoundDisable": "Kapat",
       "consentTitle": "KVKK onayları",
       "consentGranted": "Verildi",
       "consentNotGranted": "Verilmedi",
@@ -335,5 +343,20 @@
       "erasureSuccess": "Silme talebi alındı (durum: {status}).",
       "erasureFailed": "Silme talebi gönderilemedi."
     }
+  },
+  "conquest": {
+    "title": "Fetih günlüğü",
+    "lead": "El değiştiren her şehir, en yeniden eskiye.",
+    "loading": "Yükleniyor…",
+    "loadingMore": "Daha fazla yükleniyor…",
+    "empty": "Henüz fetih yok.",
+    "loadFailed": "Fetih günlüğü yüklenemedi.",
+    "notFound": "Bu fetih bulunamadı.",
+    "backToLog": "Günlüğe dön",
+    "openOnMap": "Haritada aç",
+    "toastCaptured": "Fethedildi",
+    "toastDerbi": "Derbi fethi",
+    "derbiHint": "Derbi bonusu",
+    "celebrationKicker": "Sen çevirdin"
   }
 }

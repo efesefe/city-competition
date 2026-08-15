@@ -111,6 +111,11 @@ type Result struct {
 	EffectiveSupport float64   `json:"effective_support"`
 	TribeID          uuid.UUID `json:"tribe_id"`
 	BalanceAfter     int64     `json:"balance_after"`
+	// CausedFlip is true only when this spend was the tipping contribution
+	// that flipped city leadership. Witnesses and non-tipping contributors
+	// never see this on their own support response.
+	CausedFlip    bool       `json:"caused_flip"`
+	ConquestLogID *uuid.UUID `json:"conquest_log_id,omitempty"`
 }
 
 // SupportAppliedEvent is published on support_applied:{il_code} and passed to OnSupportApplied.
@@ -393,7 +398,7 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		_ = s.SpendAnomaly.CheckAfterSupport(ctx, userID)
 	}
 
-	return &Result{
+	out := &Result{
 		SupportID:        supportID,
 		IlCode:           ilCode,
 		CreditsSpent:     creditsSpent,
@@ -401,7 +406,13 @@ func (s *Service) apply(ctx context.Context, userID uuid.UUID, ilCode string, cr
 		EffectiveSupport: effective,
 		TribeID:          *tribeID,
 		BalanceAfter:     balanceAfter,
-	}, nil
+	}
+	if flip != nil {
+		out.CausedFlip = true
+		id := flip.ID
+		out.ConquestLogID = &id
+	}
+	return out, nil
 }
 
 func isSupportBusinessErr(err error) bool {

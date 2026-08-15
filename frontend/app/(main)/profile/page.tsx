@@ -37,6 +37,13 @@ export default function ProfilePage() {
           {t("tribeChat")}
         </Link>
       ) : null}
+      <Link
+        href="/conquest-log"
+        className={styles.chatLink}
+        data-testid="conquest-log-link"
+      >
+        {t("conquestLog")}
+      </Link>
       <SupportHistoryList />
       <SettingsSection />
     </main>

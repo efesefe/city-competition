@@ -11,6 +11,10 @@ import {
 } from "@/lib/consent-api";
 import { requestAccountErasure } from "@/lib/erasure-api";
 import {
+  isCaptureSoundEnabled,
+  setCaptureSoundEnabled,
+} from "@/lib/conquest/captureSound";
+import {
   disableWebPush,
   enableWebPush,
   isPushEnabledLocally,
@@ -25,6 +29,7 @@ const CONSENT_TYPES: ConsentType[] = [
 
 export default function SettingsSection() {
   const t = useTranslations("profile.settings");
+  const [captureSound, setCaptureSound] = useState(true);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
@@ -46,6 +51,7 @@ export default function SettingsSection() {
 
   useEffect(() => {
     setPushEnabled(isPushEnabledLocally());
+    setCaptureSound(isCaptureSoundEnabled());
     loadConsents().catch(() => setConsentError(t("consentLoadFailed")));
   }, [loadConsents, t]);
 
@@ -118,6 +124,27 @@ export default function SettingsSection() {
       <div className={styles.block}>
         <p className={styles.blockTitle}>{t("locale")}</p>
         <LocaleToggle />
+      </div>
+
+      <div className={styles.block} data-testid="profile-capture-sound">
+        <p className={styles.blockTitle}>{t("captureSound")}</p>
+        <div className={styles.row}>
+          <p className={styles.status}>
+            {captureSound ? t("captureSoundOn") : t("captureSoundOff")}
+          </p>
+          <button
+            type="button"
+            className={styles.btn}
+            onClick={() => {
+              const next = !captureSound;
+              setCaptureSoundEnabled(next);
+              setCaptureSound(next);
+            }}
+            data-testid="profile-capture-sound-toggle"
+          >
+            {captureSound ? t("captureSoundDisable") : t("captureSoundEnable")}
+          </button>
+        </div>
       </div>
 
       <div className={styles.block} data-testid="profile-notifications">

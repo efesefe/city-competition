@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useConquest } from "@/context/ConquestContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import {
   listNotifications,
@@ -26,6 +28,7 @@ function formatWhen(iso: string, locale: string): string {
 export default function NotificationsPage() {
   const t = useTranslations("notifications");
   const { refreshUnread, setUnreadCount } = useNotifications();
+  const { unreadCount: conquestUnread } = useConquest();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +70,21 @@ export default function NotificationsPage() {
   return (
     <main className={styles.page} data-testid="notifications-screen">
       <h1 className={styles.title}>{t("title")}</h1>
+      <Link
+        href="/conquest-log"
+        className={styles.conquestLink}
+        data-testid="conquest-log-link"
+      >
+        <span className={styles.conquestCopy}>
+          <span className={styles.conquestTitle}>{t("conquestLog")}</span>
+          <span className={styles.conquestMeta}>{t("conquestLogLead")}</span>
+        </span>
+        {conquestUnread > 0 ? (
+          <span className={styles.conquestBadge} data-testid="conquest-unread-badge">
+            {conquestUnread > 99 ? "99+" : conquestUnread}
+          </span>
+        ) : null}
+      </Link>
       {loading ? <p className={styles.status}>{t("loading")}</p> : null}
       {error ? (
         <p className={styles.error} data-testid="notifications-error">

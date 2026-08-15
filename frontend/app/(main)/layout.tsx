@@ -10,6 +10,9 @@ import { WalletProvider, useWallet } from "@/context/WalletContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { CityDataProvider } from "@/context/CityDataContext";
 import { NotificationsProvider } from "@/context/NotificationsContext";
+import { ConquestProvider } from "@/context/ConquestContext";
+import CaptureToast from "@/components/conquest/CaptureToast";
+import CaptureCelebration from "@/components/conquest/CaptureCelebration";
 import {
   fetchConsentStatus,
   hasRequiredConsents,
@@ -38,6 +41,8 @@ function ShellChrome({ children }: { children: ReactNode }) {
       data-testid="app-shell"
     >
       <CreditHeader />
+      <CaptureToast />
+      <CaptureCelebration />
       <div
         className={
           isMap
@@ -99,7 +104,9 @@ function MainGate({ children }: { children: ReactNode }) {
       <RealtimeProvider>
         <CityDataProvider>
           <NotificationsProvider>
-            <ShellChrome>{children}</ShellChrome>
+            <ConquestProvider>
+              <ShellChrome>{children}</ShellChrome>
+            </ConquestProvider>
           </NotificationsProvider>
         </CityDataProvider>
       </RealtimeProvider>
