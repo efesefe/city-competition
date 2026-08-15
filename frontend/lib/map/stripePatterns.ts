@@ -1,4 +1,4 @@
-import type { Map as MaplibreMap } from "maplibre-gl";
+import type { ExpressionSpecification, Map as MaplibreMap } from "maplibre-gl";
 import type { City } from "@/lib/cities-api";
 import type { Tribe } from "@/lib/tribes-api";
 import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
@@ -38,6 +38,7 @@ export function stripeBandColors(
 export type CityStripeState = {
   stripe_pattern: string;
   striped: boolean;
+  controlling_tribe_id: string;
 };
 
 /** Resolve stripe feature-state from the controlling tribe roster. */
@@ -47,9 +48,31 @@ export function cityStripeState(
 ): CityStripeState {
   const tribeId = city.controlling_tribe?.tribe_id;
   if (!tribeId || !tribesById[tribeId]) {
-    return { stripe_pattern: STRIPE_NONE_IMAGE_ID, striped: false };
+    return {
+      stripe_pattern: STRIPE_NONE_IMAGE_ID,
+      striped: false,
+      controlling_tribe_id: "",
+    };
   }
-  return { stripe_pattern: tribeStripeImageId(tribeId), striped: true };
+  return {
+    stripe_pattern: tribeStripeImageId(tribeId),
+    striped: true,
+    controlling_tribe_id: tribeId,
+  };
+}
+
+export function tribeStripeLayerId(tribeId: string): string {
+  return `cities-stripes-${tribeId}`;
+}
+
+/** Fully opaque kit stripes on the matching controller; hidden otherwise. */
+export function stripeLayerOpacityPaint(tribeId: string): ExpressionSpecification {
+  return [
+    "case",
+    ["==", ["feature-state", "controlling_tribe_id"], tribeId],
+    1,
+    0,
+  ] as unknown as ExpressionSpecification;
 }
 
 function rasterizeStripes(
@@ -116,4 +139,36 @@ export function ensureTribeStripeImage(
     map.addImage(imageId, imageData, { pixelRatio: STRIPE_PIXEL_RATIO });
   }
   return imageId;
+}
+
+/**
+ * One fill-pattern layer per tribe with a constant image id.
+ * Feature-state cannot drive fill-pattern image names in MapLibre 4, so
+ * opacity is keyed on controlling_tribe_id instead.
+ */
+export function ensureTribeStripeLayer(
+  map: MaplibreMap,
+  tribe: Pick<Tribe, "id" | "primary_color" | "secondary_color">,
+  beforeId: string,
+): string {
+  const layerId = tribeStripeLayerId(tribe.id);
+  ensureTribeStripeImage(map, tribe);
+  if (map.getLayer(layerId) || !map.getSource("cities")) {
+    return layerId;
+  }
+  const layer = {
+    id: layerId,
+    type: "fill" as const,
+    source: "cities",
+    paint: {
+      "fill-pattern": tribeStripeImageId(tribe.id),
+      "fill-opacity": stripeLayerOpacityPaint(tribe.id),
+    },
+  };
+  if (map.getLayer(beforeId)) {
+    map.addLayer(layer, beforeId);
+  } else {
+    map.addLayer(layer);
+  }
+  return layerId;
 }

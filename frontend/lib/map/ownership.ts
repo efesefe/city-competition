@@ -10,7 +10,6 @@ import {
 
 export const CITIES_SOURCE_ID = "cities";
 export const CITIES_FILL_LAYER_ID = "cities-fill";
-export const CITIES_STRIPES_LAYER_ID = "cities-stripes";
 export const CITIES_OUTLINE_LAYER_ID = "cities-outline";
 export const CITIES_TENSION_RING_LAYER_ID = "cities-tension-ring";
 export const CITIES_DERBI_GLOW_LAYER_ID = "cities-derbi-glow";
@@ -25,6 +24,7 @@ export type CityFillState = {
   primary_color: string;
   stripe_pattern?: string;
   striped?: boolean;
+  controlling_tribe_id?: string;
   derbi_active?: boolean;
   contest_tension?: number;
 };

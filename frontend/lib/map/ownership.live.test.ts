@@ -93,6 +93,7 @@ describe("live ownership update (no GeoJSON refetch)", () => {
         primary_color: "#336699",
         stripe_pattern: tribeStripeImageId(tribeB),
         striped: true,
+        controlling_tribe_id: tribeB,
       },
     );
     expect(setData).toHaveBeenCalledTimes(1);

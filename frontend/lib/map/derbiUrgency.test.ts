@@ -6,8 +6,7 @@ import {
   derbiChipCopy,
   derbiFillColorPaint,
   derbiFillOpacityPaint,
-  stripeFillOpacityPaint,
-  stripeFillPatternPaint,
+  cityFillUnderlayOpacityPaint,
   isUrgencyEligible,
   nextUrgencyTransitionMs,
   selectUrgencyDerbies,
@@ -202,11 +201,8 @@ describe("derbi fill paint", () => {
     expect(opacity).toContain("derbi_active");
   });
 
-  it("hides kit stripes unless striped feature-state is set", () => {
-    const pattern = JSON.stringify(stripeFillPatternPaint());
-    expect(pattern).toContain("stripe_pattern");
-    expect(pattern).toContain("tribe-stripes-none");
-    const opacity = JSON.stringify(stripeFillOpacityPaint());
+  it("hides the solid underlay once kit stripes are showing", () => {
+    const opacity = JSON.stringify(cityFillUnderlayOpacityPaint());
     expect(opacity).toContain("striped");
     expect(opacity).toContain("derbi_active");
   });
