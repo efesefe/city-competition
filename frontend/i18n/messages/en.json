@@ -77,6 +77,11 @@
       "soon": "Soon · {time}",
       "chipAria": "{city}: {label}"
     },
+    "momentum": {
+      "flipsToday": "Changed hands {count} times today",
+      "streakHeld": "Held for {days} days",
+      "badgeAria": "{city}: {label}"
+    },
     "errors": {
       "insufficient_credits": "Not enough credits.",
       "unknown_region": "Unknown province.",

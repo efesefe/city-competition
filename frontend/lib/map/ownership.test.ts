@@ -8,9 +8,11 @@ import {
   applyDerbiActiveStates,
   buildCrestFeatureCollection,
   buildLabelFeatureCollection,
+  CITIES_TENSION_RING_LAYER_ID,
   cityFillColor,
   upsertCrestFeature,
 } from "@/lib/map/ownership";
+import { applyContestTensionStates } from "@/lib/map/contestTension";
 import {
   TURKIYE_BOUNDS,
   TURKIYE_MAX_BOUNDS,
@@ -159,6 +161,21 @@ describe("ownership helpers", () => {
     expect(setFeatureState).toHaveBeenCalledWith(
       { source: "cities", id: "34" },
       { derbi_active: true },
+    );
+  });
+
+  it("applies contest_tension feature-state without touching GeoJSON", () => {
+    expect(CITIES_TENSION_RING_LAYER_ID).toBe("cities-tension-ring");
+    const setFeatureState = vi.fn();
+    const getSource = vi.fn(() => ({}));
+    const map = { setFeatureState, getSource } as unknown as MaplibreMap;
+
+    applyContestTensionStates(map, [
+      city({ id: "34", contest_tension: 0.8 }),
+    ]);
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "34" },
+      { contest_tension: 0.8 },
     );
   });
 });

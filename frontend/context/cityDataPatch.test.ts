@@ -35,6 +35,7 @@ describe("reconcileCityControl", () => {
     expect(after.controlling_tribe?.tribe_id).toBe(tribeA);
     expect(after.controlling_tribe?.primary_color).toBe("#111111");
     expect(after.competing_tribes[0].tribe_id).toBe(tribeA);
+    expect(after.contest_tension).toBeCloseTo(20 / 50);
   });
 
   it("clears controlling when competing is empty or all zero", () => {
@@ -90,5 +91,31 @@ describe("patchCitySupport", () => {
     });
     expect(after.controlling_tribe?.tribe_id).toBe(tribeB);
     expect(after.controlling_tribe?.primary_color).toBe("#abcdef");
+  });
+
+  it("recomputes contest_tension from competing scores on each spend", () => {
+    const before = city({
+      id: "34",
+      controlling_tribe: { tribe_id: tribeA, primary_color: "#111111" },
+      competing_tribes: [
+        { tribe_id: tribeA, committed_credits: 100 },
+        { tribe_id: tribeB, committed_credits: 40 },
+      ],
+      contest_tension: 0,
+    });
+    const rising = patchCitySupport(before, tribeB, 50, {
+      [tribeA]: "#111111",
+      [tribeB]: "#abcdef",
+    });
+    expect(rising.contest_tension).toBeCloseTo(0.9);
+    expect(rising.controlling_tribe?.tribe_id).toBe(tribeA);
+
+    const afterFlip = patchCitySupport(rising, tribeB, 200, {
+      [tribeA]: "#111111",
+      [tribeB]: "#abcdef",
+    });
+    expect(afterFlip.controlling_tribe?.tribe_id).toBe(tribeB);
+    expect(afterFlip.contest_tension).toBeCloseTo(100 / 290);
+    expect(afterFlip.contest_tension).toBeLessThan(rising.contest_tension ?? 1);
   });
 });

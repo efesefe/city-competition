@@ -1,4 +1,5 @@
 import type { City, CompetingTribe, ControllingTribe } from "@/lib/cities-api";
+import { contestTension } from "@/lib/map/contestTension";
 
 /**
  * Derive controlling_tribe from competing_tribes (score leader).
@@ -29,6 +30,7 @@ export function reconcileCityControl(
     ...city,
     competing_tribes: competing,
     controlling_tribe: controlling,
+    contest_tension: contestTension(competing),
   };
 }
 

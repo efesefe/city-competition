@@ -22,7 +22,7 @@ JS `requestAnimationFrame` translate, not a CSS animation (CSS loops reset when 
 
 A ticker item sets `selectedIl` (city sheet stays in sync) and a `highlightPulse` `{ ilCode, nonce }` on `TurkiyeMap`. The nonce forces `flyTo` even when that city is already selected. A brief gold ring (`cities-ticker-highlight`, ~1.6s) sits above `cities-selected`.
 
-Layer order: fill → outline → derby glow → selected → **ticker highlight** → labels → crests → HTML overlay.
+Layer order: fill → outline → contest-tension ring → derby glow → selected → **ticker highlight** → labels → crests → HTML overlay.
 
 ## How to test
 

@@ -77,6 +77,11 @@
       "soon": "Yakında · {time}",
       "chipAria": "{city}: {label}"
     },
+    "momentum": {
+      "flipsToday": "Bugün {count} kez el değiştirdi",
+      "streakHeld": "{days} gündür elde",
+      "badgeAria": "{city}: {label}"
+    },
     "errors": {
       "insufficient_credits": "Yeterli krediniz yok.",
       "unknown_region": "Bilinmeyen il.",
