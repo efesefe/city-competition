@@ -13,6 +13,7 @@ import { NotificationsProvider } from "@/context/NotificationsContext";
 import { ConquestProvider } from "@/context/ConquestContext";
 import CaptureToast from "@/components/conquest/CaptureToast";
 import CaptureCelebration from "@/components/conquest/CaptureCelebration";
+import CreditFlowAnimation from "@/components/shell/CreditFlowAnimation";
 import {
   fetchConsentStatus,
   hasRequiredConsents,
@@ -41,6 +42,7 @@ function ShellChrome({ children }: { children: ReactNode }) {
       data-testid="app-shell"
     >
       <CreditHeader />
+      <CreditFlowAnimation />
       <CaptureToast />
       <CaptureCelebration />
       <div

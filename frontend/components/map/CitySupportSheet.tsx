@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCityData } from "@/context/CityDataContext";
 import { useConquest } from "@/context/ConquestContext";
 import { useWallet } from "@/context/WalletContext";
+import { playCreditFlow } from "@/components/shell/CreditFlowAnimation";
 import { listDerbies } from "@/lib/derbies-api";
 import { listConquestLog } from "@/lib/conquest-api";
 import SupporterBadge from "@/components/conquest/SupporterBadge";
@@ -45,7 +46,7 @@ export default function CitySupportSheet({
     applyOptimisticDelta,
     reconcileBalance,
   } = useWallet();
-  const { reportOwnSupport } = useConquest();
+  const { reportOwnSupport, projectCity } = useConquest();
 
   const city = ilCode ? getCity(ilCode) : undefined;
   const open = Boolean(ilCode && city);
@@ -207,6 +208,7 @@ export default function CitySupportSheet({
     );
     setBusy(false);
     if (outcome.ok) {
+      playCreditFlow({ ilCode, projectCity });
       reportOwnSupport(outcome.result, { cityName: city?.name });
       if (outcome.result.conquest_log_id) {
         setHolderLogId(outcome.result.conquest_log_id);
