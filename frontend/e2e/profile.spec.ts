@@ -291,6 +291,7 @@ test.describe("profile screen", () => {
 
     await page.goto("/profile");
     await expect(page.getByTestId("profile-settings")).toBeVisible();
+    await expect(page.getByTestId("profile-reduce-motion")).toBeVisible();
 
     await page
       .getByTestId("profile-consent-withdraw-aydinlatma_metni")
