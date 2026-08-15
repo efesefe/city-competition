@@ -10,7 +10,8 @@ import {
   hasRequiredConsents,
 } from "@/lib/consent-api";
 import { getSessionToken } from "@/lib/session";
-import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
+import { tribeAccentColor } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
 import {
   hasTribeMembership,
   joinTribe,
@@ -116,7 +117,6 @@ export default function ChooseTribePage() {
         <ul className={styles.grid} data-testid="tribe-grid">
           {tribes.map((tribe) => {
             const accent = tribeAccentColor(tribe);
-            const initial = tribeCrestInitial(tribe);
             const isSelected = selectedId === tribe.id;
             return (
               <li key={tribe.id}>
@@ -143,7 +143,7 @@ export default function ChooseTribePage() {
                     }}
                     aria-hidden
                   >
-                    <span className={styles.crestMark}>{initial}</span>
+                    <TribeEmblem tribe={tribe} />
                   </span>
                   <span className={styles.name}>{tribe.display_name}</span>
                   <span className={styles.short}>{tribe.short_name}</span>
@@ -174,7 +174,7 @@ export default function ChooseTribePage() {
                 }}
                 aria-hidden
               >
-                {tribeCrestInitial(selected)}
+                <TribeEmblem tribe={selected} />
               </span>
               <div className={styles.previewMeta}>
                 <p className={styles.previewName}>{selected.display_name}</p>

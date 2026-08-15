@@ -1,12 +1,18 @@
 import type { Map as MaplibreMap } from "maplibre-gl";
 import type { Tribe } from "@/lib/tribes-api";
 import { tribeCrestInitial } from "@/lib/tribeCrest";
+import {
+  fillEmblemGlyph,
+  tribeEmblemGlyph,
+  tribeMarkColor,
+} from "@/lib/tribeEmblem";
 
 export function tribeCrestImageId(tribeId: string): string {
   return `tribe-crest-${tribeId}`;
 }
 
 const SIZE = 64;
+const MARK_SIZE = 34;
 
 function parseHexRgb(color: string): [number, number, number] | null {
   const trimmed = color.trim();
@@ -34,12 +40,20 @@ function isDarkFill(hex: string): boolean {
 }
 
 /**
- * Rasterize a monogram disc and register it on the map once per tribe id.
- * Backend has no crest_asset_url yet — generated icons stand in for Track B.
+ * Rasterize a colored disc with the tribe mascot (or letter fallback)
+ * and register it on the map once per tribe id.
  */
 export function ensureTribeCrestImage(
   map: MaplibreMap,
-  tribe: Pick<Tribe, "id" | "short_name" | "display_name" | "slug" | "primary_color">,
+  tribe: Pick<
+    Tribe,
+    | "id"
+    | "short_name"
+    | "display_name"
+    | "slug"
+    | "primary_color"
+    | "secondary_color"
+  >,
 ): string {
   const imageId = tribeCrestImageId(tribe.id);
   if (map.hasImage(imageId)) {
@@ -59,6 +73,7 @@ export function ensureTribeCrestImage(
   const cy = SIZE / 2;
   const r = SIZE / 2 - 2;
   const dark = isDarkFill(fill);
+  const mark = tribeMarkColor(tribe);
 
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -78,16 +93,29 @@ export function ensureTribeCrestImage(
     ctx.stroke();
   }
 
-  const initial = tribeCrestInitial(tribe);
-  ctx.fillStyle = "#ffffff";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `bold ${initial.length > 2 ? 18 : 22}px "Segoe UI", "Helvetica Neue", sans-serif`;
-  if (dark) {
-    ctx.shadowColor = "rgba(0,0,0,0.65)";
-    ctx.shadowBlur = 3;
+  const glyph = tribeEmblemGlyph(tribe.slug);
+  if (glyph && typeof Path2D !== "undefined") {
+    if (dark) {
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.65)";
+      ctx.shadowBlur = 3;
+      fillEmblemGlyph(ctx, glyph, cx, cy, MARK_SIZE, mark);
+      ctx.restore();
+    } else {
+      fillEmblemGlyph(ctx, glyph, cx, cy, MARK_SIZE, mark);
+    }
+  } else {
+    const initial = tribeCrestInitial(tribe);
+    ctx.fillStyle = mark;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `bold ${initial.length > 2 ? 18 : 22}px "Segoe UI", "Helvetica Neue", sans-serif`;
+    if (dark) {
+      ctx.shadowColor = "rgba(0,0,0,0.65)";
+      ctx.shadowBlur = 3;
+    }
+    ctx.fillText(initial, cx, cy + 1);
   }
-  ctx.fillText(initial, cx, cy + 1);
 
   const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
   map.addImage(imageId, imageData, { pixelRatio: 2 });

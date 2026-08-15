@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { useConquest } from "@/context/ConquestContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useWallet } from "@/context/WalletContext";
-import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
+import { tribeAccentColor } from "@/lib/tribeCrest";
 import styles from "./CreditHeader.module.css";
 
 const creditFormatter = new Intl.NumberFormat("tr-TR", {
@@ -19,7 +20,6 @@ export default function CreditHeader() {
   const { unreadCount: conquestUnread } = useConquest();
   const unreadCount = inboxUnread + conquestUnread;
   const accent = tribeAccentColor(tribe);
-  const initial = tribe ? tribeCrestInitial(tribe) : "?";
 
   const balanceLabel =
     status === "loading"
@@ -35,7 +35,7 @@ export default function CreditHeader() {
         aria-label={t("crestAria", { tribe: tribe?.display_name ?? "" })}
         data-testid="tribe-crest"
       >
-        {initial}
+        <TribeEmblem tribe={tribe} empty="?" />
       </Link>
       <p
         className={

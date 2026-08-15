@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import type { Derby, DerbyStandings } from "@/lib/derbies-api";
 import type { Tribe } from "@/lib/tribes-api";
 import { formatRemaining } from "@/lib/leaderboardVisibility";
-import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
+import { tribeAccentColor } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
 import styles from "./DerbiScoreboard.module.css";
 
 type Props = {
@@ -82,7 +83,7 @@ export default function DerbiScoreboard({
             style={{ background: hostAccent }}
             aria-hidden
           >
-            {hostTribe ? tribeCrestInitial(hostTribe) : "?"}
+            <TribeEmblem tribe={hostTribe} empty="?" />
           </span>
           <span className={styles.teamName}>{hostName}</span>
           <span className={styles.teamScore} data-testid="derbi-host-score">
@@ -98,7 +99,7 @@ export default function DerbiScoreboard({
             style={{ background: guestAccent }}
             aria-hidden
           >
-            {guestTribe ? tribeCrestInitial(guestTribe) : "?"}
+            <TribeEmblem tribe={guestTribe} empty="?" />
           </span>
           <span className={styles.teamName}>{guestName}</span>
           <span className={styles.teamScore} data-testid="derbi-guest-score">

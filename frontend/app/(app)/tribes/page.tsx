@@ -7,6 +7,8 @@ import DataResidencyBanner from "@/components/DataResidencyBanner";
 import LocaleToggle from "@/components/LocaleToggle";
 import { formatDateTime } from "@/lib/dateFormat";
 import { getSessionToken } from "@/lib/session";
+import { tribeAccentColor } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
 import {
   hasTribeMembership,
   joinTribe,
@@ -134,10 +136,13 @@ export default function TribesPage() {
                 <div
                   className={styles.swatch}
                   style={{
-                    background: `linear-gradient(135deg, ${tribeItem.primary_color} 50%, ${tribeItem.secondary_color} 50%)`,
+                    background: tribeAccentColor(tribeItem),
+                    borderColor: tribeAccentColor(tribeItem),
                   }}
                   aria-hidden
-                />
+                >
+                  <TribeEmblem tribe={tribeItem} />
+                </div>
                 <div className={styles.meta}>
                   <p className={styles.name}>{tribeItem.display_name}</p>
                   <p className={styles.sub}>
