@@ -11,9 +11,16 @@ import {
   type ReactNode,
 } from "react";
 import { fetchCities, type City } from "@/lib/cities-api";
-import { patchCitySupport, reconcileCityControl } from "@/context/cityDataPatch";
+import {
+  patchCityRegionFlip,
+  patchCitySupport,
+  reconcileCityControl,
+} from "@/context/cityDataPatch";
 import { useRealtime } from "@/context/RealtimeContext";
-import type { SupportAppliedMessage } from "@/lib/realtimeSocket";
+import type {
+  RegionSupportedMessage,
+  SupportAppliedMessage,
+} from "@/lib/realtimeSocket";
 import { listTribes, type Tribe } from "@/lib/tribes-api";
 
 type CityDataStatus = "loading" | "ready" | "error";
@@ -50,7 +57,11 @@ function pendingSupportKey(
 
 const CityDataContext = createContext<CityDataContextValue | null>(null);
 
-export { patchCitySupport, reconcileCityControl } from "@/context/cityDataPatch";
+export {
+  patchCityRegionFlip,
+  patchCitySupport,
+  reconcileCityControl,
+} from "@/context/cityDataPatch";
 
 export function CityDataProvider({ children }: { children: ReactNode }) {
   const { subscribe } = useRealtime();
@@ -130,6 +141,24 @@ export function CityDataProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     return subscribe((event) => {
+      if (event.type === "region_supported") {
+        const msg = event as RegionSupportedMessage;
+        setCities((prev) =>
+          prev.map((c) =>
+            c.id === msg.il_code
+              ? patchCityRegionFlip(
+                  c,
+                  {
+                    new_tribe_id: msg.new_tribe_id,
+                    winning_committed_credits: msg.winning_committed_credits,
+                  },
+                  tribeColorsRef.current,
+                )
+              : c,
+          ),
+        );
+        return;
+      }
       if (event.type !== "support_applied") return;
       const msg = event as SupportAppliedMessage;
       if (consumePendingSupport(msg.il_code, msg.tribe_id, msg.delta)) {

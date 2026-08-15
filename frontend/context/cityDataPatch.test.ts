@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { City } from "@/lib/cities-api";
 import {
+  patchCityRegionFlip,
   patchCitySupport,
   reconcileCityControl,
 } from "@/context/cityDataPatch";
@@ -117,5 +118,61 @@ describe("patchCitySupport", () => {
     expect(afterFlip.controlling_tribe?.tribe_id).toBe(tribeB);
     expect(afterFlip.contest_tension).toBeCloseTo(100 / 290);
     expect(afterFlip.contest_tension).toBeLessThan(rising.contest_tension ?? 1);
+  });
+});
+
+describe("reconcileCityControl color on flip", () => {
+  it("does not keep the previous owner's color when roster is missing", () => {
+    const after = reconcileCityControl(
+      city({
+        id: "34",
+        controlling_tribe: { tribe_id: tribeA, primary_color: "#111111" },
+        competing_tribes: [
+          { tribe_id: tribeA, committed_credits: 10 },
+          { tribe_id: tribeB, committed_credits: 50 },
+        ],
+      }),
+      { [tribeA]: "#111111" },
+    );
+    expect(after.controlling_tribe?.tribe_id).toBe(tribeB);
+    expect(after.controlling_tribe?.primary_color).not.toBe("#111111");
+  });
+});
+
+describe("patchCityRegionFlip", () => {
+  it("switches fill color to the new tribe from the roster", () => {
+    const before = city({
+      id: "34",
+      controlling_tribe: { tribe_id: tribeA, primary_color: "#111111" },
+      competing_tribes: [
+        { tribe_id: tribeA, committed_credits: 80 },
+        { tribe_id: tribeB, committed_credits: 20 },
+      ],
+    });
+    const after = patchCityRegionFlip(
+      before,
+      { new_tribe_id: tribeB, winning_committed_credits: 120 },
+      { [tribeA]: "#111111", [tribeB]: "#abcdef" },
+    );
+    expect(after.controlling_tribe?.tribe_id).toBe(tribeB);
+    expect(after.controlling_tribe?.primary_color).toBe("#abcdef");
+    expect(
+      after.competing_tribes.find((c) => c.tribe_id === tribeB)?.committed_credits,
+    ).toBe(120);
+  });
+
+  it("does not inherit the previous owner's hex when roster color is missing", () => {
+    const before = city({
+      id: "06",
+      controlling_tribe: { tribe_id: tribeA, primary_color: "#ff0000" },
+      competing_tribes: [{ tribe_id: tribeA, committed_credits: 40 }],
+    });
+    const after = patchCityRegionFlip(
+      before,
+      { new_tribe_id: tribeB, winning_committed_credits: 90 },
+      { [tribeA]: "#ff0000" },
+    );
+    expect(after.controlling_tribe?.tribe_id).toBe(tribeB);
+    expect(after.controlling_tribe?.primary_color).not.toBe("#ff0000");
   });
 });

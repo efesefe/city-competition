@@ -129,7 +129,7 @@ export default function CheckoutPanel({ offer, onIapSuccess }: Props) {
         {surface === "web" ? t("checkoutLeadWeb") : t("checkoutLeadNative")}
       </p>
 
-      {surface === "web" ? (
+      {surface === "web" && webProviders.length > 1 ? (
         <div className={styles.providers} role="group" aria-label={t("providersAria")}>
           {webProviders.map((p) => {
             const selected = p === selectedProvider;

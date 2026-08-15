@@ -54,3 +54,36 @@ export function locative(name: string): string {
 
   return `${trimmed}'${suffix}`;
 }
+
+/**
+ * Proper-noun apostrophe + vowel-harmony accusative (-i/-ı/-u/-ü).
+ * Vowel-final stems get a y buffer (Ankara'yı, Rize'yi). Unclassifiable names get "'ı".
+ */
+export function accusative(name: string): string {
+  const trimmed = name.trim();
+  if (trimmed === "") {
+    return `${name}'ı`;
+  }
+
+  const lower = trimmed.toLocaleLowerCase("tr-TR");
+  const runes = Array.from(lower);
+  const vowel = lastVowel(runes);
+  if (!vowel) {
+    return `${trimmed}'ı`;
+  }
+
+  let suffix: string;
+  if (vowel === "a" || vowel === "ı") {
+    suffix = "ı";
+  } else if (vowel === "e" || vowel === "i") {
+    suffix = "i";
+  } else if (vowel === "o" || vowel === "u") {
+    suffix = "u";
+  } else {
+    suffix = "ü";
+  }
+
+  const last = runes[runes.length - 1];
+  const buffer = TURKISH_VOWELS.has(last) ? "y" : "";
+  return `${trimmed}'${buffer}${suffix}`;
+}

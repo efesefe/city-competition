@@ -65,6 +65,16 @@
   outline-offset: 1px;
 }
 
+.input[type="date"] {
+  color-scheme: dark;
+}
+
+.input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 1;
+  cursor: pointer;
+  filter: invert(0.9);
+}
+
 .phoneRow {
   display: flex;
   align-items: stretch;

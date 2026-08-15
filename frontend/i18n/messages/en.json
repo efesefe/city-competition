@@ -123,7 +123,7 @@
     "createAccount": "Create account",
     "welcome": "Welcome. Your account is ready. Redirecting to consent…",
     "userId": "ID: {id}",
-    "underageNotice": "You can create an account under 18; leaderboard and clan chat are restricted.",
+    "underageNotice": "You can create an account under 18; leaderboard and tribe chat are restricted.",
     "invalidPhone": "Enter a valid Turkish mobile number.",
     "birthDateRequired": "Enter your birth date.",
     "errors": {
@@ -136,6 +136,8 @@
       "userNotFound": "No account for this phone. Register first.",
       "phoneNotVerified": "Phone verification is required first.",
       "invalidSocialToken": "Social sign-in could not be verified.",
+      "googleNotConfigured": "Google sign-in is not available in this environment.",
+      "appleNotConfigured": "Apple sign-in is not available in this environment.",
       "generic": "Something went wrong. Please try again."
     }
   },
@@ -281,7 +283,7 @@
       "priceUnavailable": "Price unavailable",
       "bonus": "{percent}% extra credits",
       "checkoutTitle": "Checkout",
-      "checkoutLeadWeb": "Pay with a Turkish payment provider. You’ll leave this app for their hosted checkout.",
+      "checkoutLeadWeb": "Pay with iyzico. You’ll leave this app for their secure checkout.",
       "checkoutLeadNative": "Complete purchase with the App Store or Google Play.",
       "selectPackFirst": "Select a package above to continue.",
       "noProviders": "No payment methods are available for this package on this device.",

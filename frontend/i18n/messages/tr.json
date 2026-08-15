@@ -2,12 +2,12 @@
   "common": {
     "brand": "City Competition",
     "loading": "Yükleniyor…",
-    "redirecting": "Yönlendiriliyorsunuz…"
+    "redirecting": "Yönlendiriliyorsun…"
   },
   "shell": {
-    "tabBarAria": "Ana navigasyon",
+    "tabBarAria": "Ana menü",
     "tabMap": "Harita",
-    "tabLeaderboard": "Lider Tablosu",
+    "tabLeaderboard": "Sıralama",
     "tabProfile": "Profil",
     "balance": "{balance} kredi",
     "balanceLoading": "…",
@@ -18,10 +18,10 @@
   "notifications": {
     "title": "Bildirimler",
     "loading": "Yükleniyor…",
-    "empty": "Henüz bildirim yok.",
+    "empty": "Henüz bildirimin yok.",
     "loadFailed": "Bildirimler yüklenemedi.",
     "conquestLog": "Fetih günlüğü",
-    "conquestLogLead": "Her şehir fethi, sırayla."
+    "conquestLogLead": "El değiştiren her şehir, sırayla."
   },
   "derbiBanner": {
     "aria": "{city} derbisi. Skor tablosunu aç.",
@@ -33,7 +33,7 @@
     "provinceFallback": "İl {ilCode}"
   },
   "pushPrompt": {
-    "copy": "Derbi ve çekişmeli şehir uyarılarını alın.",
+    "copy": "Derbi ve kritik şehir uyarılarını aç.",
     "enable": "Aç",
     "later": "Şimdi değil",
     "enabling": "Açılıyor…",
@@ -42,14 +42,14 @@
   "map": {
     "ariaLabel": "Türkiye il haritası",
     "title": "Bir ili destekle",
-    "lead": "Haritada bir ile tıkla, ardından kabilen için kredi harca. GPS konumu kullanılmaz.",
+    "lead": "Haritadan bir il seç, kabilen için kredi harca. Konumun kullanılmaz.",
     "credits": "Kredi",
     "support": "Destekle",
     "supporting": "Destekleniyor…",
-    "hint": "Kredi harcamak için bir il seç.",
+    "hint": "Destek vermek için bir il seç.",
     "supported": "{province} için {credits} kredi harcandı (bakiye {balance}).",
-    "liveSupport": "Canlı: {ilCode} üzerinde +{delta} destek (kabile {tribeId}…)",
-    "onlineCount": "~{count} kişi haritada",
+    "liveSupport": "Canlı: {ilCode} +{delta} destek ({tribeId}…)",
+    "onlineCount": "Haritada ~{count} kişi",
     "perfModeLabel": "Performans modu",
     "perfMode": {
       "auto": "Otomatik",
@@ -58,22 +58,22 @@
     },
     "picker": {
       "title": "İl ara",
-      "searchPlaceholder": "İsim veya kod ile ara…",
-      "empty": "Aramanızla eşleşen il yok.",
+      "searchPlaceholder": "İsim veya kod yaz…",
+      "empty": "Aramanla eşleşen il yok.",
       "close": "İl listesini kapat",
       "openAria": "İl ara"
     },
     "sheet": {
       "close": "Destek panelini kapat",
-      "unowned": "Henüz kimsenin değil",
-      "ownershipBar": "Kabile sahiplik payları",
+      "unowned": "Henüz sahipsiz",
+      "ownershipBar": "Kabile payları",
       "chipsAria": "Kredi miktarları",
-      "clampWarning": "Miktar mevcut bakiyenize göre sınırlandı.",
+      "clampWarning": "Tutar bakiyene göre düşürüldü.",
       "remaining": "{n} kredi kalacak",
       "derbiBadge": "2x Derbi bonusu aktif"
     },
     "derbiUrgency": {
-      "remaining": "{hours}s {minutes}dk kaldı",
+      "remaining": "{hours}sa {minutes}dk kaldı",
       "remainingMinutes": "{minutes}dk kaldı",
       "soon": "Yakında · {time}",
       "chipAria": "{city}: {label}"
@@ -84,24 +84,24 @@
       "badgeAria": "{city}: {label}"
     },
     "errors": {
-      "insufficient_credits": "Yeterli krediniz yok.",
+      "insufficient_credits": "Yeterli kredin yok.",
       "unknown_region": "Bilinmeyen il.",
-      "tribe_required": "Desteklemek için önce bir kabileye katılın.",
-      "rate_limit_exceeded": "Çok fazla istek. Kısa süre sonra tekrar deneyin.",
-      "write_path_degraded": "Destek geçici olarak kullanılamıyor. Daha sonra tekrar deneyin.",
-      "invalid_credits": "Geçerli bir kredi miktarı girin.",
-      "error_unauthorized": "Oturum gerekli.",
+      "tribe_required": "Desteklemek için önce bir kabileye katıl.",
+      "rate_limit_exceeded": "Çok fazla istek. Biraz sonra tekrar dene.",
+      "write_path_degraded": "Destek şu an kullanılamıyor. Daha sonra tekrar dene.",
+      "invalid_credits": "Geçerli bir kredi miktarı gir.",
+      "error_unauthorized": "Oturum açman gerekiyor.",
       "error_banned": "Bu hesap kredi harcayamaz.",
       "idempotency_conflict": "Bu destek zaten kaydedildi.",
-      "error_internal": "Bir hata oluştu. Lütfen tekrar deneyin.",
-      "emptyGeojson": "Veritabanında il sınırları yok (admin_boundaries boş). make import-boundaries çalıştırın — data/README-boundaries.md."
+      "error_internal": "Bir şeyler ters gitti. Tekrar dene.",
+      "emptyGeojson": "Harita yüklenemedi. Lütfen daha sonra tekrar dene."
     }
   },
   "auth": {
     "registerTitle": "Kayıt ol",
-    "registerLead": "Telefon veya sosyal hesapla giriş. Doğum tarihi zorunludur.",
+    "registerLead": "Telefonunla veya sosyal hesabınla kaydol. Doğum tarihi gerekli.",
     "loginTitle": "Giriş yap",
-    "loginLead": "Kayıtlı oyuncular: devam etmek için telefonunu doğrula.",
+    "loginLead": "Hesabın varsa telefonunu doğrulayarak devam et.",
     "loginSubmit": "Giriş yap",
     "haveAccountLogin": "Hesabın var mı? Giriş yap",
     "needAccountRegister": "Yeni misin? Hesap oluştur",
@@ -123,32 +123,34 @@
     "createAccount": "Hesabı oluştur",
     "welcome": "Hoş geldin. Hesabın hazır. Onay adımına yönlendiriliyorsun…",
     "userId": "ID: {id}",
-    "underageNotice": "18 yaşından küçükseniz hesap açabilirsiniz; liderboard ve klan sohbeti kısıtlanır.",
-    "invalidPhone": "Geçerli bir Türkiye cep numarası girin.",
-    "birthDateRequired": "Doğum tarihinizi girin.",
+    "underageNotice": "18 yaşından küçük olsan da hesap açabilirsin; sıralama ve kabile sohbeti kısıtlıdır.",
+    "invalidPhone": "Geçerli bir Türkiye cep numarası gir.",
+    "birthDateRequired": "Doğum tarihini gir.",
     "errors": {
       "invalidPhoneFormat": "Geçersiz telefon numarası.",
-      "otpCooldown": "Lütfen biraz bekleyip tekrar deneyin.",
+      "otpCooldown": "Biraz bekleyip tekrar dene.",
       "invalidOtp": "Kod hatalı veya süresi dolmuş.",
       "invalidUsername": "Kullanıcı adı geçersiz (3–24 karakter, harf/rakam/_).",
-      "invalidBirthDate": "Geçerli bir doğum tarihi girin.",
+      "invalidBirthDate": "Geçerli bir doğum tarihi gir.",
       "userConflict": "Bu telefon veya kullanıcı adı zaten kayıtlı.",
       "userNotFound": "Bu telefona ait hesap yok. Önce kayıt ol.",
-      "phoneNotVerified": "Önce telefon doğrulaması gerekli.",
+      "phoneNotVerified": "Önce telefonunu doğrula.",
       "invalidSocialToken": "Sosyal giriş doğrulanamadı.",
-      "generic": "Bir hata oluştu. Tekrar deneyin."
+      "googleNotConfigured": "Google ile giriş bu ortamda açık değil.",
+      "appleNotConfigured": "Apple ile giriş bu ortamda açık değil.",
+      "generic": "Bir şeyler ters gitti. Tekrar dene."
     }
   },
   "merge": {
     "title": "Hesap birleştir",
-    "lead": "Bu sosyal hesap mevcut bir telefon hesabıyla eşleşiyor. Otomatik birleştirme yapılmaz — telefonunuza gelen kodla onaylayın.",
+    "lead": "Bu sosyal hesap mevcut bir telefon hesabıyla eşleşiyor. Otomatik birleştirme yok — telefonuna gelen kodla onayla.",
     "hint": "İpucu: {hint}",
     "phoneLabel": "Kayıtlı cep telefonu",
     "confirm": "Birleştirmeyi onayla"
   },
   "consent": {
     "title": "KVKK onayları",
-    "lead": "Konum özelliklerini kullanmadan önce aydınlatma metnini ve açık rızayı ayrı ayrı onaylamanız gerekir. Bu adım atlanamaz.",
+    "lead": "Devam etmeden önce aydınlatma metnini ve açık rızayı ayrı ayrı onaylamanız gerekir. Bu adım atlanamaz.",
     "disclosureTitle": "Aydınlatma Metni",
     "disclosureCheck": "Aydınlatma metnini okudum ve anladım.",
     "locationTitle": "Konum için Açık Rıza",
@@ -160,9 +162,9 @@
   },
   "onboardingTribe": {
     "title": "Kabileni seç",
-    "lead": "Bu seçim Derbi bonuslarını, sohbet topluluğunu ve uygulama kimliğini belirler. Önizleyip onaylayın.",
-    "pickHint": "Onaylamadan önce bir kabile seçin.",
-    "previewHint": "Derbi bonusları, sohbet ve görsel kimlik bu kabileye bağlanır.",
+    "lead": "Bu seçim Derbi bonuslarını, sohbeti ve görünümünü belirler. Seçip onayla.",
+    "pickHint": "Onaylamadan önce bir kabile seç.",
+    "previewHint": "Derbi bonusları, sohbet ve görünüm bu kabileye bağlanır.",
     "confirm": "Bu kabileye katıl",
     "members": "{count} üye"
   },
@@ -173,31 +175,31 @@
   "tribes": {
     "titleSelect": "Kabileni seç",
     "titleSwitch": "Kabile değiştir",
-    "lead": "Haritada il desteklemek için bir kabileye katılman gerekir. İsimler kurmacadır; gerçek kulüp markaları kullanılmaz.",
+    "lead": "Haritada il desteklemek için bir kabileye katılman gerekir. İsimler uydurmadır; gerçek takım markaları yoktur.",
     "loadFailed": "Kabileler yüklenemedi.",
     "yourTribe": "Senin kabilen",
     "join": "Katıl",
-    "switch": "Geçiş yap",
+    "switch": "Kabile değiştir",
     "busy": "…",
     "memberCount": " · {count} üye",
     "nextSwitch": "Sonraki kabile değişikliği: {when}",
     "errors": {
-      "cooldown": "Kabile değiştirme bekleme süresindesiniz. Daha sonra tekrar deneyin.",
-      "alreadyIn": "Zaten bir kabiledesiniz. Değiştirmek için geçiş kullanın.",
+      "cooldown": "Kabile değiştirmek için biraz daha beklemen gerekiyor.",
+      "alreadyIn": "Zaten bir kabiledesin. Değiştirmek için kabile değiştir seçeneğini kullan.",
       "notFound": "Kabile bulunamadı.",
-      "unauthorized": "Oturum gerekli.",
-      "generic": "Bir hata oluştu. Lütfen tekrar deneyin."
+      "unauthorized": "Oturum açman gerekiyor.",
+      "generic": "Bir şeyler ters gitti. Tekrar dene."
     }
   },
   "leaderboard": {
-    "title": "Lider Tablosu",
-    "tabsAria": "Lider tablosu kapsamları",
+    "title": "Sıralama",
+    "tabsAria": "Sıralama kapsamları",
     "tabGlobal": "Genel",
-    "tabTribes": "Takımlar",
+    "tabTribes": "Kabileler",
     "tabDerbi": "Derbi",
     "loading": "Yükleniyor…",
     "empty": "Henüz sıralama yok.",
-    "loadFailed": "Lider tablosu yüklenemedi.",
+    "loadFailed": "Sıralama yüklenemedi.",
     "yourRank": "Senin sıran",
     "refresh": "Yenile",
     "refreshing": "Yenileniyor…",
@@ -214,7 +216,7 @@
     "loadFailed": "Derbiler yüklenemedi.",
     "empty": "Henüz derbi yok.",
     "province": "İl {ilCode}",
-    "scores": "Ev {host} — Dep {guest}",
+    "scores": "Ev sahibi {host} — Deplasman {guest}",
     "window": "{start} → {end}",
     "detailTitle": "Derbi detayı",
     "back": "← Tüm derbiler",
@@ -226,8 +228,8 @@
     "guest": "Deplasman",
     "starts": "Başlangıç",
     "ends": "Bitiş",
-    "hostScore": "Ev skor",
-    "guestScore": "Dep skor"
+    "hostScore": "Ev sahibi",
+    "guestScore": "Deplasman"
   },
   "share": {
     "share": "Paylaş",
@@ -237,11 +239,11 @@
   },
   "profile": {
     "title": "Profil",
-    "restrictedBanner": "Kısıtlı hesap: lider tablosu ve sohbet özellikleri sınırlıdır.",
+    "restrictedBanner": "Kısıtlı hesap: sıralama ve sohbet özellikleri sınırlıdır.",
     "tribeChat": "Kabile sohbeti",
     "conquestLog": "Fetih günlüğü",
     "chat": {
-      "back": "Profile dön",
+      "back": "Profiline dön",
       "you": "Sen",
       "placeholder": "Mesaj yaz…",
       "send": "Gönder",
@@ -249,7 +251,7 @@
       "emptyThread": "Henüz mesaj yok. İlk mesajı sen yaz.",
       "sendFailed": "Mesaj gönderilemedi.",
       "restricted": "Kısıtlı hesaplar sohbet kullanamaz.",
-      "notMember": "Bu kabileye üye değilsiniz.",
+      "notMember": "Bu kabileye üye değilsin.",
       "newMessages": "yeni mesajlar",
       "underReview": "gözden geçiriliyor",
       "loading": "Yükleniyor…"
@@ -261,7 +263,7 @@
       "territoryEmpty": "Henüz kontrol edilen il yok",
       "territoryList": "Kontrol edilen iller",
       "closeDetails": "Kabile detayını kapat",
-      "switch": "Takımı değiştir",
+      "switch": "Kabile değiştir",
       "switchCooldown": "Sonraki değişiklik: {when}",
       "noTribe": "Kabile yok"
     },
@@ -272,47 +274,47 @@
     },
     "topup": {
       "title": "Kredi yükle",
-      "lead": "Bir kredi paketi seçin. Ödeme sağlayıcının güvenli sayfasında tamamlanır — kart bilgisi bu uygulamada alınmaz.",
-      "back": "Profile dön",
+      "lead": "Bir kredi paketi seç. Ödeme iyzico'nun güvenli sayfasında tamamlanır — kart bilgisi bu uygulamada alınmaz.",
+      "back": "Profiline dön",
       "loading": "Paketler yükleniyor…",
       "loadFailed": "Kredi paketleri yüklenemedi.",
       "empty": "Şu anda kullanılabilir kredi paketi yok.",
       "credits": "{credits} kredi",
       "priceUnavailable": "Fiyat yok",
-      "bonus": "yüzde {percent} fazladan kredi",
+      "bonus": "%{percent} bonus kredi",
       "checkoutTitle": "Ödeme",
-      "checkoutLeadWeb": "Türk ödeme sağlayıcılarıyla ödeyin. Hosted ödeme sayfasına yönlendirileceksiniz.",
-      "checkoutLeadNative": "Satın almayı App Store veya Google Play ile tamamlayın.",
-      "selectPackFirst": "Devam etmek için yukarıdan bir paket seçin.",
+      "checkoutLeadWeb": "iyzico ile öde. Güvenli ödeme sayfasına yönlendirileceksin.",
+      "checkoutLeadNative": "Satın almayı App Store veya Google Play ile tamamla.",
+      "selectPackFirst": "Devam etmek için yukarıdan bir paket seç.",
       "noProviders": "Bu paket için bu cihazda ödeme yöntemi yok.",
       "providersAria": "Ödeme sağlayıcıları",
-      "providerIyzico": "Iyzico",
+      "providerIyzico": "iyzico",
       "providerPapara": "Papara",
       "providerBkm": "BKM Express",
       "providerApple": "App Store",
       "providerGoogle": "Google Play",
       "pay": "Ödemeye devam et",
       "paying": "Ödeme başlatılıyor…",
-      "payFailed": "Ödeme başlatılamadı. Tekrar deneyin.",
-      "iapUnavailable": "Uygulama içi satın alma bu sürümde henüz kullanılamıyor.",
-      "hostedHint": "Kart bilgileri yalnızca ödeme sağlayıcının sayfasında girilir.",
-      "confirming": "Satın almanız doğrulanıyor…",
-      "returnMissingIntent": "Bekleyen ödeme bulunamadı. Ücret alındıysa bakiyeniz kısa süre içinde güncellenir.",
-      "returnPendingTimeout": "Ödeme hâlâ işleniyor. Biraz sonra bakiyenizi kontrol edin veya bu ekranı yeniden açın.",
+      "payFailed": "Ödeme başlatılamadı. Tekrar dene.",
+      "iapUnavailable": "Uygulama içi satın alma bu sürümde henüz yok.",
+      "hostedHint": "Kart bilgileri yalnızca ödeme sayfasında girilir.",
+      "confirming": "Satın alman doğrulanıyor…",
+      "returnMissingIntent": "Bekleyen ödeme bulunamadı. Ücret alındıysa bakiyen kısa süre içinde güncellenir.",
+      "returnPendingTimeout": "Ödeme hâlâ işleniyor. Biraz sonra bakiyeni kontrol et veya bu ekranı yeniden aç.",
       "simulateSuccess": "Başarıyı simüle et (yerel)",
       "simulateFailed": "Ödeme başarısı simüle edilemedi.",
       "successTitle": "Satın alma tamamlandı",
-      "successBody": "{credits} kredi eklendi. Bakiyeniz uygulamada güncellendi.",
+      "successBody": "{credits} kredi eklendi. Bakiyen uygulamada güncellendi.",
       "viewInvoice": "KDV faturasını gör",
       "invoiceFailed": "Fatura yüklenemedi.",
       "invoiceNet": "Net",
       "invoiceTax": "KDV (%{rate})",
       "invoiceGross": "Toplam",
-      "done": "Profile dön"
+      "done": "Profiline dön"
     },
     "history": {
       "title": "Destek geçmişi",
-      "empty": "Henüz hiçbir ili desteklemediniz.",
+      "empty": "Henüz hiç il desteklemedin.",
       "loadFailed": "Destek geçmişi yüklenemedi.",
       "loadMore": "Daha fazla",
       "loading": "Yükleniyor…",
@@ -362,11 +364,11 @@
     }
   },
   "activityTicker": {
-    "aria": "Ülke çapında canlı aktivite",
-    "itemAria": "{city} konumuna git",
-    "conquest": "{tribe}, {place} fethetti",
-    "large_support": "{tribe}, {place} destek verdi",
-    "derby_support": "{tribe}, {place} derbi desteği verdi"
+    "aria": "Türkiye’den canlı hareketler",
+    "itemAria": "{city}'e git",
+    "conquest": "{tribe} {place} fethetti",
+    "large_support": "{tribe} {place} destek verdi",
+    "derby_support": "{tribe} {place} derbiye destek verdi"
   },
   "conquest": {
     "title": "Fetih günlüğü",
@@ -381,13 +383,13 @@
     "toastCaptured": "Fethedildi",
     "toastDerbi": "Derbi fethi",
     "derbiHint": "Derbi bonusu",
-    "celebrationKicker": "Sen çevirdin",
+    "celebrationKicker": "Sen kazandın",
     "openDetail": "Detay",
     "threat": {
-      "title": "Şehriniz tehdit altında",
+      "title": "Şehrin tehdit altında",
       "titleUrgent": "Acil savunma",
-      "body": "{city} %{percent} gerilimle el değiştirmek üzere.",
-      "bodyUrgent": "{city} %{percent} gerilimle kaybedilmek üzere.",
+      "body": "{city} %{percent} gerilimde el değiştirebilir.",
+      "bodyUrgent": "{city} %{percent} gerilimde kaybedilmek üzere.",
       "defend": "Savun",
       "dismissAria": "Uyarıyı kapat",
       "bannerAria": "{city} tehdit altında"
@@ -402,7 +404,7 @@
       "crownAria": "Birinci destekçi",
       "expandAria": "Destekçileri göster",
       "collapseAria": "Destekçileri gizle",
-      "empty": "Bu fetih için atfedilmiş destekçi yok."
+      "empty": "Bu fetih için kayıtlı destekçi yok."
     }
   }
 }

@@ -69,16 +69,6 @@ func main() {
 
 	registry := providers.Registry{
 		providers.NameIyzico: iyzicoProv,
-		providers.NamePapara: &providers.Papara{
-			APIKey:    cfg.PaparaAPIKey,
-			SecretKey: cfg.PaparaSecretKey,
-			BaseURL:   cfg.PaparaBaseURL,
-		},
-		providers.NameBKMExpress: &providers.BKMExpress{
-			APIKey:    cfg.BKMAPIKey,
-			SecretKey: cfg.BKMSecretKey,
-			BaseURL:   cfg.BKMBaseURL,
-		},
 	}
 	checkoutSvc := &checkout.Service{
 		Pool:        pool,

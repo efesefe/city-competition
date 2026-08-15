@@ -168,10 +168,10 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 
 // CheckoutResult is returned to the player after payments creates a hosted session.
 type CheckoutResult struct {
-	CheckoutURL      string    `json:"checkout_url"`
-	PaymentIntentID  string    `json:"payment_intent_id"`
-	Provider         string    `json:"provider"`
-	ProviderPaymentID string   `json:"provider_payment_id"`
+	CheckoutURL       string `json:"checkout_url"`
+	PaymentIntentID   string `json:"payment_intent_id"`
+	Provider          string `json:"provider"`
+	ProviderPaymentID string `json:"provider_payment_id"`
 }
 
 // StartCheckout looks up the pack and asks the payments service to Charge.
@@ -300,12 +300,7 @@ func (s *WebPurchaseService) CheckoutStatusForUser(ctx context.Context, userID, 
 	return out, nil
 }
 
-// IsWebProvider reports whether provider is a Turkish web PSP.
+// IsWebProvider reports whether provider is an enabled Turkish web PSP.
 func IsWebProvider(p Provider) bool {
-	switch p {
-	case ProviderIyzico, ProviderPapara, ProviderBKMExpress:
-		return true
-	default:
-		return false
-	}
+	return p == ProviderIyzico
 }

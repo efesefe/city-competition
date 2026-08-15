@@ -2,15 +2,23 @@ import { describe, expect, it } from "vitest";
 import { activityPlaceLabel, activityTribeLabel } from "@/lib/activitySnippet";
 
 describe("activityPlaceLabel", () => {
-  it("uses locative for Turkish locales", () => {
+  it("uses locative for Turkish support events", () => {
     expect(activityPlaceLabel("İzmir", "tr")).toBe("İzmir'de");
-    expect(activityPlaceLabel("Ankara", "tr-TR")).toBe("Ankara'da");
-    expect(activityPlaceLabel("Kars", "tr")).toBe("Kars'ta");
+    expect(activityPlaceLabel("Ankara", "tr-TR", "large_support")).toBe(
+      "Ankara'da",
+    );
+    expect(activityPlaceLabel("Kars", "tr", "derby_support")).toBe("Kars'ta");
+  });
+
+  it("uses accusative for Turkish conquest events", () => {
+    expect(activityPlaceLabel("İzmir", "tr", "conquest")).toBe("İzmir'i");
+    expect(activityPlaceLabel("Ankara", "tr-TR", "conquest")).toBe("Ankara'yı");
+    expect(activityPlaceLabel("İstanbul", "tr", "conquest")).toBe("İstanbul'u");
   });
 
   it("keeps the bare city name for English", () => {
     expect(activityPlaceLabel("İzmir", "en")).toBe("İzmir");
-    expect(activityPlaceLabel("Ankara", "en-US")).toBe("Ankara");
+    expect(activityPlaceLabel("Ankara", "en-US", "conquest")).toBe("Ankara");
   });
 });
 

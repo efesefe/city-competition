@@ -5,7 +5,7 @@ Horizontal auto-scrolling strip on the map screen that shows conquests and large
 ## Why this shape
 
 - `GET /v1/activity-feed` and Redis `activity:feed` already exist. The hub fans `type: "activity_feed"` to every connected `/v1/ws/map` client (not viewport-filtered). The frontend previously dropped those frames.
-- Snippets reuse the established locative grammar (`i18n.Locative` / `feed.Render`): city names get `-de/-da/-te/-ta` via [`frontend/lib/i18n/turkishSuffix.ts`](../frontend/lib/i18n/turkishSuffix.ts). Action templates live in next-intl ICU (`activityTicker.*`), not ad-hoc concatenated strings. English keeps the bare city name.
+- Snippets use case-correct Turkish suffixes via [`frontend/lib/i18n/turkishSuffix.ts`](../frontend/lib/i18n/turkishSuffix.ts): **accusative** for conquest (`İstanbul'u fethetti`) and **locative** for support (`İzmir'de destek verdi`). Action templates live in next-intl ICU (`activityTicker.*`), not ad-hoc concatenated strings. English keeps the bare city name.
 - The ticker is map-local (unlike capture toasts). It mounts in `map/page.tsx` below `DerbiBanner` and the fixed `CreditHeader`.
 
 ## Data flow
