@@ -7,9 +7,8 @@ export const NEUTRAL_TRIBE_COLOR = "#6b7280";
 export const SHELL_DARK_BG = "#0c1418";
 
 /**
- * Crest placeholder: colored monogram from tribe short_name / display_name.
- * Backend has no crest_asset_url yet — CSS discs (header) and canvas
- * MapLibre images (`lib/map/crestIcons.ts`) are enough for Track A/B.
+ * Letter fallback when a tribe has no mascot emblem (unknown slug,
+ * admin-created tribes). Seeded parody tribes use `tribeEmblem` silhouettes.
  */
 export function tribeCrestInitial(tribe: Pick<Tribe, "short_name" | "display_name" | "slug">): string {
   const short = tribe.short_name?.trim();

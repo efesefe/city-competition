@@ -62,9 +62,12 @@
 .swatch {
   width: 2.5rem;
   height: 2.5rem;
-  border-radius: 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .meta {

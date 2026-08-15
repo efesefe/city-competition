@@ -13,3 +13,4 @@ Project context for future sessions. Update this list when adding a new module o
 | [credit-flow.md](credit-flow.md) | Coin burst from the CreditHeader balance to the supported city on spend |
 | [threat-alert-ui.md](threat-alert-ui.md) | Rival-threat push deep links, in-map ThreatAlertBanner, Defend → credit input |
 | [web-payments.md](web-payments.md) | Web checkout is iyzico-only; Papara/BKM packs deactivated; native IAP unchanged |
+| [tribe-emblems.md](tribe-emblems.md) | Original mascot silhouettes on tribe crests (slug-keyed, no official club marks) |

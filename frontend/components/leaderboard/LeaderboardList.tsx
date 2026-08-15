@@ -5,7 +5,8 @@ import type { Tribe } from "@/lib/tribes-api";
 import type { LeaderboardBoard } from "@/lib/leaderboard-api";
 import { getUserId } from "@/lib/session";
 import { shouldShowYourRankFooter } from "@/lib/leaderboardVisibility";
-import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
+import { tribeAccentColor } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
 import styles from "./LeaderboardList.module.css";
 
 type Props = {
@@ -46,7 +47,7 @@ export default function LeaderboardList({
             style={{ background: accent }}
             aria-hidden
           >
-            {tribeCrestInitial(tribe)}
+            <TribeEmblem tribe={tribe} />
           </span>
           <h2 className={styles.tribeName}>{tribe.display_name}</h2>
         </header>

@@ -11,7 +11,8 @@ import {
   type Tribe,
   type TribeMembership,
 } from "@/lib/tribes-api";
-import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
+import { tribeAccentColor } from "@/lib/tribeCrest";
 import styles from "./TribeBadge.module.css";
 
 export default function TribeBadge() {
@@ -41,7 +42,6 @@ export default function TribeBadge() {
 
   const activeTribe = tribeDetail ?? tribe;
   const accent = tribeAccentColor(activeTribe);
-  const initial = activeTribe ? tribeCrestInitial(activeTribe) : "?";
   const name = activeTribe?.display_name ?? t("noTribe");
 
   const owned = activeTribe
@@ -74,7 +74,7 @@ export default function TribeBadge() {
           style={{ background: accent }}
           aria-hidden
         >
-          {initial}
+          <TribeEmblem tribe={activeTribe} empty="?" />
         </span>
         <div className={styles.meta}>
           <h2 className={styles.name}>{name}</h2>

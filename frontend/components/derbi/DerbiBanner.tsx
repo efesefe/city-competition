@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import type { Derby } from "@/lib/derbies-api";
 import type { Tribe } from "@/lib/tribes-api";
 import { formatRemaining } from "@/lib/leaderboardVisibility";
-import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
+import { tribeAccentColor } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
 import styles from "./DerbiBanner.module.css";
 
 type Props = {
@@ -50,14 +51,14 @@ export default function DerbiBanner({
           className={styles.crest}
           style={{ background: tribeAccentColor(hostTribe) }}
         >
-          {hostTribe ? tribeCrestInitial(hostTribe) : "?"}
+          <TribeEmblem tribe={hostTribe} empty="?" />
         </span>
         <span className={styles.vs}>vs</span>
         <span
           className={styles.crest}
           style={{ background: tribeAccentColor(guestTribe) }}
         >
-          {guestTribe ? tribeCrestInitial(guestTribe) : "?"}
+          <TribeEmblem tribe={guestTribe} empty="?" />
         </span>
       </span>
       <span className={styles.meta}>

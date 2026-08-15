@@ -1,9 +1,6 @@
-import {
-  NEUTRAL_TRIBE_COLOR,
-  tribeAccentColor,
-  tribeCrestInitial,
-} from "@/lib/tribeCrest";
+import { NEUTRAL_TRIBE_COLOR, tribeAccentColor } from "@/lib/tribeCrest";
 import type { Tribe } from "@/lib/tribes-api";
+import TribeEmblem from "./TribeEmblem";
 import styles from "./TribeCrestDisc.module.css";
 
 type TribeCrestDiscProps = {
@@ -18,14 +15,13 @@ export default function TribeCrestDisc({
   fading = false,
 }: TribeCrestDiscProps) {
   const accent = tribe ? tribeAccentColor(tribe) : NEUTRAL_TRIBE_COLOR;
-  const initial = tribe ? tribeCrestInitial(tribe) : "—";
   return (
     <span
       className={`${styles.disc} ${styles[size]}${fading ? ` ${styles.fading}` : ""}`}
       style={{ background: accent, borderColor: accent }}
       aria-hidden
     >
-      {initial}
+      <TribeEmblem tribe={tribe} />
     </span>
   );
 }

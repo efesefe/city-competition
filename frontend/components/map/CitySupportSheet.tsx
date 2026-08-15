@@ -21,8 +21,8 @@ import {
 import {
   NEUTRAL_TRIBE_COLOR,
   tribeAccentColor,
-  tribeCrestInitial,
 } from "@/lib/tribeCrest";
+import TribeEmblem from "@/components/conquest/TribeEmblem";
 import { fetchWalletBalance } from "@/lib/wallet-api";
 import styles from "./CitySupportSheet.module.css";
 
@@ -285,7 +285,7 @@ export default function CitySupportSheet({
                 style={{ background: controllingColor }}
                 aria-hidden
               >
-                {tribeCrestInitial(controlling)}
+                <TribeEmblem tribe={controlling} />
               </span>
               <p className={styles.ownerLabel}>{controlling.display_name}</p>
             </>
