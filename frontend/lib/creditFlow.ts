@@ -1,15 +1,9 @@
-import {
-  pointInRect,
-  supportSheetViewportRect,
-  type Rect,
-  type ScreenPoint,
-} from "@/lib/map/ambientAssets";
+import { pointInRect, type Rect, type ScreenPoint } from "@/lib/map/ambientAssets";
 
 export type Point = ScreenPoint;
 
 export const CREDIT_BALANCE_TEST_ID = "credit-balance";
 export const MAP_CANVAS_TEST_ID = "turkiye-map";
-export const CITY_SUPPORT_SHEET_TEST_ID = "city-support-sheet";
 
 export const CREDIT_FLOW_COIN_COUNT = 6;
 export const CREDIT_FLOW_MAP_INSET_PX = 8;
@@ -40,7 +34,6 @@ export type DecideCreditFlowInput = {
   /** Canvas-relative point from `projectCity` / `map.project`. */
   mapPoint: Point | null;
   mapRect: Rect | null;
-  sheetRect: Rect;
   random?: () => number;
   coinCount?: number;
   insetPx?: number;
@@ -71,31 +64,17 @@ export function mapPointToViewport(mapPoint: Point, container: Rect): Point {
 }
 
 /**
- * True when the city landing point is on the map canvas (with a small inset)
- * and not covered by the support sheet panel.
+ * True when the city landing point is on the map canvas (with a small inset).
+ * The support sheet is always open during a spend; covering the centroid
+ * is the normal case and must not skip the flight.
  */
 export function isFlightTargetVisible(opts: {
   target: Point;
   mapRect: Rect;
-  sheetRect: Rect;
   insetPx?: number;
 }): boolean {
   const inset = opts.insetPx ?? CREDIT_FLOW_MAP_INSET_PX;
-  const visibleMap = insetRect(opts.mapRect, inset);
-  if (!pointInRect(opts.target, visibleMap)) {
-    return false;
-  }
-  if (pointInRect(opts.target, opts.sheetRect)) {
-    return false;
-  }
-  return true;
-}
-
-export function defaultSheetRect(
-  viewportWidth: number,
-  viewportHeight: number,
-): Rect {
-  return supportSheetViewportRect(viewportWidth, viewportHeight);
+  return pointInRect(opts.target, insetRect(opts.mapRect, inset));
 }
 
 export function buildCoinTransforms(
@@ -139,7 +118,6 @@ export function decideCreditFlow(input: DecideCreditFlowInput): CreditFlowDecisi
     !isFlightTargetVisible({
       target,
       mapRect: input.mapRect,
-      sheetRect: input.sheetRect,
       insetPx: input.insetPx,
     })
   ) {

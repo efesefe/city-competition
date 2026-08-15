@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { MapProjectFn } from "@/context/ConquestContext";
 import {
-  CITY_SUPPORT_SHEET_TEST_ID,
   CREDIT_BALANCE_TEST_ID,
   CREDIT_FLOW_DURATION_MS,
   CREDIT_FLOW_STAGGER_MS,
   MAP_CANVAS_TEST_ID,
   decideCreditFlow,
-  defaultSheetRect,
   rectCenter,
   type CoinSpec,
   type Point,
@@ -80,15 +78,11 @@ export function playCreditFlow(input: {
   }
   const originRect = readRect(CREDIT_BALANCE_TEST_ID);
   const mapRect = readRect(MAP_CANVAS_TEST_ID);
-  const sheetFromDom = readRect(CITY_SUPPORT_SHEET_TEST_ID);
-  const sheetRect =
-    sheetFromDom ?? defaultSheetRect(window.innerWidth, window.innerHeight);
   const decision = decideCreditFlow({
     reduceMotion: shouldReduceMotion(),
     origin: originRect ? rectCenter(originRect) : null,
     mapPoint: input.projectCity(input.ilCode),
     mapRect,
-    sheetRect,
   });
   if (decision.kind === "skip") {
     return;
