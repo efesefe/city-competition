@@ -4,7 +4,7 @@
 
 - `GET /v1/feed` returns backend-rendered `message` (via `feed.Render` + `i18n.Locative`).
 - When a feed surface is built, display `message` as-is. Do **not** concatenate province stems with Turkish suffixes on the client.
-- The map ticker (`GET /v1/activity-feed`) has no `message` field. It ports `Locative` to [`frontend/lib/i18n/turkishSuffix.ts`](../lib/i18n/turkishSuffix.ts) and fills ICU `activityTicker.*` `{place}` / `{tribe}` placeholders.
+- The map ticker (`GET /v1/activity-feed`) has no `message` field. It ports `Locative` and `Accusative` to [`frontend/lib/i18n/turkishSuffix.ts`](../lib/i18n/turkishSuffix.ts) and fills ICU `activityTicker.*` `{place}` / `{tribe}` placeholders (accusative for conquest, locative for support).
 
 ## Admin surfaces
 

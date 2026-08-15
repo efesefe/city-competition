@@ -29,7 +29,7 @@ export function iapProviderForSurface(
   return null;
 }
 
-export const WEB_PROVIDERS = ["iyzico", "papara", "bkm_express"] as const;
+export const WEB_PROVIDERS = ["iyzico"] as const;
 export type WebProvider = (typeof WEB_PROVIDERS)[number];
 
 export function isWebProvider(provider: string): provider is WebProvider {

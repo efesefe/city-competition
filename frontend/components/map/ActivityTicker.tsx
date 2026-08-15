@@ -225,7 +225,7 @@ export default function ActivityTicker({ onSelectCity }: Props) {
       tribe,
       item.tribe_id.slice(0, 8),
     );
-    const place = activityPlaceLabel(item.city_name, locale);
+    const place = activityPlaceLabel(item.city_name, locale, item.kind);
     return t(KIND_KEYS[item.kind], { tribe: tribeLabel, place });
   };
 

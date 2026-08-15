@@ -7,17 +7,18 @@ Rival-threat (lead-under-pressure) alerts are a separate surface: see [threat-al
 ## Why this shape
 
 - Toasts must fire on **any** tab, so `ConquestProvider` mounts in `(main)/layout.tsx` next to the other app-shell providers, not on the map page.
-- The WebSocket `region_supported` event is **app-wide and anonymous**. It never includes `caused_flip`. Using it for the personal celebration would fire for witnesses.
+- The WebSocket `region_supported` event is **app-wide and anonymous**. It never includes `caused_flip`. Using it for the personal celebration would fire for witnesses. `CityDataContext` also consumes it so map fills and crests switch to the new controlling tribe even when the city is off-viewport (where `support_applied` is filtered out).
 - The spend that crosses the threshold is the causing support. `POST /v1/support` now returns `caused_flip` and `conquest_log_id` for that request only.
 - Ranked people come from `GET /v1/conquest-log/{log_id}/supporters`. The city support sheet does not receive a log id on `GET /v1/cities`, so it resolves the current capture with `GET /v1/conquest-log?il_code={il}&limit=1`.
 
 ## Event flow
 
 1. A spend commits. If leadership changed, the same transaction inserts `conquest_log` and attributes `causing_support_id`.
-2. Redis publishes `region_supported:{il_code}`. The hub fans the event to every connected socket.
-3. `realtimeSocket.ts` parses `region_supported` (previously dropped).
+2. Redis publishes `support_applied:{il}` (viewport-filtered) and, on a flip, `region_supported:{il_code}` (app-wide). The hub fans both.
+3. `realtimeSocket.ts` parses `region_supported`.
 4. `ConquestContext` enqueues a capture toast (FIFO, one visible at a time, never drops) and increments the conquest unread count.
-5. If the signed-in user just received `caused_flip: true` on their support POST, `reportOwnSupport` starts `CaptureCelebration`. Deduped by log id so HTTP + WS cannot double-fire.
+5. `CityDataContext` patches that city's competing scores and `controlling_tribe.primary_color` from the winner's roster color (never the previous owner's hex). `TurkiyeMap` re-applies feature-state fills from `cities`.
+6. If the signed-in user just received `caused_flip: true` on their support POST, `reportOwnSupport` starts `CaptureCelebration`. Deduped by log id so HTTP + WS cannot double-fire.
 
 ## Toast queue
 

@@ -275,9 +275,9 @@ export async function obtainSocialIdToken(
     }
   }
 
-  throw new Error(
+  const code =
     provider === "google"
-      ? "Google giriş yapılandırılmadı."
-      : "Apple giriş yapılandırılmadı.",
-  );
+      ? "error_google_not_configured"
+      : "error_apple_not_configured";
+  throw Object.assign(new Error(code), { code });
 }

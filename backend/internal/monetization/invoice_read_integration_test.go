@@ -98,7 +98,7 @@ func TestCheckoutStatusPendingThenSucceeded(t *testing.T) {
 		UserID:            userID,
 		Credits:           100,
 		ProductID:         "credits_100",
-		Provider:          ProviderPapara,
+		Provider:          ProviderIyzico,
 		ProviderPaymentID: "pay-" + uuid.NewString(),
 		PaymentIntentID:   intentID,
 	})

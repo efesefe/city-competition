@@ -30,10 +30,9 @@ describe("providersForSurface", () => {
   it("filters web vs native providers", () => {
     const offers = groupPackOffers(packs);
     const small = offers.find((o) => o.product_id === "credits_100")!;
-    expect(providersForSurface(small, "web")).toEqual(
-      expect.arrayContaining(["iyzico", "papara"]),
-    );
+    expect(providersForSurface(small, "web")).toEqual(["iyzico"]);
     expect(providersForSurface(small, "web")).not.toContain("apple");
+    expect(providersForSurface(small, "web")).not.toContain("papara");
     expect(providersForSurface(small, "ios")).toEqual(["apple"]);
     const big = offers.find((o) => o.product_id === "credits_1200")!;
     expect(providersForSurface(big, "android")).toEqual(["google"]);

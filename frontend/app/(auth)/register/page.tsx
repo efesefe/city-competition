@@ -90,9 +90,10 @@ export default function RegisterPage() {
         return t("errors.phoneNotVerified");
       case "error_invalid_social_token":
         return t("errors.invalidSocialToken");
-      case "Google giriş yapılandırılmadı.":
-      case "Apple giriş yapılandırılmadı.":
-        return code;
+      case "error_google_not_configured":
+        return t("errors.googleNotConfigured");
+      case "error_apple_not_configured":
+        return t("errors.appleNotConfigured");
       default:
         return t("errors.generic");
     }

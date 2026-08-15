@@ -1,5 +1,13 @@
 import type { City, CompetingTribe, ControllingTribe } from "@/lib/cities-api";
 import { contestTension } from "@/lib/map/contestTension";
+import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
+
+function rosterOrNeutral(
+  tribeColorsById: Record<string, string>,
+  tribeId: string,
+): string {
+  return tribeColorsById[tribeId] || NEUTRAL_TRIBE_COLOR;
+}
 
 /**
  * Derive controlling_tribe from competing_tribes (score leader).
@@ -17,12 +25,13 @@ export function reconcileCityControl(
   let controlling: ControllingTribe = null;
   if (leader && leader.committed_credits > 0) {
     const sameLeader = city.controlling_tribe?.tribe_id === leader.tribe_id;
-    const colorFromRoster = tribeColorsById[leader.tribe_id];
     controlling = {
       tribe_id: leader.tribe_id,
+      // Never inherit the previous owner's color on a leadership change.
       primary_color: sameLeader
-        ? (city.controlling_tribe?.primary_color ?? colorFromRoster)
-        : (colorFromRoster ?? city.controlling_tribe?.primary_color),
+        ? (city.controlling_tribe?.primary_color ??
+          rosterOrNeutral(tribeColorsById, leader.tribe_id))
+        : rosterOrNeutral(tribeColorsById, leader.tribe_id),
     };
   }
 
@@ -57,4 +66,47 @@ export function patchCitySupport(
     { ...city, competing_tribes: competing },
     tribeColorsById,
   );
+}
+
+export type RegionFlipPatch = {
+  new_tribe_id: string;
+  winning_committed_credits: number;
+};
+
+/**
+ * Apply an authoritative ownership flip from `region_supported`.
+ * Bumps the winner's score to at least the server total, then forces
+ * controlling_tribe to the new tribe's roster color (never the previous owner).
+ */
+export function patchCityRegionFlip(
+  city: City,
+  flip: RegionFlipPatch,
+  tribeColorsById: Record<string, string>,
+): City {
+  const competing = [...(city.competing_tribes ?? [])];
+  const idx = competing.findIndex((c) => c.tribe_id === flip.new_tribe_id);
+  const nextCredits = Math.max(
+    idx >= 0 ? competing[idx].committed_credits : 0,
+    flip.winning_committed_credits,
+  );
+  if (idx >= 0) {
+    competing[idx] = { ...competing[idx], committed_credits: nextCredits };
+  } else {
+    competing.push({
+      tribe_id: flip.new_tribe_id,
+      committed_credits: nextCredits,
+    });
+  }
+
+  const reconciled = reconcileCityControl(
+    { ...city, competing_tribes: competing },
+    tribeColorsById,
+  );
+  return {
+    ...reconciled,
+    controlling_tribe: {
+      tribe_id: flip.new_tribe_id,
+      primary_color: rosterOrNeutral(tribeColorsById, flip.new_tribe_id),
+    },
+  };
 }

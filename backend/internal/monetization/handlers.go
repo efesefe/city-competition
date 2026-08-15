@@ -103,6 +103,9 @@ func (h *Handler) ListPacks(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]packDTO, 0, len(packs))
 	for _, p := range packs {
+		if p.Provider == ProviderPapara || p.Provider == ProviderBKMExpress {
+			continue
+		}
 		out = append(out, packDTO{
 			Provider:    string(p.Provider),
 			ProductID:   p.ProductID,
