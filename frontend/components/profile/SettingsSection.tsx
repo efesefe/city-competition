@@ -15,6 +15,10 @@ import {
   setCaptureSoundEnabled,
 } from "@/lib/conquest/captureSound";
 import {
+  isReduceMotionSettingEnabled,
+  setReduceMotionSettingEnabled,
+} from "@/lib/reduceMotion";
+import {
   disableWebPush,
   enableWebPush,
   isPushEnabledLocally,
@@ -30,6 +34,7 @@ const CONSENT_TYPES: ConsentType[] = [
 export default function SettingsSection() {
   const t = useTranslations("profile.settings");
   const [captureSound, setCaptureSound] = useState(true);
+  const [reduceMotion, setReduceMotion] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
@@ -52,6 +57,7 @@ export default function SettingsSection() {
   useEffect(() => {
     setPushEnabled(isPushEnabledLocally());
     setCaptureSound(isCaptureSoundEnabled());
+    setReduceMotion(isReduceMotionSettingEnabled());
     loadConsents().catch(() => setConsentError(t("consentLoadFailed")));
   }, [loadConsents, t]);
 
@@ -143,6 +149,27 @@ export default function SettingsSection() {
             data-testid="profile-capture-sound-toggle"
           >
             {captureSound ? t("captureSoundDisable") : t("captureSoundEnable")}
+          </button>
+        </div>
+      </div>
+
+      <div className={styles.block} data-testid="profile-reduce-motion">
+        <p className={styles.blockTitle}>{t("reduceMotion")}</p>
+        <div className={styles.row}>
+          <p className={styles.status} data-testid="profile-reduce-motion-status">
+            {reduceMotion ? t("reduceMotionOn") : t("reduceMotionOff")}
+          </p>
+          <button
+            type="button"
+            className={styles.btn}
+            onClick={() => {
+              const next = !reduceMotion;
+              setReduceMotionSettingEnabled(next);
+              setReduceMotion(next);
+            }}
+            data-testid="profile-reduce-motion-toggle"
+          >
+            {reduceMotion ? t("reduceMotionDisable") : t("reduceMotionEnable")}
           </button>
         </div>
       </div>

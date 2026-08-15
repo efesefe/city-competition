@@ -1,0 +1,27 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sprite {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.spriteSvg {
+  display: block;
+  overflow: visible;
+}

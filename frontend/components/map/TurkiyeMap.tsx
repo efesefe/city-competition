@@ -50,6 +50,7 @@ import {
 } from "@/lib/map/derbiUrgency";
 import { TURKIYE_MAP_STYLE } from "@/lib/map/style";
 import DerbiCityOverlay from "./DerbiCityOverlay";
+import AmbientLayer from "./AmbientLayer";
 import MomentumBadge from "./MomentumBadge";
 import {
   TURKIYE_BOUNDS,
@@ -128,6 +129,7 @@ type TurkiyeMapProps = {
   onCitySelect?: (city: SelectedCity) => void;
   derbies?: Derby[];
   perfModeEnabled?: boolean;
+  sheetOpen?: boolean;
 };
 
 const TICKER_HIGHLIGHT_MS = 1600;
@@ -139,6 +141,7 @@ export default function TurkiyeMap({
   onCitySelect,
   derbies = [],
   perfModeEnabled = false,
+  sheetOpen = false,
 }: TurkiyeMapProps) {
   const t = useTranslations("map");
   const { cities, tribesById, status: cityStatus } = useCityData();
@@ -703,6 +706,14 @@ export default function TurkiyeMap({
       />
       {mapReady && mapRef.current ? (
         <>
+          <AmbientLayer
+            map={mapRef.current}
+            selectedCentroid={
+              cities.find((c) => c.id === selectedIlCode)?.centroid ?? null
+            }
+            sheetOpen={sheetOpen}
+            perfModeEnabled={perfModeEnabled}
+          />
           <DerbiCityOverlay
             map={mapRef.current}
             cities={cities}

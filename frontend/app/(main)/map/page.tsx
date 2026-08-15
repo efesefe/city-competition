@@ -205,6 +205,7 @@ function MapInner() {
           highlightPulse={highlightPulse}
           derbies={derbies}
           perfModeEnabled={isPerformanceModeEnabled(perfPref)}
+          sheetOpen={!scoreboardOpen && Boolean(selectedIl)}
           onCitySelect={(city) => {
             setSelectedIl(city.il_code);
             setLiveMessage(null);

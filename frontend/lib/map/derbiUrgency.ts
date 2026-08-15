@@ -4,6 +4,7 @@ import { BANNER_SCHEDULED_SOON_MS, isBannerEligible } from "@/lib/derbiBanner";
 import { formatTime } from "@/lib/dateFormat";
 import { formatRemaining } from "@/lib/leaderboardVisibility";
 import { CITIES_DERBI_GLOW_LAYER_ID } from "@/lib/map/ownership";
+import { shouldReduceMotion } from "@/lib/reduceMotion";
 import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
 
 export const DERBI_FILL_INTENSITY_MUTED = 0.78;
@@ -273,9 +274,7 @@ export function startDerbiGlowPulse(
   };
 }
 
+/** OS media query or the in-app Settings toggle (`shouldReduceMotion`). */
 export function prefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-    return false;
-  }
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return shouldReduceMotion();
 }
