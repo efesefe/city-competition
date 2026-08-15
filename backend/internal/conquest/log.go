@@ -81,7 +81,9 @@ func (s *Store) InsertOnTx(ctx context.Context, tx pgx.Tx, e Entry) error {
 // List returns reverse-chronological entries (newest first).
 // caused_flip is true when viewerID owns the single support that crossed the
 // flip threshold for that entry.
-func (s *Store) List(ctx context.Context, viewerID uuid.UUID, limit, offset int) ([]Entry, error) {
+// When ilCode is non-empty, only that city's captures are returned (used by
+// the city support sheet to resolve the current holder’s conquest_log id).
+func (s *Store) List(ctx context.Context, viewerID uuid.UUID, limit, offset int, ilCode string) ([]Entry, error) {
 	pool := s.readPool()
 	if pool == nil {
 		return nil, fmt.Errorf("conquest log: no pool configured")
@@ -94,9 +96,10 @@ func (s *Store) List(ctx context.Context, viewerID uuid.UUID, limit, offset int)
 		       COALESCE(s.user_id = $1, false) AS caused_flip
 		FROM conquest_log cl
 		LEFT JOIN supports s ON s.id = cl.causing_support_id
+		WHERE ($4 = '' OR cl.il_code = $4)
 		ORDER BY cl.occurred_at DESC, cl.id DESC
 		LIMIT $2 OFFSET $3
-	`, viewerID, limit, offset)
+	`, viewerID, limit, offset, ilCode)
 	if err != nil {
 		return nil, fmt.Errorf("list conquest_log: %w", err)
 	}

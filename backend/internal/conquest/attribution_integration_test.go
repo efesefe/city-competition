@@ -161,7 +161,7 @@ func TestCausedFlip_OnlyThresholdCrossingSupport(t *testing.T) {
 		t.Fatal("caused_flip=true for non-contributor")
 	}
 
-	entries, err := store.List(ctx, a2, 100, 0)
+	entries, err := store.List(ctx, a2, 100, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestCausedFlip_OnlyThresholdCrossingSupport(t *testing.T) {
 	if !found {
 		t.Fatal("recapture missing from list")
 	}
-	entriesA1, err := store.List(ctx, a1, 100, 0)
+	entriesA1, err := store.List(ctx, a1, 100, 0, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -28,7 +28,8 @@ type markReadBody struct {
 }
 
 // List handles GET /v1/conquest-log — paginated reverse-chronological flips.
-// Query params: limit (default 20, max 100), offset (default 0).
+// Query params: limit (default 20, max 100), offset (default 0),
+// optional il_code (filter to one city’s captures).
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	userID, ok := auth.UserIDFromContext(r.Context())
 	if !ok {
@@ -43,8 +44,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	limit := parseLimit(q.Get("limit"))
 	offset := parseOffset(q.Get("offset"))
+	ilCode := q.Get("il_code")
 
-	items, err := h.Store.List(r.Context(), userID, limit, offset)
+	items, err := h.Store.List(r.Context(), userID, limit, offset, ilCode)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "error_internal")
 		return

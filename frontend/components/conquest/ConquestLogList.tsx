@@ -14,6 +14,7 @@ import {
 import { syncConquestLogVisit } from "@/lib/conquest/unread";
 import { useConquest } from "@/context/ConquestContext";
 import TribeCrestDisc from "@/components/conquest/TribeCrestDisc";
+import SupporterBadge from "@/components/conquest/SupporterBadge";
 import styles from "./ConquestLogList.module.css";
 
 const PAGE_SIZE = 20;
@@ -27,6 +28,7 @@ export default function ConquestLogList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLLIElement | null>(null);
   const loadingMoreRef = useRef(false);
 
@@ -114,30 +116,66 @@ export default function ConquestLogList() {
             ? tribesById[entry.previous_tribe_id]
             : null;
           const next = tribesById[entry.new_tribe_id];
+          const expanded = expandedId === entry.id;
           return (
             <li key={entry.id}>
-              <Link
-                href={`/conquest-log/${encodeURIComponent(entry.id)}`}
-                className={styles.row}
-                data-testid="conquest-log-row"
-                data-log-id={entry.id}
-                data-il={entry.il_code}
+              <div
+                className={`${styles.card}${expanded ? ` ${styles.cardOpen}` : ""}`}
               >
-                <span className={styles.crests}>
-                  <TribeCrestDisc tribe={prev} size="sm" fading />
-                  <span className={styles.arrow} aria-hidden>
-                    →
+                <button
+                  type="button"
+                  className={styles.row}
+                  data-testid="conquest-log-row"
+                  data-log-id={entry.id}
+                  data-il={entry.il_code}
+                  data-expanded={expanded ? "true" : "false"}
+                  aria-expanded={expanded}
+                  aria-label={
+                    expanded
+                      ? t("supporters.collapseAria")
+                      : t("supporters.expandAria")
+                  }
+                  onClick={() =>
+                    setExpandedId((cur) => (cur === entry.id ? null : entry.id))
+                  }
+                >
+                  <span className={styles.crests}>
+                    <TribeCrestDisc tribe={prev} size="sm" fading />
+                    <span className={styles.arrow} aria-hidden>
+                      →
+                    </span>
+                    <TribeCrestDisc tribe={next} size="sm" />
                   </span>
-                  <TribeCrestDisc tribe={next} size="sm" />
-                </span>
-                <span className={styles.body}>
-                  <span className={styles.city}>{entry.city_name}</span>
-                  <span className={styles.meta}>
-                    {formatDateTime(entry.occurred_at)}
-                    {entry.was_derbi_bonus ? ` · ${t("derbiHint")}` : ""}
+                  <span className={styles.body}>
+                    <span className={styles.city}>{entry.city_name}</span>
+                    <span className={styles.meta}>
+                      {formatDateTime(entry.occurred_at)}
+                      {entry.was_derbi_bonus ? ` · ${t("derbiHint")}` : ""}
+                    </span>
                   </span>
-                </span>
-              </Link>
+                </button>
+                {expanded ? (
+                  <div className={styles.panel}>
+                    <SupporterBadge logId={entry.id} enabled />
+                    <div className={styles.links}>
+                      <Link
+                        href={`/conquest-log/${encodeURIComponent(entry.id)}`}
+                        className={styles.detailLink}
+                        data-testid="conquest-log-open-detail"
+                      >
+                        {t("openDetail")}
+                      </Link>
+                      <Link
+                        href={`/map?il=${encodeURIComponent(entry.il_code)}`}
+                        className={styles.detailLink}
+                        data-testid="conquest-log-open-map"
+                      >
+                        {t("openOnMap")}
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </li>
           );
         })}

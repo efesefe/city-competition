@@ -13,18 +13,36 @@
 .banner {
   pointer-events: auto;
   display: flex;
-  align-items: center;
-  gap: 0.7rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   width: min(28rem, 100%);
-  padding: 0.55rem 0.75rem;
+  padding: 0.45rem 0.65rem 0.5rem;
   border: 1px solid #3a524a;
   border-radius: 0.75rem;
   background: rgba(12, 22, 20, 0.94);
   color: #e8efe9;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
   text-align: left;
   animation: slideIn 0.32s ease-out;
+}
+
+.expanded {
+  max-height: min(70vh, 28rem);
+  overflow: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.1rem 0.1rem 0.15rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
 }
 
 .exit {
@@ -62,6 +80,28 @@
 .meta {
   font-size: 0.72rem;
   color: #8fb5a8;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.15rem 0.1rem 0.2rem;
+  border-top: 1px solid #2a3a36;
+  margin-top: 0.2rem;
+}
+
+.mapLink {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: rgba(18, 28, 26, 0.8);
+  color: #e8efe9;
+  font-size: 0.75rem;
+  font-weight: 650;
+  cursor: pointer;
 }
 
 @keyframes slideIn {

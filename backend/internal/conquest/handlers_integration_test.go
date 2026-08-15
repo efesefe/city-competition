@@ -147,6 +147,111 @@ func TestConquestLogHTTP_ListUnreadAndMarkRead(t *testing.T) {
 	}
 }
 
+func TestConquestLogHTTP_FilterByIlCode(t *testing.T) {
+	pool := testPool(t)
+	const ilA = "72"
+	const ilB = "73"
+	seedBoundary(t, pool, ilA, "Filta", "Filta")
+	seedBoundary(t, pool, ilB, "Filtb", "Filtb")
+	tribeA := seedTribe(t, pool)
+	tribeB := seedTribe(t, pool)
+	reader := seedUser(t, pool, &tribeA)
+	userA := seedUser(t, pool, &tribeA)
+	userB := seedUser(t, pool, &tribeB)
+	grantCredits(t, pool, userA, 200)
+	grantCredits(t, pool, userB, 200)
+
+	store := &conquest.Store{Pool: pool}
+	svc := newSpendService(pool)
+	ctx := context.Background()
+	if _, err := svc.Apply(ctx, userA, ilA, 10); err != nil {
+		t.Fatalf("A first capture: %v", err)
+	}
+	if _, err := svc.Apply(ctx, userB, ilB, 10); err != nil {
+		t.Fatalf("B first capture: %v", err)
+	}
+	if _, err := svc.Apply(ctx, userB, ilA, 20); err != nil {
+		t.Fatalf("A recapture: %v", err)
+	}
+
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(mr.Close)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+	sessions := &auth.SessionService{RDB: rdb}
+	token, err := sessions.Create(ctx, reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &conquest.Handler{Store: store}
+	mux := http.NewServeMux()
+	mux.Handle("GET /v1/conquest-log", auth.RequireSession(sessions, nil, http.HandlerFunc(h.List)))
+
+	get := func(path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec
+	}
+
+	decode := func(rec *httptest.ResponseRecorder) []conquest.Entry {
+		t.Helper()
+		if rec.Code != http.StatusOK {
+			t.Fatalf("list status=%d body=%s", rec.Code, rec.Body.String())
+		}
+		var body struct {
+			Entries []conquest.Entry `json:"entries"`
+		}
+		if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		return body.Entries
+	}
+
+	filtered := decode(get("/v1/conquest-log?il_code=" + ilA + "&limit=1"))
+	if len(filtered) != 1 {
+		t.Fatalf("filtered len=%d want 1", len(filtered))
+	}
+	if filtered[0].IlCode != ilA {
+		t.Fatalf("il_code=%s want %s", filtered[0].IlCode, ilA)
+	}
+	logsA := listLogsAsc(t, pool, ilA)
+	newestA := logsA[len(logsA)-1]
+	if filtered[0].ID != newestA.ID {
+		t.Fatalf("filtered id=%s want newest %s", filtered[0].ID, newestA.ID)
+	}
+
+	for _, e := range filtered {
+		if e.IlCode == ilB {
+			t.Fatal("filtered A list included city B")
+		}
+	}
+
+	empty := decode(get("/v1/conquest-log?il_code=99&limit=1"))
+	if len(empty) != 0 {
+		t.Fatalf("unknown city len=%d want 0", len(empty))
+	}
+
+	unfiltered := decode(get("/v1/conquest-log?limit=100"))
+	sawA, sawB := false, false
+	for _, e := range unfiltered {
+		if e.IlCode == ilA {
+			sawA = true
+		}
+		if e.IlCode == ilB {
+			sawB = true
+		}
+	}
+	if !sawA || !sawB {
+		t.Fatalf("unfiltered missing cities A=%v B=%v", sawA, sawB)
+	}
+}
+
 func TestConquestLogHTTP_Unauthorized(t *testing.T) {
 	pool := testPool(t)
 	h := &conquest.Handler{Store: &conquest.Store{Pool: pool}}

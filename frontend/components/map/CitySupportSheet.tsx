@@ -6,6 +6,8 @@ import { useCityData } from "@/context/CityDataContext";
 import { useConquest } from "@/context/ConquestContext";
 import { useWallet } from "@/context/WalletContext";
 import { listDerbies } from "@/lib/derbies-api";
+import { listConquestLog } from "@/lib/conquest-api";
+import SupporterBadge from "@/components/conquest/SupporterBadge";
 import {
   clampCredits,
   defaultChipAmount,
@@ -55,6 +57,7 @@ export default function CitySupportSheet({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [holderLogId, setHolderLogId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !ilCode) {
@@ -67,6 +70,7 @@ export default function CitySupportSheet({
     setMessage(null);
     setError(null);
     setBusy(false);
+    setHolderLogId(null);
   }, [open, ilCode]); // eslint-disable-line react-hooks/exhaustive-deps -- reset on city open only
 
   useEffect(() => {
@@ -131,8 +135,9 @@ export default function CitySupportSheet({
     [city?.competing_tribes, colorByTribe],
   );
 
-  const controlling = city?.controlling_tribe?.tribe_id
-    ? tribesById[city.controlling_tribe.tribe_id]
+  const controllingTribeId = city?.controlling_tribe?.tribe_id ?? null;
+  const controlling = controllingTribeId
+    ? tribesById[controllingTribeId]
     : null;
   const controllingColor = tribeAccentColor(
     controlling ??
@@ -140,6 +145,25 @@ export default function CitySupportSheet({
         ? { primary_color: city.controlling_tribe.primary_color }
         : null),
   );
+
+  useEffect(() => {
+    if (!open || !ilCode || !controllingTribeId) {
+      if (!controllingTribeId) setHolderLogId(null);
+      return;
+    }
+    let cancelled = false;
+    void listConquestLog(1, 0, ilCode)
+      .then((page) => {
+        if (cancelled) return;
+        setHolderLogId(page.entries[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setHolderLogId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, ilCode, controllingTribeId]);
 
   const validAmount = clampCredits(amount, balance);
   const canSubmit =
@@ -184,6 +208,9 @@ export default function CitySupportSheet({
     setBusy(false);
     if (outcome.ok) {
       reportOwnSupport(outcome.result, { cityName: city?.name });
+      if (outcome.result.conquest_log_id) {
+        setHolderLogId(outcome.result.conquest_log_id);
+      }
       setMessage(
         t("supported", {
           province: city?.name ?? ilCode,
@@ -248,6 +275,15 @@ export default function CitySupportSheet({
             <p className={styles.ownerLabel}>{tSheet("unowned")}</p>
           )}
         </div>
+
+        {holderLogId ? (
+          <SupporterBadge
+            logId={holderLogId}
+            enabled
+            compact
+            className={styles.supporters}
+          />
+        ) : null}
 
         <div
           className={styles.bar}
