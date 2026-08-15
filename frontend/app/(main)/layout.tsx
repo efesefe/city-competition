@@ -14,6 +14,7 @@ import { ConquestProvider } from "@/context/ConquestContext";
 import CaptureToast from "@/components/conquest/CaptureToast";
 import CaptureCelebration from "@/components/conquest/CaptureCelebration";
 import CreditFlowAnimation from "@/components/shell/CreditFlowAnimation";
+import PushDeepLinkBridge from "@/components/notifications/PushDeepLinkBridge";
 import {
   fetchConsentStatus,
   hasRequiredConsents,
@@ -43,6 +44,7 @@ function ShellChrome({ children }: { children: ReactNode }) {
     >
       <CreditHeader />
       <CreditFlowAnimation />
+      <PushDeepLinkBridge />
       <CaptureToast />
       <CaptureCelebration />
       <div

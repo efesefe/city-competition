@@ -10,6 +10,7 @@ import {
   markNotificationsRead,
   type AppNotification,
 } from "@/lib/notifications-api";
+import { inboxNotificationHref } from "@/lib/notifications/pushHandler";
 import styles from "./notifications.module.css";
 
 function formatWhen(iso: string, locale: string): string {
@@ -99,19 +100,41 @@ export default function NotificationsPage() {
       <ul className={styles.list} data-testid="notifications-list">
         {items.map((item) => {
           const unread = !item.read_at;
-          return (
-            <li
-              key={item.id}
-              className={`${styles.item}${unread ? ` ${styles.itemUnread}` : ""}`}
-              data-testid="notification-item"
-              data-unread={unread ? "1" : "0"}
-              data-type={item.type}
-            >
+          const href = inboxNotificationHref(item);
+          const className = `${styles.item}${unread ? ` ${styles.itemUnread}` : ""}${
+            href ? ` ${styles.itemLink}` : ""
+          }`;
+          const body = (
+            <>
               <p className={styles.itemTitle}>{item.title}</p>
               <p className={styles.itemBody}>{item.body}</p>
               <p className={styles.itemMeta}>
                 {formatWhen(item.created_at, locale)}
               </p>
+            </>
+          );
+          return (
+            <li key={item.id}>
+              {href ? (
+                <Link
+                  href={href}
+                  className={className}
+                  data-testid="notification-item"
+                  data-unread={unread ? "1" : "0"}
+                  data-type={item.type}
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div
+                  className={className}
+                  data-testid="notification-item"
+                  data-unread={unread ? "1" : "0"}
+                  data-type={item.type}
+                >
+                  {body}
+                </div>
+              )}
             </li>
           );
         })}

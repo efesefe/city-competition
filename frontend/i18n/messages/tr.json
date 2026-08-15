@@ -383,6 +383,15 @@
     "derbiHint": "Derbi bonusu",
     "celebrationKicker": "Sen çevirdin",
     "openDetail": "Detay",
+    "threat": {
+      "title": "Şehriniz tehdit altında",
+      "titleUrgent": "Acil savunma",
+      "body": "{city} %{percent} gerilimle el değiştirmek üzere.",
+      "bodyUrgent": "{city} %{percent} gerilimle kaybedilmek üzere.",
+      "defend": "Savun",
+      "dismissAria": "Uyarıyı kapat",
+      "bannerAria": "{city} tehdit altında"
+    },
     "supporters": {
       "youLabel": "sen",
       "morePeople": "+{n} kişi daha",

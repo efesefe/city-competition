@@ -10,6 +10,7 @@ import ActivityTicker from "@/components/map/ActivityTicker";
 import OnlineCounter from "@/components/shell/OnlineCounter";
 import CityPicker from "@/components/map/CityPicker";
 import CitySupportSheet from "@/components/map/CitySupportSheet";
+import ThreatAlertHost from "@/components/conquest/ThreatAlertHost";
 import PushPermissionPrompt from "@/components/notifications/PushPermissionPrompt";
 import LocaleToggle from "@/components/LocaleToggle";
 import PerfModeToggle from "@/components/PerfModeToggle";
@@ -43,6 +44,7 @@ function MapInner() {
   const router = useRouter();
   const focusIl = searchParams.get("il");
   const focusDerbi = searchParams.get("derbi");
+  const focusCredits = searchParams.get("focus") === "credits";
   const t = useTranslations("map");
   const tBanner = useTranslations("derbiBanner");
   const { subscribe } = useRealtime();
@@ -179,6 +181,19 @@ function MapInner() {
     setHighlightPulse({ ilCode, nonce: Date.now() });
   }, []);
 
+  const defendCity = useCallback(
+    (ilCode: string) => {
+      setSelectedIl(ilCode);
+      setScoreboardOpen(false);
+      setLiveMessage(null);
+      router.replace(
+        `/map?il=${encodeURIComponent(ilCode)}&focus=credits`,
+        { scroll: false },
+      );
+    },
+    [router],
+  );
+
   const cityNameFor = useCallback(
     (ilCode: string) => {
       const city = getCity(ilCode);
@@ -189,6 +204,7 @@ function MapInner() {
 
   return (
     <main className="map-root" data-testid="map-screen">
+      <ThreatAlertHost onDefend={defendCity} />
       {bannerDerby ? (
         <DerbiBanner
           derby={bannerDerby}
@@ -210,6 +226,12 @@ function MapInner() {
           onCitySelect={(city) => {
             setSelectedIl(city.il_code);
             setLiveMessage(null);
+            if (focusCredits) {
+              router.replace(
+                `/map?il=${encodeURIComponent(city.il_code)}`,
+                { scroll: false },
+              );
+            }
           }}
         />
         <div className={mapChrome.online}>
@@ -239,11 +261,17 @@ function MapInner() {
           onSelect={(city) => {
             setSelectedIl(city.id);
             setLiveMessage(null);
+            if (focusCredits) {
+              router.replace(`/map?il=${encodeURIComponent(city.id)}`, {
+                scroll: false,
+              });
+            }
           }}
         />
         {!scoreboardOpen ? (
           <CitySupportSheet
             ilCode={selectedIl}
+            autoFocusCredits={focusCredits}
             onClose={() => setSelectedIl(null)}
           />
         ) : null}

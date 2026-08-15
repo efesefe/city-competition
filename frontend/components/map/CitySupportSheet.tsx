@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useCityData } from "@/context/CityDataContext";
 import { useConquest } from "@/context/ConquestContext";
@@ -29,11 +29,13 @@ import styles from "./CitySupportSheet.module.css";
 type CitySupportSheetProps = {
   ilCode: string | null;
   onClose: () => void;
+  autoFocusCredits?: boolean;
 };
 
 export default function CitySupportSheet({
   ilCode,
   onClose,
+  autoFocusCredits = false,
 }: CitySupportSheetProps) {
   const t = useTranslations("map");
   const tSheet = useTranslations("map.sheet");
@@ -59,6 +61,7 @@ export default function CitySupportSheet({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [holderLogId, setHolderLogId] = useState<string | null>(null);
+  const creditsInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open || !ilCode) {
@@ -73,6 +76,19 @@ export default function CitySupportSheet({
     setBusy(false);
     setHolderLogId(null);
   }, [open, ilCode]); // eslint-disable-line react-hooks/exhaustive-deps -- reset on city open only
+
+  useEffect(() => {
+    if (!open || !autoFocusCredits) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const input = creditsInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.scrollIntoView({ block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, ilCode, autoFocusCredits]);
 
   useEffect(() => {
     if (!open || amount > 0 || balance < 1) {
@@ -342,6 +358,7 @@ export default function CitySupportSheet({
           </label>
           <input
             id="support-credits"
+            ref={creditsInputRef}
             className={styles.input}
             type="number"
             min={1}

@@ -383,6 +383,15 @@
     "derbiHint": "Derbi bonus",
     "celebrationKicker": "You flipped it",
     "openDetail": "Details",
+    "threat": {
+      "title": "Your city is under threat",
+      "titleUrgent": "Urgent defense",
+      "body": "{city} is about to flip at {percent}% tension.",
+      "bodyUrgent": "{city} is about to be lost at {percent}% tension.",
+      "defend": "Defend",
+      "dismissAria": "Dismiss alert",
+      "bannerAria": "{city} is under threat"
+    },
     "supporters": {
       "youLabel": "you",
       "morePeople": "+{n} more people",
