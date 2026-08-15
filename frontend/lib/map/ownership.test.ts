@@ -4,14 +4,17 @@ import type { City } from "@/lib/cities-api";
 import { patchCitySupport } from "@/context/cityDataPatch";
 import { tribeCrestImageId } from "@/lib/map/crestIcons";
 import {
+  applyAllCityFillStates,
   applyCityFeatureState,
   applyDerbiActiveStates,
   buildCrestFeatureCollection,
   buildLabelFeatureCollection,
+  CITIES_STRIPES_LAYER_ID,
   CITIES_TENSION_RING_LAYER_ID,
   cityFillColor,
   upsertCrestFeature,
 } from "@/lib/map/ownership";
+import { STRIPE_NONE_IMAGE_ID, tribeStripeImageId } from "@/lib/map/stripePatterns";
 import { applyContestTensionStates } from "@/lib/map/contestTension";
 import {
   TURKIYE_BOUNDS,
@@ -132,6 +135,48 @@ describe("ownership helpers", () => {
     expect(setFeatureState).toHaveBeenCalledWith(
       { source: "cities", id: "34" },
       { primary_color: "#336699" },
+    );
+  });
+
+  it("sets kit stripe feature-state from the tribe roster", () => {
+    const setFeatureState = vi.fn();
+    const getSource = vi.fn(() => ({}));
+    const map = { setFeatureState, getSource } as unknown as MaplibreMap;
+
+    applyAllCityFillStates(
+      map,
+      [
+        city({
+          id: "34",
+          controlling_tribe: { tribe_id: tribeA, primary_color: "#111111" },
+        }),
+        city({ id: "06" }),
+      ],
+      {
+        [tribeA]: {
+          id: tribeA,
+          primary_color: "#111111",
+          secondary_color: "#FFFFFF",
+        },
+      },
+    );
+
+    expect(CITIES_STRIPES_LAYER_ID).toBe("cities-stripes");
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "34" },
+      {
+        primary_color: "#111111",
+        stripe_pattern: tribeStripeImageId(tribeA),
+        striped: true,
+      },
+    );
+    expect(setFeatureState).toHaveBeenCalledWith(
+      { source: "cities", id: "06" },
+      {
+        primary_color: NEUTRAL_TRIBE_COLOR,
+        stripe_pattern: STRIPE_NONE_IMAGE_ID,
+        striped: false,
+      },
     );
   });
 

@@ -4,6 +4,7 @@ import { BANNER_SCHEDULED_SOON_MS, isBannerEligible } from "@/lib/derbiBanner";
 import { formatTime } from "@/lib/dateFormat";
 import { formatRemaining } from "@/lib/leaderboardVisibility";
 import { CITIES_DERBI_GLOW_LAYER_ID } from "@/lib/map/ownership";
+import { STRIPE_NONE_IMAGE_ID } from "@/lib/map/stripePatterns";
 import { shouldReduceMotion } from "@/lib/reduceMotion";
 import { NEUTRAL_TRIBE_COLOR } from "@/lib/tribeCrest";
 
@@ -173,6 +174,24 @@ export function derbiFillOpacityPaint(): ExpressionSpecification {
     ["boolean", ["feature-state", "derbi_active"], false],
     DERBI_FILL_OPACITY_ACTIVE,
     DERBI_FILL_OPACITY_MUTED,
+  ] as unknown as ExpressionSpecification;
+}
+
+export function stripeFillPatternPaint(): ExpressionSpecification {
+  return [
+    "coalesce",
+    ["feature-state", "stripe_pattern"],
+    STRIPE_NONE_IMAGE_ID,
+  ] as unknown as ExpressionSpecification;
+}
+
+/** Kit stripes overlay: hidden when unowned, derby-muted otherwise. */
+export function stripeFillOpacityPaint(): ExpressionSpecification {
+  return [
+    "case",
+    ["boolean", ["feature-state", "striped"], false],
+    derbiFillOpacityPaint(),
+    0,
   ] as unknown as ExpressionSpecification;
 }
 

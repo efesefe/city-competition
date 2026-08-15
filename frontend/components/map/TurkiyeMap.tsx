@@ -10,6 +10,10 @@ import type { City } from "@/lib/cities-api";
 import type { Derby } from "@/lib/derbies-api";
 import { ensureTribeCrestImage } from "@/lib/map/crestIcons";
 import {
+  ensureStripeNoneImage,
+  ensureTribeStripeImage,
+} from "@/lib/map/stripePatterns";
+import {
   applyDerbiActiveStates,
   applyAllCityFillStates,
   buildCrestFeatureCollection,
@@ -19,6 +23,7 @@ import {
   CITIES_LABEL_LAYER_ID,
   CITIES_OUTLINE_LAYER_ID,
   CITIES_SELECTED_LAYER_ID,
+  CITIES_STRIPES_LAYER_ID,
   CITIES_TENSION_RING_LAYER_ID,
   CITIES_TICKER_HIGHLIGHT_LAYER_ID,
   CITIES_SOURCE_ID,
@@ -41,6 +46,8 @@ import {
   DERBI_GLOW_STATIC_WIDTH,
   derbiFillColorPaint,
   derbiFillOpacityPaint,
+  stripeFillOpacityPaint,
+  stripeFillPatternPaint,
   derbiGlowOpacityExpression,
   derbiGlowWidthExpression,
   nextUrgencyTransitionMs,
@@ -90,9 +97,10 @@ function syncOwnershipOverlay(
 
   for (const tribe of Object.values(tribesById)) {
     ensureTribeCrestImage(map, tribe);
+    ensureTribeStripeImage(map, tribe);
   }
 
-  applyAllCityFillStates(map, cities);
+  applyAllCityFillStates(map, cities, tribesById);
   applyContestTensionStates(map, cities);
   if (previousDerbiIl) {
     previousDerbiIl.current = applyDerbiActiveStates(
@@ -243,6 +251,17 @@ export default function TurkiyeMap({
             paint: {
               "fill-color": derbiFillColorPaint(),
               "fill-opacity": derbiFillOpacityPaint(),
+            },
+          });
+
+          ensureStripeNoneImage(map);
+          map.addLayer({
+            id: CITIES_STRIPES_LAYER_ID,
+            type: "fill",
+            source: CITIES_SOURCE_ID,
+            paint: {
+              "fill-pattern": stripeFillPatternPaint(),
+              "fill-opacity": stripeFillOpacityPaint(),
             },
           });
 
@@ -444,7 +463,9 @@ export default function TurkiyeMap({
             }
           }
 
-          map.on("click", CITIES_FILL_LAYER_ID, (e) => {
+          const onCityFillClick = (
+            e: maplibregl.MapLayerMouseEvent,
+          ) => {
             const feature = e.features?.[0];
             if (!feature?.properties) {
               return;
@@ -464,14 +485,18 @@ export default function TurkiyeMap({
                 ilCode,
               ]);
             }
-          });
-
-          map.on("mouseenter", CITIES_FILL_LAYER_ID, () => {
+          };
+          const setPointer = () => {
             map.getCanvas().style.cursor = "pointer";
-          });
-          map.on("mouseleave", CITIES_FILL_LAYER_ID, () => {
+          };
+          const clearPointer = () => {
             map.getCanvas().style.cursor = "";
-          });
+          };
+          for (const layerId of [CITIES_FILL_LAYER_ID, CITIES_STRIPES_LAYER_ID]) {
+            map.on("click", layerId, onCityFillClick);
+            map.on("mouseenter", layerId, setPointer);
+            map.on("mouseleave", layerId, clearPointer);
+          }
 
           const pushViewport = () => {
             const m = mapRef.current;
