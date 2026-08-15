@@ -6,3 +6,4 @@ Project context for future sessions. Update this list when adding a new module o
 | --- | --- |
 | [presence.md](presence.md) | Redis TTL presence: online count (`SCARD`) and per-tribe online members |
 | [conquest-ui.md](conquest-ui.md) | Capture toast, ranked supporter badge, conquest log unread, own-flip celebration |
+| [derbi-map-urgency.md](derbi-map-urgency.md) | Derby city fill intensity, pulsing glow, countdown chip on the Türkiye map |

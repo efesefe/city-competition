@@ -71,6 +71,12 @@
       "remaining": "{n} kredi kalacak",
       "derbiBadge": "2x Derbi bonusu aktif"
     },
+    "derbiUrgency": {
+      "remaining": "{hours}s {minutes}dk kaldı",
+      "remainingMinutes": "{minutes}dk kaldı",
+      "soon": "Yakında · {time}",
+      "chipAria": "{city}: {label}"
+    },
     "errors": {
       "insufficient_credits": "Yeterli krediniz yok.",
       "unknown_region": "Bilinmeyen il.",

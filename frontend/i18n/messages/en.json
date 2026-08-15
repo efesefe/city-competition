@@ -71,6 +71,12 @@
       "remaining": "{n} credits will remain",
       "derbiBadge": "2x Derbi bonus active"
     },
+    "derbiUrgency": {
+      "remaining": "{hours}h {minutes}m left",
+      "remainingMinutes": "{minutes}m left",
+      "soon": "Soon · {time}",
+      "chipAria": "{city}: {label}"
+    },
     "errors": {
       "insufficient_credits": "Not enough credits.",
       "unknown_region": "Unknown province.",
