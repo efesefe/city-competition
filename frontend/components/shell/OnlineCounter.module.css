@@ -1,0 +1,15 @@
+.chip {
+  margin: 0;
+  padding: 0.28rem 0.55rem;
+  background: rgba(10, 18, 16, 0.82);
+  border: 1px solid #3a524a;
+  border-radius: 999px;
+  color: #9bb0a6;
+  font-size: 0.72rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}

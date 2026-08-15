@@ -43,9 +43,29 @@ No explicit Redis cleanup on unregister. Account erasure calls `presence.ClearUs
 - `GET /v1/presence/online-count` (session) → `{"approximate_count": N}`
 - `GET /v1/tribes/{tribe_id}/online-members` (session, caller must be a member) → `{"user_ids": [...], "approximate_count": N}`
 
-Frontend should label the count as approximate (for example `"~N kişi"`). The counter UI itself is a separate frontend prompt.
+Frontend labels the count as approximate (for example `"~N kişi haritada"`). See the Frontend section below.
+
+## Frontend
+
+Presence is HTTP-polled. `/v1/ws/map` heartbeats only refresh the *viewer's* TTL; there is no presence WebSocket event, so piggybacking the chat socket cannot deliver other members' IDs.
+
+| Surface | Source | Cadence |
+| --- | --- | --- |
+| Map chip [`OnlineCounter`](../frontend/components/shell/OnlineCounter.tsx) | `GET /v1/presence/online-count` | 30s (`PRESENCE_POLL_MS`), paused while the tab is hidden, refetch on visible |
+| Chat dots in [`ChatThread`](../frontend/components/chat/ChatThread.tsx) | `GET /v1/tribes/{tribe_id}/online-members` | same 30s cadence |
+
+- The chip sits top-left on the map canvas (opposite search/locale/perf). It stays hidden until the first successful fetch and keeps the last good count on later errors (never flashes a fake `0`).
+- Label copy lives in next-intl (`map.onlineCount`): `"~{count} kişi haritada"` / `"~{count} people on the map"`. `{count}` is a grouped integer from `formatApproximateCount` (`tr-TR` → `1.240`, `en-US` → `1,240`). The `~` stays in the message so the chip never reads as an exact census.
+- Chat **replaces** the online ID set on every successful poll (never unions). If the last success is older than the backend TTL (60s, `PRESENCE_TTL_MS`), the set is cleared so dots cannot linger past one TTL window after a hung or failing poll.
+- Dots are an 8px green marker on a compact avatar disc (`/v1/users/{id}/avatar` with initials fallback). `data-testid="online-counter"` and `data-testid="presence-dot"` (only when online).
 
 ## How to test
+
+From `frontend/`:
+
+```
+npm test -- lib/presence.test.ts
+```
 
 From `backend/`:
 
