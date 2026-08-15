@@ -21,7 +21,7 @@ Map urgency is **city-based** (any eligible derby). The banner remains **tribe-f
 
 ## Layers (bottom → top)
 
-`cities-fill` → `cities-outline` → `cities-tension-ring` (contest tension, under derby) → `cities-derbi-glow` → `cities-selected` → `cities-ticker-highlight` (brief ticker pulse) → labels → crests → HTML overlay (derby badge + chip, momentum badges)
+`cities-fill` → **`cities-stripes`** → `cities-outline` → `cities-tension-ring` (contest tension, under derby) → `cities-derbi-glow` → `cities-selected` → `cities-ticker-highlight` (brief ticker pulse) → labels → crests → HTML overlay (derby badge + chip, momentum badges)
 
 The glow sits under labels so the pulse does not cover the city name. The badge is offset toward the crest (above the centroid); the chip sits below the label.
 

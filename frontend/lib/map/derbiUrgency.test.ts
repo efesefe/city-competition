@@ -6,6 +6,8 @@ import {
   derbiChipCopy,
   derbiFillColorPaint,
   derbiFillOpacityPaint,
+  stripeFillOpacityPaint,
+  stripeFillPatternPaint,
   isUrgencyEligible,
   nextUrgencyTransitionMs,
   selectUrgencyDerbies,
@@ -197,6 +199,15 @@ describe("derbi fill paint", () => {
     expect(color).toContain("interpolate-hcl");
     expect(color).toContain(String(DERBI_FILL_INTENSITY_MUTED));
     const opacity = JSON.stringify(derbiFillOpacityPaint());
+    expect(opacity).toContain("derbi_active");
+  });
+
+  it("hides kit stripes unless striped feature-state is set", () => {
+    const pattern = JSON.stringify(stripeFillPatternPaint());
+    expect(pattern).toContain("stripe_pattern");
+    expect(pattern).toContain("tribe-stripes-none");
+    const opacity = JSON.stringify(stripeFillOpacityPaint());
+    expect(opacity).toContain("striped");
     expect(opacity).toContain("derbi_active");
   });
 });

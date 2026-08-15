@@ -7,6 +7,7 @@ import {
   upsertCrestFeature,
 } from "@/lib/map/ownership";
 import { tribeCrestImageId } from "@/lib/map/crestIcons";
+import { cityStripeState, tribeStripeImageId } from "@/lib/map/stripePatterns";
 
 /**
  * Integration-style: a support_applied ownership change updates feature-state
@@ -61,10 +62,25 @@ describe("live ownership update (no GeoJSON refetch)", () => {
       ],
     };
 
+    const tribesById = {
+      [tribeA]: {
+        id: tribeA,
+        primary_color: "#111111",
+        secondary_color: "#FFFFFF",
+      },
+      [tribeB]: {
+        id: tribeB,
+        primary_color: "#336699",
+        secondary_color: "#E30613",
+      },
+    };
+
     applyCityFeatureState(
       map,
       updated34.id,
       updated34.controlling_tribe?.primary_color,
+      "cities",
+      cityStripeState(updated34, tribesById),
     );
     crests = upsertCrestFeature(crests, updated34);
     setData(crests);
@@ -73,7 +89,11 @@ describe("live ownership update (no GeoJSON refetch)", () => {
     expect(setFeatureState).toHaveBeenCalledTimes(1);
     expect(setFeatureState).toHaveBeenCalledWith(
       { source: "cities", id: "34" },
-      { primary_color: "#336699" },
+      {
+        primary_color: "#336699",
+        stripe_pattern: tribeStripeImageId(tribeB),
+        striped: true,
+      },
     );
     expect(setData).toHaveBeenCalledTimes(1);
 

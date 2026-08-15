@@ -1,10 +1,16 @@
 import type { Map as MaplibreMap } from "maplibre-gl";
 import type { City } from "@/lib/cities-api";
+import type { Tribe } from "@/lib/tribes-api";
 import { NEUTRAL_TRIBE_COLOR, tribeAccentColor } from "@/lib/tribeCrest";
 import { tribeCrestImageId } from "@/lib/map/crestIcons";
+import {
+  cityStripeState,
+  type CityStripeState,
+} from "@/lib/map/stripePatterns";
 
 export const CITIES_SOURCE_ID = "cities";
 export const CITIES_FILL_LAYER_ID = "cities-fill";
+export const CITIES_STRIPES_LAYER_ID = "cities-stripes";
 export const CITIES_OUTLINE_LAYER_ID = "cities-outline";
 export const CITIES_TENSION_RING_LAYER_ID = "cities-tension-ring";
 export const CITIES_DERBI_GLOW_LAYER_ID = "cities-derbi-glow";
@@ -17,6 +23,8 @@ export const CRESTS_LAYER_ID = "cities-crest";
 
 export type CityFillState = {
   primary_color: string;
+  stripe_pattern?: string;
+  striped?: boolean;
   derbi_active?: boolean;
   contest_tension?: number;
 };
@@ -35,6 +43,7 @@ export function applyCityFeatureState(
   ilCode: string,
   primaryColor: string | null | undefined,
   sourceId: string = CITIES_SOURCE_ID,
+  stripe?: CityStripeState,
 ): void {
   if (!map.getSource(sourceId)) {
     return;
@@ -45,7 +54,10 @@ export function applyCityFeatureState(
       : NEUTRAL_TRIBE_COLOR;
   map.setFeatureState(
     { source: sourceId, id: ilCode },
-    { primary_color: color } satisfies CityFillState,
+    {
+      primary_color: color,
+      ...(stripe ?? {}),
+    } satisfies CityFillState,
   );
 }
 
@@ -53,6 +65,10 @@ export function applyCityFeatureState(
 export function applyAllCityFillStates(
   map: MaplibreMap,
   cities: City[],
+  tribesById: Record<
+    string,
+    Pick<Tribe, "id" | "primary_color" | "secondary_color">
+  > = {},
   sourceId: string = CITIES_SOURCE_ID,
 ): void {
   for (const city of cities) {
@@ -61,6 +77,7 @@ export function applyAllCityFillStates(
       city.id,
       city.controlling_tribe?.primary_color,
       sourceId,
+      cityStripeState(city, tribesById),
     );
   }
 }
