@@ -350,6 +350,13 @@
       "erasureFailed": "Could not submit erasure request."
     }
   },
+  "activityTicker": {
+    "aria": "Nationwide live activity",
+    "itemAria": "Go to {city}",
+    "conquest": "{tribe} captured {place}",
+    "large_support": "{tribe} supported {place}",
+    "derby_support": "{tribe} backed the derby in {place}"
+  },
   "conquest": {
     "title": "Conquest log",
     "lead": "Every city that changed hands, newest first.",

@@ -19,6 +19,7 @@ import {
   CITIES_LABEL_LAYER_ID,
   CITIES_OUTLINE_LAYER_ID,
   CITIES_SELECTED_LAYER_ID,
+  CITIES_TICKER_HIGHLIGHT_LAYER_ID,
   CITIES_SOURCE_ID,
   CRESTS_LAYER_ID,
   CRESTS_SOURCE_ID,
@@ -106,17 +107,26 @@ function syncOwnershipOverlay(
   crestSource?.setData(nextCrests);
 }
 
+export type HighlightPulse = {
+  ilCode: string;
+  nonce: number;
+};
+
 type TurkiyeMapProps = {
   initialIlCode?: string | null;
   selectedIlCode?: string | null;
+  highlightPulse?: HighlightPulse | null;
   onCitySelect?: (city: SelectedCity) => void;
   derbies?: Derby[];
   perfModeEnabled?: boolean;
 };
 
+const TICKER_HIGHLIGHT_MS = 1600;
+
 export default function TurkiyeMap({
   initialIlCode,
   selectedIlCode,
+  highlightPulse = null,
   onCitySelect,
   derbies = [],
   perfModeEnabled = false,
@@ -146,6 +156,7 @@ export default function TurkiyeMap({
     features: [],
   });
   const lastFlownRef = useRef<string | null>(null);
+  const lastPulseNonceRef = useRef<number | null>(null);
   const derbiesRef = useRef(derbies);
   const previousDerbiIlRef = useRef<Set<string>>(new Set());
   const [mapReady, setMapReady] = useState(false);
@@ -261,6 +272,23 @@ export default function TurkiyeMap({
               "line-color": "#e8d5a3",
               "line-width": 2.5,
               "line-opacity": 0.95,
+            },
+          });
+
+          map.addLayer({
+            id: CITIES_TICKER_HIGHLIGHT_LAYER_ID,
+            type: "line",
+            source: CITIES_SOURCE_ID,
+            filter: ["==", ["get", "il_code"], ""],
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-color": "#f5e6b8",
+              "line-width": 4,
+              "line-opacity": 0.95,
+              "line-blur": 0.4,
             },
           });
 
@@ -557,6 +585,10 @@ export default function TurkiyeMap({
       if (!code) lastFlownRef.current = null;
       return;
     }
+    const pulseCode = highlightPulse?.ilCode?.trim() || null;
+    if (pulseCode && pulseCode === code) {
+      return;
+    }
     if (lastFlownRef.current === code) {
       return;
     }
@@ -571,7 +603,57 @@ export default function TurkiyeMap({
       duration: 900,
       essential: true,
     });
-  }, [selectedIlCode, initialIlCode, mapReady, cityStatus, cities]);
+  }, [
+    selectedIlCode,
+    initialIlCode,
+    highlightPulse,
+    mapReady,
+    cityStatus,
+    cities,
+  ]);
+
+  // Ticker tap: always fly (even if already selected) and flash a brief ring.
+  useEffect(() => {
+    const map = mapRef.current;
+    const nonce = highlightPulse?.nonce;
+    const code = highlightPulse?.ilCode?.trim() || "";
+    if (!map || !mapReady || !code || nonce == null || cityStatus !== "ready") {
+      return;
+    }
+    if (lastPulseNonceRef.current === nonce) {
+      return;
+    }
+    const city = citiesRef.current.find((c) => c.id === code);
+    if (!city) {
+      return;
+    }
+    lastPulseNonceRef.current = nonce;
+    lastFlownRef.current = code;
+    map.flyTo({
+      center: [city.centroid.lng, city.centroid.lat],
+      zoom: Math.max(map.getZoom(), 7),
+      duration: 900,
+      essential: true,
+    });
+    if (map.getLayer(CITIES_TICKER_HIGHLIGHT_LAYER_ID)) {
+      map.setFilter(CITIES_TICKER_HIGHLIGHT_LAYER_ID, [
+        "==",
+        ["get", "il_code"],
+        code,
+      ]);
+    }
+    const timer = window.setTimeout(() => {
+      const current = mapRef.current;
+      if (current?.getLayer(CITIES_TICKER_HIGHLIGHT_LAYER_ID)) {
+        current.setFilter(CITIES_TICKER_HIGHLIGHT_LAYER_ID, [
+          "==",
+          ["get", "il_code"],
+          "",
+        ]);
+      }
+    }, TICKER_HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [highlightPulse, mapReady, cityStatus]);
 
   useEffect(() => {
     registerMapProject((ilCode) => {

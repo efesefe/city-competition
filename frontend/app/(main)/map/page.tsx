@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import DerbiBanner from "@/components/derbi/DerbiBanner";
 import DerbiScoreboardSheet from "@/components/derbi/DerbiScoreboardSheet";
+import ActivityTicker from "@/components/map/ActivityTicker";
 import CityPicker from "@/components/map/CityPicker";
 import CitySupportSheet from "@/components/map/CitySupportSheet";
 import PushPermissionPrompt from "@/components/notifications/PushPermissionPrompt";
@@ -60,6 +61,10 @@ function MapInner() {
   const [standingsLoading, setStandingsLoading] = useState(false);
   const [standingsError, setStandingsError] = useState<string | null>(null);
   const [showPushPrompt, setShowPushPrompt] = useState(false);
+  const [highlightPulse, setHighlightPulse] = useState<{
+    ilCode: string;
+    nonce: number;
+  } | null>(null);
 
   liveMsgRef.current = t;
 
@@ -167,6 +172,12 @@ function MapInner() {
     }
   }, [focusIl, router, selectedIl]);
 
+  const jumpToTickerCity = useCallback((ilCode: string) => {
+    setSelectedIl(ilCode);
+    setLiveMessage(null);
+    setHighlightPulse({ ilCode, nonce: Date.now() });
+  }, []);
+
   const cityNameFor = useCallback(
     (ilCode: string) => {
       const city = getCity(ilCode);
@@ -186,10 +197,12 @@ function MapInner() {
           onOpen={openBannerDerby}
         />
       ) : null}
+      <ActivityTicker onSelectCity={jumpToTickerCity} />
       <div className={styles.root}>
         <TurkiyeMap
           initialIlCode={focusIl}
           selectedIlCode={selectedIl ?? focusIl}
+          highlightPulse={highlightPulse}
           derbies={derbies}
           perfModeEnabled={isPerformanceModeEnabled(perfPref)}
           onCitySelect={(city) => {

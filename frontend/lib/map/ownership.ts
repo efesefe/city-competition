@@ -8,6 +8,7 @@ export const CITIES_FILL_LAYER_ID = "cities-fill";
 export const CITIES_OUTLINE_LAYER_ID = "cities-outline";
 export const CITIES_DERBI_GLOW_LAYER_ID = "cities-derbi-glow";
 export const CITIES_SELECTED_LAYER_ID = "cities-selected";
+export const CITIES_TICKER_HIGHLIGHT_LAYER_ID = "cities-ticker-highlight";
 export const CITIES_LABEL_LAYER_ID = "cities-label";
 export const LABELS_SOURCE_ID = "city-labels";
 export const CRESTS_SOURCE_ID = "city-crests";
