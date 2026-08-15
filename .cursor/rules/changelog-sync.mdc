@@ -1,0 +1,14 @@
+---
+alwaysApply: true
+---
+
+# Codebase History & Documentation Review
+
+Before creating any implementation plan or breaking down tasks, you MUST gather context on recent codebase changes stored in the `docs/` folder.
+
+### Mandatory Protocol:
+1. **Scan the Changelog/Docs**: List or search files within the `docs/` folder that track recent updates, architectural decisions, or change histories.
+2. **Synthesize Recent State**: Read these relevant tracking files to build an internal summary of what recently changed in the codebase regarding the user's request.
+3. **Acknowledge Context**: Begin your response by explicitly listing which `docs/` files you inspected and summarizing the relevant past changes that affect the current plan.
+
+Do not start writing an implementation blueprint until you have cross-referenced the current request against these historical change logs.
