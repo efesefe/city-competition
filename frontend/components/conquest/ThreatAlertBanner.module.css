@@ -1,0 +1,118 @@
+.slot {
+  position: fixed;
+  top: calc(0.35rem + env(safe-area-inset-top, 0px));
+  left: 0;
+  right: 0;
+  z-index: 85;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  padding: 0 0.65rem;
+}
+
+.banner {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: min(28rem, 100%);
+  padding: 0.55rem 0.65rem 0.55rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--threat-accent, #c8102e) 55%, #3a1010);
+  border-left: 0.35rem solid var(--threat-accent, #c8102e);
+  border-radius: 0.75rem;
+  background: rgba(28, 8, 10, 0.96);
+  color: #f4e8e8;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.45),
+    0 0 18px color-mix(in srgb, var(--threat-accent, #c8102e) 28%, transparent);
+  animation: slideIn 0.28s ease-out;
+}
+
+.urgent {
+  animation: slideIn 0.28s ease-out, pulseAccent 1.1s ease-in-out infinite;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.12rem;
+  flex: 1;
+}
+
+.title {
+  margin: 0;
+  font-weight: 750;
+  font-size: 0.92rem;
+  letter-spacing: -0.02em;
+}
+
+.body {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #e0c4c4;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.defend {
+  padding: 0.38rem 0.7rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: var(--threat-accent, #c8102e);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+}
+
+.dismiss {
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #e0c4c4;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseAccent {
+  0%,
+  100% {
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.45),
+      0 0 14px color-mix(in srgb, var(--threat-accent, #c8102e) 24%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 10px 28px rgba(0, 0, 0, 0.45),
+      0 0 28px color-mix(in srgb, var(--threat-accent, #c8102e) 55%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner,
+  .urgent {
+    animation: none;
+  }
+}

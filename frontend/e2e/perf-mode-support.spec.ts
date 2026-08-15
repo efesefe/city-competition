@@ -234,4 +234,24 @@ test.describe("perf mode support", () => {
     ).toBeVisible({ timeout: 10_000 });
     expect(api.getSupportCalls()).toBe(1);
   });
+
+  test("focus=credits opens the support sheet on the credit input", async ({
+    page,
+  }) => {
+    await seedSessionAndPerf(page);
+    await mockMapAPIs(page);
+
+    await page.goto("/map?il=34&focus=credits");
+
+    await expect(page.getByTestId("map-screen")).toBeVisible();
+    await expect(page.getByTestId("turkiye-map")).toHaveAttribute(
+      "data-map-ready",
+      "true",
+      { timeout: 30_000 },
+    );
+    await expect(page.getByTestId("city-support-sheet")).toBeVisible();
+    await expect(page.locator("#support-credits")).toBeFocused({
+      timeout: 10_000,
+    });
+  });
 });

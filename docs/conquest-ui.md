@@ -2,6 +2,8 @@
 
 Frontend reaction layer for every city ownership flip. Backend durability (`conquest_log`, unread cursor, `region_supported` Pub/Sub, capture attribution) already exists; this document covers how the app consumes it.
 
+Rival-threat (lead-under-pressure) alerts are a separate surface: see [threat-alert-ui.md](threat-alert-ui.md).
+
 ## Why this shape
 
 - Toasts must fire on **any** tab, so `ConquestProvider` mounts in `(main)/layout.tsx` next to the other app-shell providers, not on the map page.
