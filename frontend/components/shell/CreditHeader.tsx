@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useConquest } from "@/context/ConquestContext";
 import { useNotifications } from "@/context/NotificationsContext";
 import { useWallet } from "@/context/WalletContext";
 import { tribeAccentColor, tribeCrestInitial } from "@/lib/tribeCrest";
@@ -14,7 +15,9 @@ const creditFormatter = new Intl.NumberFormat("tr-TR", {
 export default function CreditHeader() {
   const t = useTranslations("shell");
   const { balance, status, tribe } = useWallet();
-  const { unreadCount } = useNotifications();
+  const { unreadCount: inboxUnread } = useNotifications();
+  const { unreadCount: conquestUnread } = useConquest();
+  const unreadCount = inboxUnread + conquestUnread;
   const accent = tribeAccentColor(tribe);
   const initial = tribe ? tribeCrestInitial(tribe) : "?";
 

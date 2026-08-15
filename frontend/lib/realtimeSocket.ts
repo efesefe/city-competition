@@ -26,10 +26,24 @@ export type TribeMessageEvent = {
   created_at: string;
 };
 
+/** App-wide ownership flip. Backend fans this out to every connected client. */
+export type RegionSupportedMessage = {
+  type: "region_supported";
+  id: string;
+  il_code: string;
+  city_name: string;
+  previous_tribe_id: string | null;
+  new_tribe_id: string;
+  winning_committed_credits: number;
+  occurred_at: string;
+  was_derbi_bonus: boolean;
+};
+
 export type RealtimeSocketEvent =
   | SupportAppliedMessage
   | WalletBalanceChangedMessage
-  | TribeMessageEvent;
+  | TribeMessageEvent
+  | RegionSupportedMessage;
 
 export type RealtimeSocketStatus = "connecting" | "open" | "closed" | "error";
 
@@ -74,6 +88,53 @@ function isWalletBalanceChanged(
 
 function asStringId(value: unknown): string | null {
   if (typeof value === "string" && value.length > 0) return value;
+  return null;
+}
+
+function asIsoTime(value: unknown): string | null {
+  if (typeof value === "string" && value.length > 0) return value;
+  if (value instanceof Date) return value.toISOString();
+  return null;
+}
+
+export function isRegionSupported(data: unknown): data is RegionSupportedMessage {
+  if (!data || typeof data !== "object") return false;
+  const msg = data as Record<string, unknown>;
+  const id = asStringId(msg.id);
+  const ilCode = typeof msg.il_code === "string" ? msg.il_code : null;
+  const cityName = typeof msg.city_name === "string" ? msg.city_name : null;
+  const newTribeId = asStringId(msg.new_tribe_id);
+  const occurredAt = asIsoTime(msg.occurred_at);
+  const prev = msg.previous_tribe_id;
+  const prevOk = prev === null || prev === undefined || typeof prev === "string";
+  if (
+    msg.type !== "region_supported" ||
+    !id ||
+    !ilCode ||
+    !cityName ||
+    !newTribeId ||
+    !occurredAt ||
+    !prevOk ||
+    typeof msg.winning_committed_credits !== "number" ||
+    typeof msg.was_derbi_bonus !== "boolean"
+  ) {
+    return false;
+  }
+  (msg as { id: string }).id = id;
+  (msg as { occurred_at: string }).occurred_at = occurredAt;
+  (msg as { previous_tribe_id: string | null }).previous_tribe_id =
+    typeof prev === "string" && prev.length > 0 ? prev : null;
+  return true;
+}
+
+/** Returns a typed realtime event or null when the frame is unknown/malformed. */
+export function parseRealtimeSocketEvent(
+  data: unknown,
+): RealtimeSocketEvent | null {
+  if (isSupportApplied(data)) return data;
+  if (isWalletBalanceChanged(data)) return data;
+  if (isTribeMessage(data)) return data;
+  if (isRegionSupported(data)) return data;
   return null;
 }
 
@@ -216,12 +277,9 @@ export function connectRealtimeSocket(
       if (gen !== generation) return;
       try {
         const data: unknown = JSON.parse(String(ev.data));
-        if (
-          isSupportApplied(data) ||
-          isWalletBalanceChanged(data) ||
-          isTribeMessage(data)
-        ) {
-          opts.onEvent?.(data);
+        const event = parseRealtimeSocketEvent(data);
+        if (event) {
+          opts.onEvent?.(event);
         }
       } catch {
         // ignore malformed frames

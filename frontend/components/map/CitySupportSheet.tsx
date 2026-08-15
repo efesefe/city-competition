@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useCityData } from "@/context/CityDataContext";
+import { useConquest } from "@/context/ConquestContext";
 import { useWallet } from "@/context/WalletContext";
 import { listDerbies } from "@/lib/derbies-api";
 import {
@@ -42,6 +43,7 @@ export default function CitySupportSheet({
     applyOptimisticDelta,
     reconcileBalance,
   } = useWallet();
+  const { reportOwnSupport } = useConquest();
 
   const city = ilCode ? getCity(ilCode) : undefined;
   const open = Boolean(ilCode && city);
@@ -181,6 +183,7 @@ export default function CitySupportSheet({
     );
     setBusy(false);
     if (outcome.ok) {
+      reportOwnSupport(outcome.result, { cityName: city?.name });
       setMessage(
         t("supported", {
           province: city?.name ?? ilCode,

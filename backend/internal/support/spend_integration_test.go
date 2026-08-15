@@ -241,6 +241,9 @@ func TestSupport_Success_DecrementsBalance_AndIncrementsScores(t *testing.T) {
 	if result.BalanceAfter != 100-spend {
 		t.Fatalf("balance_after=%d want %d", result.BalanceAfter, 100-spend)
 	}
+	if result.CausedFlip {
+		t.Fatal("caused_flip=true without a wired RecordFlip / logged flip")
+	}
 
 	bal, err := wallet.GetBalance(context.Background(), userID)
 	if err != nil {

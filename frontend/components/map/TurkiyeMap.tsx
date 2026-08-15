@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import maplibregl, { type ExpressionSpecification } from "maplibre-gl";
 import { useCityData } from "@/context/CityDataContext";
+import { useConquest } from "@/context/ConquestContext";
 import { useRealtime } from "@/context/RealtimeContext";
 import type { City } from "@/lib/cities-api";
 import { ensureTribeCrestImage } from "@/lib/map/crestIcons";
@@ -92,6 +93,7 @@ export default function TurkiyeMap({
 }: TurkiyeMapProps) {
   const t = useTranslations("map");
   const { cities, tribesById, status: cityStatus } = useCityData();
+  const { registerMapProject } = useConquest();
   const { sendViewport, sendViewportNow, setBBoxGetter } = useRealtime();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -113,6 +115,7 @@ export default function TurkiyeMap({
     type: "FeatureCollection",
     features: [],
   });
+  const lastFlownRef = useRef<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -443,6 +446,41 @@ export default function TurkiyeMap({
       code,
     ]);
   }, [selectedIlCode, mapReady]);
+
+  // Deep-link / toast tap: fly the camera to the selected city centroid.
+  useEffect(() => {
+    const map = mapRef.current;
+    const code = (selectedIlCode ?? initialIlCode)?.trim() || null;
+    if (!map || !mapReady || !code || cityStatus !== "ready") {
+      if (!code) lastFlownRef.current = null;
+      return;
+    }
+    if (lastFlownRef.current === code) {
+      return;
+    }
+    const city = cities.find((c) => c.id === code);
+    if (!city) {
+      return;
+    }
+    lastFlownRef.current = code;
+    map.flyTo({
+      center: [city.centroid.lng, city.centroid.lat],
+      zoom: Math.max(map.getZoom(), 7),
+      duration: 900,
+      essential: true,
+    });
+  }, [selectedIlCode, initialIlCode, mapReady, cityStatus, cities]);
+
+  useEffect(() => {
+    registerMapProject((ilCode) => {
+      const map = mapRef.current;
+      const city = citiesRef.current.find((c) => c.id === ilCode);
+      if (!map || !city) return null;
+      const point = map.project([city.centroid.lng, city.centroid.lat]);
+      return { x: point.x, y: point.y };
+    });
+    return () => registerMapProject(null);
+  }, [registerMapProject]);
 
   return (
     <div className={styles.root}>

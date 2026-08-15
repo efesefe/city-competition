@@ -1,0 +1,35 @@
+.disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.sm {
+  width: 1.7rem;
+  height: 1.7rem;
+  font-size: 0.52rem;
+}
+
+.md {
+  width: 2.15rem;
+  height: 2.15rem;
+  font-size: 0.62rem;
+}
+
+.lg {
+  width: 3.4rem;
+  height: 3.4rem;
+  font-size: 0.95rem;
+}
+
+.fading {
+  opacity: 0.45;
+  transform: scale(0.92);
+}

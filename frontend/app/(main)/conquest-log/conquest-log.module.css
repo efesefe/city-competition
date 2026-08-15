@@ -1,0 +1,66 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem 1.25rem;
+  min-height: 100%;
+  color: #e8efe9;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  margin: 0;
+  color: #8fb5a8;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.back {
+  display: inline-flex;
+  align-self: flex-start;
+  color: #8fb5a8;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.back:hover {
+  color: #e8efe9;
+}
+
+.city {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.meta {
+  margin: 0;
+  color: #8fb5a8;
+  font-size: 0.85rem;
+}
+
+.crests {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.mapLink {
+  display: inline-flex;
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid #3a524a;
+  border-radius: 0.35rem;
+  background: rgba(10, 18, 16, 0.7);
+  color: #e8efe9;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
