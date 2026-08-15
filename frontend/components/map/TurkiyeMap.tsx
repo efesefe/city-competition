@@ -19,6 +19,7 @@ import {
   CITIES_LABEL_LAYER_ID,
   CITIES_OUTLINE_LAYER_ID,
   CITIES_SELECTED_LAYER_ID,
+  CITIES_TENSION_RING_LAYER_ID,
   CITIES_TICKER_HIGHLIGHT_LAYER_ID,
   CITIES_SOURCE_ID,
   CRESTS_LAYER_ID,
@@ -27,6 +28,12 @@ import {
   type CrestFeatureCollection,
   type LabelFeatureCollection,
 } from "@/lib/map/ownership";
+import {
+  applyContestTensionStates,
+  contestTensionColorPaint,
+  contestTensionOpacityPaint,
+  contestTensionWidthPaint,
+} from "@/lib/map/contestTension";
 import {
   DERBI_GLOW_BLUR,
   DERBI_GLOW_COLOR,
@@ -43,6 +50,7 @@ import {
 } from "@/lib/map/derbiUrgency";
 import { TURKIYE_MAP_STYLE } from "@/lib/map/style";
 import DerbiCityOverlay from "./DerbiCityOverlay";
+import MomentumBadge from "./MomentumBadge";
 import {
   TURKIYE_BOUNDS,
   TURKIYE_MAX_BOUNDS,
@@ -84,6 +92,7 @@ function syncOwnershipOverlay(
   }
 
   applyAllCityFillStates(map, cities);
+  applyContestTensionStates(map, cities);
   if (previousDerbiIl) {
     previousDerbiIl.current = applyDerbiActiveStates(
       map,
@@ -242,6 +251,22 @@ export default function TurkiyeMap({
               "line-color": "#060e0c",
               "line-width": 1,
               "line-opacity": 0.85,
+            },
+          });
+
+          map.addLayer({
+            id: CITIES_TENSION_RING_LAYER_ID,
+            type: "line",
+            source: CITIES_SOURCE_ID,
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-color": contestTensionColorPaint(),
+              "line-width": contestTensionWidthPaint(),
+              "line-opacity": contestTensionOpacityPaint(),
+              "line-blur": 0,
             },
           });
 
@@ -677,12 +702,15 @@ export default function TurkiyeMap({
         data-map-ready={mapReady ? "true" : "false"}
       />
       {mapReady && mapRef.current ? (
-        <DerbiCityOverlay
-          map={mapRef.current}
-          cities={cities}
-          derbies={derbies}
-          nowMs={nowMs}
-        />
+        <>
+          <DerbiCityOverlay
+            map={mapRef.current}
+            cities={cities}
+            derbies={derbies}
+            nowMs={nowMs}
+          />
+          <MomentumBadge map={mapRef.current} cities={cities} />
+        </>
       ) : null}
       {loadError ? (
         <p className={styles.error} role="alert">

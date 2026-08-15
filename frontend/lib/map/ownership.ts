@@ -6,6 +6,7 @@ import { tribeCrestImageId } from "@/lib/map/crestIcons";
 export const CITIES_SOURCE_ID = "cities";
 export const CITIES_FILL_LAYER_ID = "cities-fill";
 export const CITIES_OUTLINE_LAYER_ID = "cities-outline";
+export const CITIES_TENSION_RING_LAYER_ID = "cities-tension-ring";
 export const CITIES_DERBI_GLOW_LAYER_ID = "cities-derbi-glow";
 export const CITIES_SELECTED_LAYER_ID = "cities-selected";
 export const CITIES_TICKER_HIGHLIGHT_LAYER_ID = "cities-ticker-highlight";
@@ -17,6 +18,7 @@ export const CRESTS_LAYER_ID = "cities-crest";
 export type CityFillState = {
   primary_color: string;
   derbi_active?: boolean;
+  contest_tension?: number;
 };
 
 /** Resolve fill color for feature-state from a city's controlling tribe. */

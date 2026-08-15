@@ -1,0 +1,62 @@
+.badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  padding: 0 0.12rem;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: default;
+  filter: drop-shadow(0 0 2px rgba(8, 12, 10, 0.95));
+}
+
+.icon {
+  display: block;
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
+.count {
+  margin-left: 0.08rem;
+  color: #f3c98a;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.55rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.28rem);
+  z-index: 2;
+  display: none;
+  min-width: max-content;
+  max-width: 11rem;
+  padding: 0.16rem 0.4rem;
+  border: 1px solid rgba(232, 180, 120, 0.45);
+  border-radius: 0.35rem;
+  background: rgba(10, 14, 12, 0.92);
+  color: #f4ead4;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.badge:hover .tooltip,
+.badge:focus-visible .tooltip,
+.badge[data-open="true"] .tooltip {
+  display: block;
+}
