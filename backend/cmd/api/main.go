@@ -33,6 +33,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/monetization"
 	"github.com/city-competition-remastered/backend/internal/notifications"
 	"github.com/city-competition-remastered/backend/internal/observability"
+	"github.com/city-competition-remastered/backend/internal/presence"
 	"github.com/city-competition-remastered/backend/internal/progression"
 	"github.com/city-competition-remastered/backend/internal/ratelimit"
 	"github.com/city-competition-remastered/backend/internal/realtime"
@@ -379,7 +380,29 @@ func main() {
 	metrics.StartPoolCollector(hubCtx, 15*time.Second, pools.Write, pools.Read, rdb)
 	mapHub := realtime.NewHub(rdb, provinceStore, logger)
 	go mapHub.Run(hubCtx)
-	wsHandler := &realtime.Handler{Hub: mapHub, Sessions: sessions}
+	presenceTracker := &presence.Tracker{
+		RDB: rdb,
+		Memberships: presence.MembershipFunc(func(ctx context.Context, userID uuid.UUID) (*uuid.UUID, error) {
+			tid, _, err := tribeStore.GetMembership(ctx, userID)
+			return tid, err
+		}),
+		Logger: logger,
+	}
+	presenceHandler := &presence.Handler{
+		Tracker:     presenceTracker,
+		Memberships: presenceTracker.Memberships,
+		TribeExists: func(ctx context.Context, tribeID uuid.UUID) (bool, error) {
+			_, err := tribeStore.GetByID(ctx, tribeID)
+			if err == nil {
+				return true, nil
+			}
+			if errors.Is(err, tribe.ErrNotFound) {
+				return false, nil
+			}
+			return false, err
+		},
+	}
+	wsHandler := &realtime.Handler{Hub: mapHub, Sessions: sessions, Presence: presenceTracker}
 	rateBucket := &ratelimit.Bucket{RDB: rdb}
 	creditWriteLimit := middleware.RateLimit(logger, rateBucket, ratelimit.GroupCreditWrite, ratelimit.Limit{
 		Rate:  cfg.RateLimitCreditWriteRate,
@@ -410,8 +433,10 @@ func main() {
 	mux.Handle("POST /v1/consent/grant", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Grant)))
 	mux.Handle("POST /v1/consent/withdraw", auth.RequireSession(sessions, users, http.HandlerFunc(consentHandler.Withdraw)))
 	mux.Handle("POST /v1/account/erasure-request", auth.RequireSession(sessions, users, http.HandlerFunc(erasureHandler.Request)))
+	mux.Handle("GET /v1/presence/online-count", auth.RequireSession(sessions, users, http.HandlerFunc(presenceHandler.OnlineCount)))
 	mux.Handle("GET /v1/tribes", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.List)))
 	mux.Handle("GET /v1/tribes/{id}", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Get)))
+	mux.Handle("GET /v1/tribes/{tribe_id}/online-members", auth.RequireSession(sessions, users, http.HandlerFunc(presenceHandler.OnlineMembers)))
 	mux.Handle("POST /v1/tribes/{id}/join", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Join)))
 	mux.Handle("POST /v1/tribes/{id}/switch", auth.RequireSession(sessions, users, http.HandlerFunc(tribeHandler.Switch)))
 	mux.Handle("POST /v1/tribes/{id}/messages", auth.RequireSession(sessions, users, auth.RequireNotRestricted(users, http.HandlerFunc(tribeHandler.CreateTribeMessage))))
