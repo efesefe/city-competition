@@ -1,0 +1,35 @@
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+}
+
+.coin {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  animation-name: credit-fly;
+  animation-duration: 550ms;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+  animation-delay: var(--delay, 0ms);
+  will-change: transform, opacity;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+@keyframes credit-fly {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  45% {
+    transform: translate(var(--mx), var(--my)) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.35);
+    opacity: 0;
+  }
+}
