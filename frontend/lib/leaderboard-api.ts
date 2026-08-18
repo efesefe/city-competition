@@ -23,6 +23,8 @@ export type MeRankResponse = {
   me: MeRank | null;
 };
 
+export type LeaderboardScope = "global" | "tribe" | "province" | "derby";
+
 export type TribeRankEntry = {
   rank: number;
   tribe_id: string;
