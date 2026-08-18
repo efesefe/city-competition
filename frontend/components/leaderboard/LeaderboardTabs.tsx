@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import styles from "./LeaderboardTabs.module.css";
 
-export type LeaderboardTabId = "global" | "tribes" | "derbi";
+export type LeaderboardTabId = "global" | "tribes" | "tribeRank" | "derbi";
 
 type Props = {
   active: LeaderboardTabId;
@@ -21,6 +21,11 @@ export default function LeaderboardTabs({
   const tabs: Array<{ id: LeaderboardTabId; label: string; testId: string }> = [
     { id: "global", label: t("tabGlobal"), testId: "leaderboard-tab-global" },
     { id: "tribes", label: t("tabTribes"), testId: "leaderboard-tab-tribes" },
+    {
+      id: "tribeRank",
+      label: t("tabTribeRank"),
+      testId: "leaderboard-tab-tribe-rank",
+    },
   ];
   if (showDerbi) {
     tabs.push({

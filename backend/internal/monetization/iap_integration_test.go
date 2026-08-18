@@ -57,6 +57,7 @@ func seedUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM user_cosmetics WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM invoices WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM iap_purchases WHERE user_id = $1`, id)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM purchase_promos WHERE created_by = $1 OR deactivated_by = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_ledger WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_accounts WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM user_xp WHERE user_id = $1`, id)
@@ -203,5 +204,46 @@ func TestDuplicateWebhookGrantsOnce(t *testing.T) {
 	}
 	if purchases != 1 {
 		t.Fatalf("iap_purchases=%d want 1", purchases)
+	}
+}
+
+func TestIAPGrantAppliesActivePromo(t *testing.T) {
+	pool := testPool(t)
+	userID := seedUser(t, pool)
+	promos := &PromoStore{Pool: pool}
+	if _, err := promos.Activate(context.Background(), userID, 50); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	wallet := &credits.Wallet{Pool: pool}
+	svc := &Service{
+		Pool:   pool,
+		Wallet: wallet,
+		Verifier: &StaticMapVerifier{ByToken: map[string]VerifiedPurchase{
+			"promo-receipt": {
+				Provider:      ProviderApple,
+				ProductID:     "credits_100",
+				TransactionID: "txn-promo-1",
+			},
+		}},
+		Packs:  &PackStore{Pool: pool},
+		Promos: promos,
+	}
+	r, err := svc.VerifyAndGrant(context.Background(), userID, ReceiptInput{
+		Provider:    ProviderApple,
+		ProductID:   "credits_100",
+		ReceiptData: "promo-receipt",
+	})
+	if err != nil {
+		t.Fatalf("grant: %v", err)
+	}
+	if r.CreditsGranted != 150 {
+		t.Fatalf("granted=%d want 150", r.CreditsGranted)
+	}
+	bal, err := wallet.GetBalance(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bal != 150 {
+		t.Fatalf("balance=%d want 150", bal)
 	}
 }

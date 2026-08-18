@@ -147,6 +147,12 @@ export default function AnalyticsPage() {
           >
             Derbi yönetimi
           </Link>
+          <Link
+            className={`${derbyStyles.button} ${derbyStyles.buttonSecondary}`}
+            href="/admin/promos"
+          >
+            Kredi kampanyaları
+          </Link>
         </div>
 
         {error ? <p className={derbyStyles.error}>{error}</p> : null}

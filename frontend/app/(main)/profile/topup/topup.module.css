@@ -23,6 +23,17 @@
   line-height: 1.45;
 }
 
+.promoBanner {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #5a8a76;
+  border-radius: 0.4rem;
+  background: rgba(58, 110, 92, 0.28);
+  color: #9dcea8;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
 .status {
   margin: 0;
   color: #a8b5b0;

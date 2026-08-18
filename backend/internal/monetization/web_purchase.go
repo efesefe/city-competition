@@ -30,6 +30,7 @@ type WebPurchaseService struct {
 	Pool             *pgxpool.Pool
 	Wallet           *credits.Wallet
 	Packs            *PackStore
+	Promos           *PromoStore
 	Invoices         *InvoiceWriter
 	PaymentsURL      string
 	InternalToken    string
@@ -75,12 +76,12 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 		return GrantResult{}, fmt.Errorf("wallet required")
 	}
 
-	pack, err := s.Packs.Lookup(ctx, provider, in.ProductID)
+	grantCredits, amountKurus, err := s.resolveGrant(ctx, in)
 	if err != nil {
 		return GrantResult{}, err
 	}
-	if pack.Credits != in.Credits {
-		return GrantResult{}, ErrProductMismatch
+	if amountKurus <= 0 {
+		amountKurus = 1
 	}
 
 	tx, err := s.Pool.Begin(ctx)
@@ -90,10 +91,6 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 	defer tx.Rollback(ctx)
 
 	purchaseID := uuid.New()
-	amountKurus := pack.AmountKurus
-	if amountKurus <= 0 {
-		amountKurus = 1
-	}
 	var insertedID uuid.UUID
 	err = tx.QueryRow(ctx, `
 		INSERT INTO web_purchases (
@@ -103,7 +100,7 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 		ON CONFLICT (provider_payment_id) DO NOTHING
 		RETURNING id
 	`, purchaseID, in.UserID, string(provider), in.ProductID, in.ProviderPaymentID,
-		in.PaymentIntentID, pack.Credits, amountKurus).Scan(&insertedID)
+		in.PaymentIntentID, grantCredits, amountKurus).Scan(&insertedID)
 
 	already := false
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -122,7 +119,7 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 			return GrantResult{}, ErrInvalidReceipt
 		}
 		purchaseID = existingID
-		pack.Credits = existingCredits
+		grantCredits = existingCredits
 	} else if err != nil {
 		return GrantResult{}, fmt.Errorf("insert web_purchase: %w", err)
 	} else {
@@ -131,7 +128,7 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 
 	balanceAfter, err := s.Wallet.GrantCreditsOnTx(ctx, tx, credits.ApplyInput{
 		UserID:         in.UserID,
-		Amount:         pack.Credits,
+		Amount:         grantCredits,
 		Reason:         credits.ReasonPurchase,
 		RefType:        "web_purchase",
 		RefID:          purchaseID.String(),
@@ -159,11 +156,41 @@ func (s *WebPurchaseService) GrantFromPayments(ctx context.Context, in CreditGra
 	}
 	return GrantResult{
 		BalanceAfter:   balanceAfter,
-		CreditsGranted: pack.Credits,
+		CreditsGranted: grantCredits,
 		PurchaseID:     purchaseID,
 		InvoiceID:      invoiceID,
 		AlreadyGranted: already,
 	}, nil
+}
+
+func (s *WebPurchaseService) resolveGrant(ctx context.Context, in CreditGrantInput) (creditsGranted, amountKurus int64, err error) {
+	quote, qerr := LoadQuote(ctx, s.Pool, in.PaymentIntentID)
+	if qerr == nil {
+		if quote.UserID != in.UserID {
+			return 0, 0, ErrInvalidReceipt
+		}
+		if quote.ProductID != in.ProductID || quote.Credits != in.Credits {
+			return 0, 0, ErrProductMismatch
+		}
+		return quote.Credits, quote.AmountKurus, nil
+	}
+	if !errors.Is(qerr, pgx.ErrNoRows) {
+		return 0, 0, qerr
+	}
+	if in.ProductID == ProductCustom {
+		return 0, 0, ErrUnknownProduct
+	}
+	if s.Packs == nil {
+		return 0, 0, ErrUnknownProduct
+	}
+	pack, err := s.Packs.Lookup(ctx, in.Provider, in.ProductID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if pack.Credits != in.Credits {
+		return 0, 0, ErrProductMismatch
+	}
+	return pack.Credits, pack.AmountKurus, nil
 }
 
 // CheckoutResult is returned to the player after payments creates a hosted session.
@@ -174,23 +201,29 @@ type CheckoutResult struct {
 	ProviderPaymentID string `json:"provider_payment_id"`
 }
 
-// StartCheckout looks up the pack and asks the payments service to Charge.
-func (s *WebPurchaseService) StartCheckout(ctx context.Context, userID uuid.UUID, provider Provider, productID, returnURL string) (CheckoutResult, error) {
-	provider = Provider(strings.ToLower(strings.TrimSpace(string(provider))))
-	productID = strings.TrimSpace(productID)
+// CheckoutInput is the player-facing checkout request after auth.
+type CheckoutInput struct {
+	Provider  Provider
+	ProductID string
+	Credits   int64
+	ReturnURL string
+}
+
+// StartCheckout prices the pack or custom amount, freezes a quote, and asks payments to Charge.
+func (s *WebPurchaseService) StartCheckout(ctx context.Context, userID uuid.UUID, in CheckoutInput) (CheckoutResult, error) {
+	provider := Provider(strings.ToLower(strings.TrimSpace(string(in.Provider))))
+	productID := strings.TrimSpace(in.ProductID)
 	if !IsWebProvider(provider) {
 		return CheckoutResult{}, ErrInvalidProvider
 	}
 	if s.PaymentsURL == "" || s.InternalToken == "" {
 		return CheckoutResult{}, ErrVerifierUnavailable
 	}
-	pack, err := s.Packs.Lookup(ctx, provider, productID)
+	priced, err := s.priceCheckout(ctx, provider, productID, in.Credits)
 	if err != nil {
 		return CheckoutResult{}, err
 	}
-	if pack.AmountKurus <= 0 {
-		return CheckoutResult{}, ErrUnknownProduct
-	}
+	returnURL := strings.TrimSpace(in.ReturnURL)
 	if returnURL == "" {
 		returnURL = s.DefaultReturnURL
 	}
@@ -199,8 +232,8 @@ func (s *WebPurchaseService) StartCheckout(ctx context.Context, userID uuid.UUID
 		"user_id":         userID.String(),
 		"provider":        string(provider),
 		"product_id":      productID,
-		"credits":         pack.Credits,
-		"amount_kurus":    pack.AmountKurus,
+		"credits":         priced.TotalCredits,
+		"amount_kurus":    priced.AmountKurus,
 		"idempotency_key": idempotencyKey + ":" + uuid.NewString(),
 		"return_url":      returnURL,
 	})
@@ -238,11 +271,78 @@ func (s *WebPurchaseService) StartCheckout(ctx context.Context, userID uuid.UUID
 	if out.CheckoutURL == "" {
 		return CheckoutResult{}, ErrVerifierUnavailable
 	}
+	intentID, err := uuid.Parse(strings.TrimSpace(out.PaymentIntentID))
+	if err != nil {
+		return CheckoutResult{}, ErrVerifierUnavailable
+	}
+	if err := InsertQuote(ctx, s.Pool, PurchaseQuote{
+		PaymentIntentID: intentID,
+		UserID:          userID,
+		ProductID:       productID,
+		BaseCredits:     priced.BaseCredits,
+		BonusPercent:    priced.BonusPercent,
+		Credits:         priced.TotalCredits,
+		AmountKurus:     priced.AmountKurus,
+	}); err != nil {
+		return CheckoutResult{}, err
+	}
 	return CheckoutResult{
 		CheckoutURL:       out.CheckoutURL,
 		PaymentIntentID:   out.PaymentIntentID,
 		Provider:          out.Provider,
 		ProviderPaymentID: out.ProviderPaymentID,
+	}, nil
+}
+
+type pricedCheckout struct {
+	BaseCredits  int64
+	BonusPercent int64
+	TotalCredits int64
+	AmountKurus  int64
+}
+
+func (s *WebPurchaseService) priceCheckout(ctx context.Context, provider Provider, productID string, customCredits int64) (pricedCheckout, error) {
+	if s.Packs == nil {
+		return pricedCheckout{}, ErrUnknownProduct
+	}
+	var baseCredits, amountKurus int64
+	if productID == ProductCustom {
+		pack, err := s.Packs.Lookup(ctx, provider, BaselineProductID)
+		if err != nil {
+			return pricedCheckout{}, err
+		}
+		amount, err := CustomAmountKurus(customCredits, pack.Credits, pack.AmountKurus)
+		if err != nil {
+			return pricedCheckout{}, err
+		}
+		baseCredits = customCredits
+		amountKurus = amount
+	} else {
+		pack, err := s.Packs.Lookup(ctx, provider, productID)
+		if err != nil {
+			return pricedCheckout{}, err
+		}
+		if pack.AmountKurus <= 0 {
+			return pricedCheckout{}, ErrUnknownProduct
+		}
+		baseCredits = pack.Credits
+		amountKurus = pack.AmountKurus
+	}
+	var bonus int64
+	if s.Promos != nil {
+		promo, err := s.Promos.Active(ctx)
+		if err != nil {
+			return pricedCheckout{}, err
+		}
+		if promo.Active {
+			bonus = promo.BonusPercent
+		}
+	}
+	return pricedCheckout{
+		BaseCredits:  baseCredits,
+		BonusPercent: bonus,
+		TotalCredits: ApplyBonus(baseCredits, bonus),
+		AmountKurus:  amountKurus,
 	}, nil
 }
 

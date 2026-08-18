@@ -23,7 +23,22 @@ export type MeRankResponse = {
   me: MeRank | null;
 };
 
-export type LeaderboardScope = "global" | "tribe" | "province" | "derby";
+export type TribeRankEntry = {
+  rank: number;
+  tribe_id: string;
+  slug: string;
+  display_name: string;
+  short_name: string;
+  primary_color: string;
+  secondary_color: string;
+  score: number;
+};
+
+export type TribeRankBoard = {
+  entries: TribeRankEntry[];
+  limit: number;
+  me?: MeRank | null;
+};
 
 async function authJSON<T>(
   method: string,
@@ -65,6 +80,14 @@ export function fetchTribeBoard(tribeId: string, limit = 50) {
   return authJSON<LeaderboardBoard>(
     "GET",
     `/v1/leaderboards/tribes/${encodeURIComponent(tribeId)}?${q}`,
+  );
+}
+
+export function fetchTribeRankBoard(limit = 50) {
+  const q = new URLSearchParams({ limit: String(limit) });
+  return authJSON<TribeRankBoard>(
+    "GET",
+    `/v1/leaderboards/tribe-rank?${q}`,
   );
 }
 

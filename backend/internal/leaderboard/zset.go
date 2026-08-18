@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	keyGlobalSupporters = "lb:global:supporters"
-	keyTribeFmt         = "lb:tribe:%s:supporters"
-	keyProvinceFmt      = "lb:province:%s:supporters"
-	keyDerbyFmt         = "lb:derby:%s:supporters"
+	keyGlobalSupporters  = "lb:global:supporters"
+	keyTribeFmt          = "lb:tribe:%s:supporters"
+	keyProvinceFmt       = "lb:province:%s:supporters"
+	keyDerbyFmt          = "lb:derby:%s:supporters"
+	keyTribeRankSupporters = "lb:tribe_rank:supporters"
 )
 
 // Entry is one ZSET member with score.
@@ -47,10 +48,8 @@ func ProvinceKey(ilCode string) string {
 	return fmt.Sprintf(keyProvinceFmt, ilCode)
 }
 
-// DerbyKey returns lb:derby:{derby_id}:supporters.
-func DerbyKey(derbyID uuid.UUID) string {
-	return fmt.Sprintf(keyDerbyFmt, derbyID.String())
-}
+// TribeRankKey returns lb:tribe_rank:supporters (tribes ranked by support).
+func TribeRankKey() string { return keyTribeRankSupporters }
 
 // Incr adds delta to member's score in the given ZSET key.
 func (s *LeaderboardStore) Incr(ctx context.Context, key, member string, delta float64) error {

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/city-competition-remastered/backend/internal/admin"
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/credits"
 	"github.com/city-competition-remastered/backend/internal/db"
@@ -21,6 +22,8 @@ type Handler struct {
 	BattlePass    *BattlePassService
 	WebPurchase   *WebPurchaseService
 	Refunds       *RefundService
+	Promos        *PromoStore
+	Audit         admin.Writer
 	Breaker       *db.CircuitBreaker
 	InternalToken string
 }
@@ -113,13 +116,54 @@ func (h *Handler) ListPacks(w http.ResponseWriter, r *http.Request) {
 			AmountKurus: p.AmountKurus,
 		})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"packs": out})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"packs":  out,
+		"promo":  promoDTO(h.activePromo(r)),
+		"custom": h.customPricingDTO(r),
+	})
+}
+
+func (h *Handler) activePromo(r *http.Request) Promo {
+	if h == nil || h.Promos == nil {
+		return Promo{}
+	}
+	p, err := h.Promos.Active(r.Context())
+	if err != nil {
+		return Promo{}
+	}
+	return p
+}
+
+func promoDTO(p Promo) map[string]any {
+	if !p.Active || p.BonusPercent <= 0 {
+		return nil
+	}
+	return map[string]any{
+		"bonus_percent": p.BonusPercent,
+	}
+}
+
+func (h *Handler) customPricingDTO(r *http.Request) map[string]any {
+	if h == nil || h.IAP == nil || h.IAP.Packs == nil {
+		return nil
+	}
+	pack, err := h.IAP.Packs.Lookup(r.Context(), ProviderIyzico, BaselineProductID)
+	if err != nil || pack.Credits <= 0 || pack.AmountKurus <= 0 {
+		return nil
+	}
+	return map[string]any{
+		"min_credits":  CustomMinCredits,
+		"max_credits":  CustomMaxCredits,
+		"credits":      pack.Credits,
+		"amount_kurus": pack.AmountKurus,
+	}
 }
 
 type checkoutRequest struct {
 	Provider  string `json:"provider"`
 	ProductID string `json:"product_id"`
 	ReturnURL string `json:"return_url"`
+	Credits   int64  `json:"credits"`
 }
 
 type creditGrantRequest struct {
@@ -156,9 +200,12 @@ func (h *Handler) Checkout(w http.ResponseWriter, r *http.Request) {
 	result, err := h.WebPurchase.StartCheckout(
 		r.Context(),
 		userID,
-		Provider(strings.ToLower(strings.TrimSpace(req.Provider))),
-		strings.TrimSpace(req.ProductID),
-		strings.TrimSpace(req.ReturnURL),
+		CheckoutInput{
+			Provider:  Provider(strings.ToLower(strings.TrimSpace(req.Provider))),
+			ProductID: strings.TrimSpace(req.ProductID),
+			Credits:   req.Credits,
+			ReturnURL: strings.TrimSpace(req.ReturnURL),
+		},
 	)
 	if err != nil {
 		if h.Breaker != nil && !isIAPBusinessErr(err) {
@@ -466,6 +513,9 @@ func isIAPBusinessErr(err error) bool {
 		errors.Is(err, ErrInvoiceNotFound),
 		errors.Is(err, ErrAlreadyRefunded),
 		errors.Is(err, ErrPaymentsRefundFailed),
+		errors.Is(err, ErrInvalidCustomCredits),
+		errors.Is(err, ErrInvalidPromoPercent),
+		errors.Is(err, ErrNoActivePromo),
 		errors.Is(err, credits.ErrIdempotencyConflict),
 		errors.Is(err, credits.ErrInvalidIdempotencyKey),
 		errors.Is(err, db.ErrWritePathDegraded):
@@ -482,7 +532,9 @@ func writeIAPErr(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrMissingReceipt),
 		errors.Is(err, ErrInvalidProvider),
 		errors.Is(err, ErrUnknownProduct),
-		errors.Is(err, ErrProductMismatch):
+		errors.Is(err, ErrProductMismatch),
+		errors.Is(err, ErrInvalidCustomCredits),
+		errors.Is(err, ErrInvalidPromoPercent):
 		writeErr(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, ErrInvalidReceipt):
 		writeErr(w, http.StatusUnprocessableEntity, err.Error())
@@ -491,7 +543,8 @@ func writeIAPErr(w http.ResponseWriter, err error) {
 		writeErr(w, http.StatusServiceUnavailable, err.Error())
 	case errors.Is(err, ErrNoActiveSeason),
 		errors.Is(err, ErrPurchaseNotFound),
-		errors.Is(err, ErrInvoiceNotFound):
+		errors.Is(err, ErrInvoiceNotFound),
+		errors.Is(err, ErrNoActivePromo):
 		writeErr(w, http.StatusNotFound, err.Error())
 	case errors.Is(err, ErrTierNotEligible),
 		errors.Is(err, ErrAlreadyRefunded):

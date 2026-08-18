@@ -12,6 +12,7 @@ import (
 	"github.com/city-competition-remastered/backend/internal/auth"
 	"github.com/city-competition-remastered/backend/internal/derby"
 	"github.com/city-competition-remastered/backend/internal/support"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const (
@@ -28,6 +29,7 @@ type Handler struct {
 	Profiles ProfileLookup
 	Control  *support.ControlCache
 	Derbies  *derby.Service
+	Pool     *pgxpool.Pool
 }
 
 type errorBody struct {

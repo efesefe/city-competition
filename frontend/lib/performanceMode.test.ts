@@ -73,15 +73,16 @@ describe("performanceMode", () => {
     expect(isPerformanceModeEnabled("auto", 8)).toBe(false);
   });
 
-  it("on/off preference overrides the deviceMemory heuristic", () => {
+  it("on/off preference still overrides when passed explicitly", () => {
     expect(isPerformanceModeEnabled("on", 8)).toBe(true);
     expect(isPerformanceModeEnabled("off", 2)).toBe(false);
   });
 
-  it("persists preference in localStorage", () => {
-    setPerformanceModePreference("on");
+  it("ignores leftover localStorage preference", () => {
+    store.set(PERF_MODE_STORAGE_KEY, "on");
+    setPerformanceModePreference("off");
+    expect(getPerformanceModePreference()).toBe("auto");
     expect(store.get(PERF_MODE_STORAGE_KEY)).toBe("on");
-    expect(getPerformanceModePreference()).toBe("on");
   });
 
   it("returns reduced choropleth config when enabled", () => {

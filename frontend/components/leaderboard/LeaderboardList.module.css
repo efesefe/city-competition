@@ -72,6 +72,13 @@
   font-size: 0.95rem;
 }
 
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
 .score {
   color: #c5d0cb;
   font-variant-numeric: tabular-nums;

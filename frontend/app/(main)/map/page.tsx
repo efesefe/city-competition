@@ -13,7 +13,6 @@ import CitySupportSheet from "@/components/map/CitySupportSheet";
 import ThreatAlertHost from "@/components/conquest/ThreatAlertHost";
 import PushPermissionPrompt from "@/components/notifications/PushPermissionPrompt";
 import LocaleToggle from "@/components/LocaleToggle";
-import PerfModeToggle from "@/components/PerfModeToggle";
 import { useCityData } from "@/context/CityDataContext";
 import { useRealtime } from "@/context/RealtimeContext";
 import { useWallet } from "@/context/WalletContext";
@@ -26,11 +25,7 @@ import {
 import { selectBannerDerby } from "@/lib/derbiBanner";
 import { markMapSeen, wasMapSeenBefore } from "@/lib/mapSeen";
 import type { SupportAppliedMessage } from "@/lib/realtimeSocket";
-import {
-  getPerformanceModePreference,
-  isPerformanceModeEnabled,
-  type PerformanceModePreference,
-} from "@/lib/performanceMode";
+import { isPerformanceModeEnabled } from "@/lib/performanceMode";
 import styles from "@/components/ProvinceMap.module.css";
 import mapChrome from "@/components/map/MapChrome.module.css";
 
@@ -54,9 +49,6 @@ function MapInner() {
   const [selectedIl, setSelectedIl] = useState<string | null>(focusIl);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [liveMessage, setLiveMessage] = useState<string | null>(null);
-  const [perfPref, setPerfPref] = useState<PerformanceModePreference>(() =>
-    typeof window !== "undefined" ? getPerformanceModePreference() : "auto",
-  );
   const [derbies, setDerbies] = useState<Derby[]>([]);
   const [scoreboardOpen, setScoreboardOpen] = useState(Boolean(focusDerbi));
   const [scoreboardDerby, setScoreboardDerby] = useState<Derby | null>(null);
@@ -221,7 +213,7 @@ function MapInner() {
           selectedIlCode={selectedIl ?? focusIl}
           highlightPulse={highlightPulse}
           derbies={derbies}
-          perfModeEnabled={isPerformanceModeEnabled(perfPref)}
+          perfModeEnabled={isPerformanceModeEnabled("auto")}
           sheetOpen={!scoreboardOpen && Boolean(selectedIl)}
           onCitySelect={(city) => {
             setSelectedIl(city.il_code);
@@ -248,7 +240,6 @@ function MapInner() {
             ⌕
           </button>
           <LocaleToggle />
-          <PerfModeToggle value={perfPref} onChange={setPerfPref} />
         </div>
         {liveMessage && !selectedIl ? (
           <p className={mapChrome.liveToast} aria-live="polite">

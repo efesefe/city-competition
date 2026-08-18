@@ -10,6 +10,13 @@ export type CreditPack = {
 
 export type CreditPacksResponse = {
   packs: CreditPack[];
+  promo?: { bonus_percent: number } | null;
+  custom?: {
+    min_credits: number;
+    max_credits: number;
+    credits: number;
+    amount_kurus: number;
+  } | null;
 };
 
 export type CheckoutResult = {
@@ -86,6 +93,7 @@ export function startCheckout(input: {
   provider: string;
   product_id: string;
   return_url: string;
+  credits?: number;
 }) {
   return authJSON<CheckoutResult>("POST", "/v1/payments/checkout", input);
 }

@@ -202,10 +202,12 @@ func main() {
 		Wallet: creditsWallet,
 	}
 	invoiceWriter := &monetization.InvoiceWriter{KDVRateBPS: cfg.KDVRateBPS}
+	promoStore := &monetization.PromoStore{Pool: pools.Write}
 	webPurchaseService := &monetization.WebPurchaseService{
 		Pool:             pools.Write,
 		Wallet:           creditsWallet,
 		Packs:            packStore,
+		Promos:           promoStore,
 		Invoices:         invoiceWriter,
 		PaymentsURL:      cfg.PaymentsServiceURL,
 		InternalToken:    cfg.PaymentsInternalToken,
@@ -217,11 +219,13 @@ func main() {
 		PaymentsURL:   cfg.PaymentsServiceURL,
 		InternalToken: cfg.PaymentsInternalToken,
 	}
+	iapService.Promos = promoStore
 	monetizationHandler := &monetization.Handler{
 		IAP:           iapService,
 		BattlePass:    battlePassService,
 		WebPurchase:   webPurchaseService,
 		Refunds:       refundService,
+		Promos:        promoStore,
 		Breaker:       writeBreaker,
 		InternalToken: cfg.PaymentsInternalToken,
 	}
@@ -316,6 +320,7 @@ func main() {
 		},
 	}
 	auditWriter := &admin.PoolWriter{Pool: pools.Write}
+	monetizationHandler.Audit = auditWriter
 	moderationActions := &moderation.Actions{Pool: pools.Write}
 	appealsStore := &moderation.Appeals{Pool: pools.Write, Inbox: inboxInsert}
 	moderationHandler := &admin.Handler{Pool: pools.Write, Actions: moderationActions, Appeals: appealsStore}
@@ -342,6 +347,7 @@ func main() {
 		Profiles: &leaderboard.PoolProfiles{Pool: pools.Read},
 		Control:  supportCache,
 		Derbies:  derbyService,
+		Pool:     pools.Read,
 	}
 
 	hubCtx, hubCancel := context.WithCancel(context.Background())
@@ -457,6 +463,9 @@ func main() {
 	mux.Handle("POST /v1/admin/users/{id}/shadow-ban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.ShadowBanUser))))
 	mux.Handle("POST /v1/admin/users/{id}/unban", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(moderationHandler.UnbanUser))))
 	mux.Handle("POST /v1/admin/refunds", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(monetizationHandler.AdminRefund))))
+	mux.Handle("GET /v1/admin/promos", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(monetizationHandler.GetPromo))))
+	mux.Handle("POST /v1/admin/promos", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(monetizationHandler.ActivatePromo))))
+	mux.Handle("POST /v1/admin/promos/deactivate", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(monetizationHandler.DeactivatePromo))))
 	mux.Handle("GET /v1/admin/analytics/funnel", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(analyticsHandler.Funnel))))
 	mux.Handle("GET /v1/admin/analytics/cohorts", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(analyticsHandler.Cohorts))))
 	mux.Handle("GET /v1/admin/analytics/heatmap", auth.RequireSession(sessions, users, auth.RequireAdmin(users, http.HandlerFunc(analyticsHandler.Heatmap))))
@@ -482,6 +491,7 @@ func main() {
 	mux.Handle("POST /v1/region/{il_code}/support", auth.RequireSession(sessions, users, supportSpendLimit(http.HandlerFunc(supportHandler.CreateByRegion))))
 	mux.Handle("GET /v1/me/supports", auth.RequireSession(sessions, users, http.HandlerFunc(supportHandler.ListMine)))
 	mux.Handle("GET /v1/leaderboards/global", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Global)))
+	mux.Handle("GET /v1/leaderboards/tribe-rank", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.TribeRank)))
 	mux.Handle("GET /v1/leaderboards/tribes/{tribe_id}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Tribe)))
 	mux.Handle("GET /v1/leaderboards/provinces/{il_code}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.Province)))
 	mux.Handle("GET /v1/leaderboards/derbies/{derby_id}", auth.RequireSession(sessions, users, http.HandlerFunc(lbHandler.DerbySupporters)))
