@@ -15,3 +15,4 @@ Project context for future sessions. Update this list when adding a new module o
 | [web-payments.md](web-payments.md) | Web checkout is iyzico-only; Papara/BKM packs deactivated; native IAP unchanged |
 | [tribe-emblems.md](tribe-emblems.md) | Original mascot silhouettes on tribe crests (slug-keyed, no official club marks) |
 | [tribe-stripes.md](tribe-stripes.md) | Vertical kit-color stripes on held Türkiye map provinces |
+| [frontend-docker-build.md](frontend-docker-build.md) | Next `npm run build` in the frontend image; LeaderboardScope typecheck |
