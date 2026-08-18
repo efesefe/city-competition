@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	keyGlobalSupporters  = "lb:global:supporters"
-	keyTribeFmt          = "lb:tribe:%s:supporters"
-	keyProvinceFmt       = "lb:province:%s:supporters"
-	keyDerbyFmt          = "lb:derby:%s:supporters"
+	keyGlobalSupporters    = "lb:global:supporters"
+	keyTribeFmt            = "lb:tribe:%s:supporters"
+	keyProvinceFmt         = "lb:province:%s:supporters"
+	keyDerbyFmt            = "lb:derby:%s:supporters"
 	keyTribeRankSupporters = "lb:tribe_rank:supporters"
 )
 
@@ -46,6 +46,11 @@ func TribeKey(tribeID uuid.UUID) string {
 // ProvinceKey returns lb:province:{il_code}:supporters.
 func ProvinceKey(ilCode string) string {
 	return fmt.Sprintf(keyProvinceFmt, ilCode)
+}
+
+// DerbyKey returns lb:derby:{derby_id}:supporters.
+func DerbyKey(derbyID uuid.UUID) string {
+	return fmt.Sprintf(keyDerbyFmt, derbyID.String())
 }
 
 // TribeRankKey returns lb:tribe_rank:supporters (tribes ranked by support).
