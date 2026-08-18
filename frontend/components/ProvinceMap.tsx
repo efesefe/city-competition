@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import maplibregl from "maplibre-gl";
 import LocaleToggle from "@/components/LocaleToggle";
-import PerfModeToggle from "@/components/PerfModeToggle";
 import { useRealtime } from "@/context/RealtimeContext";
 import { useWallet } from "@/context/WalletContext";
 import {
@@ -17,9 +16,7 @@ import { type MapBBox, type SupportAppliedMessage } from "@/lib/realtimeSocket";
 import { fetchWalletBalance } from "@/lib/wallet-api";
 import {
   getChoroplethPerfConfig,
-  getPerformanceModePreference,
   isPerformanceModeEnabled,
-  type PerformanceModePreference,
 } from "@/lib/performanceMode";
 import {
   choroplethFillColor,
@@ -63,9 +60,6 @@ export default function ProvinceMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const liveMsgRef = useRef(t);
-  const [perfPref, setPerfPref] = useState<PerformanceModePreference>(() =>
-    typeof window !== "undefined" ? getPerformanceModePreference() : "auto",
-  );
   const [selected, setSelected] = useState<SelectedProvince | null>(null);
   const [credits, setCredits] = useState("10");
   const [busy, setBusy] = useState(false);
@@ -106,7 +100,7 @@ export default function ProvinceMap({
       process.env.NEXT_PUBLIC_MAP_STYLE_URL ??
       "https://tiles.openfreemap.org/styles/liberty";
 
-    const perfEnabled = isPerformanceModeEnabled(perfPref);
+    const perfEnabled = isPerformanceModeEnabled("auto");
     const perf = getChoroplethPerfConfig(perfEnabled);
     const fillOpacity = perf.useSteppedOpacity
       ? choroplethFillOpacityPerf
@@ -254,7 +248,7 @@ export default function ProvinceMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [focusIl, perfPref, sendViewport, sendViewportNow, setBBoxGetter]);
+  }, [focusIl, sendViewport, sendViewportNow, setBBoxGetter]);
 
   async function onSupport(e: FormEvent) {
     e.preventDefault();
@@ -308,11 +302,10 @@ export default function ProvinceMap({
         aria-label={t("ariaLabel")}
         data-testid="province-map"
         data-map-ready={mapReady ? "true" : "false"}
-        data-perf-mode={isPerformanceModeEnabled(perfPref) ? "on" : "off"}
+        data-perf-mode={isPerformanceModeEnabled("auto") ? "on" : "off"}
       />
       <aside className={styles.panel} aria-live="polite">
         <LocaleToggle />
-        <PerfModeToggle value={perfPref} onChange={setPerfPref} />
         <p className={styles.brand}>{tCommon("brand")}</p>
         <h1 className={styles.title}>{t("title")}</h1>
         <p className={styles.lead}>{t("lead")}</p>

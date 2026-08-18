@@ -41,6 +41,9 @@ func (u *Updater) OnSupportApplied(ctx context.Context, ev support.SupportApplie
 		if err := u.Store.Incr(ctx, TribeKey(ev.TribeID), member, ev.Delta); err != nil {
 			u.log().Error("leaderboard tribe incr failed", "user_id", ev.UserID, "tribe_id", ev.TribeID, "error", err)
 		}
+		if err := u.Store.Incr(ctx, TribeRankKey(), ev.TribeID.String(), ev.Delta); err != nil {
+			u.log().Error("leaderboard tribe rank incr failed", "tribe_id", ev.TribeID, "error", err)
+		}
 	}
 	if ev.IlCode != "" {
 		if err := u.Store.Incr(ctx, ProvinceKey(ev.IlCode), member, ev.Delta); err != nil {

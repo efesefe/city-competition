@@ -53,6 +53,8 @@ func seedWebUser(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	t.Cleanup(func() {
 		_, _ = pool.Exec(context.Background(), `DELETE FROM invoices WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM web_purchases WHERE user_id = $1`, id)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM purchase_quotes WHERE user_id = $1`, id)
+		_, _ = pool.Exec(context.Background(), `DELETE FROM purchase_promos WHERE created_by = $1 OR deactivated_by = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_ledger WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM credit_accounts WHERE user_id = $1`, id)
 		_, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, id)
@@ -92,3 +94,124 @@ func TestWebPurchaseGrantCreditsIdempotent(t *testing.T) {
 		t.Fatalf("second=%+v first=%+v", r2, r1)
 	}
 }
+
+func TestWebPurchaseCustomQuoteGrant(t *testing.T) {
+	pool := webTestPool(t)
+	userID := seedWebUser(t, pool)
+	svc := &WebPurchaseService{
+		Pool:   pool,
+		Wallet: &credits.Wallet{Pool: pool},
+		Packs:  &PackStore{Pool: pool},
+	}
+	intentID := uuid.New()
+	if err := InsertQuote(context.Background(), pool, PurchaseQuote{
+		PaymentIntentID: intentID,
+		UserID:          userID,
+		ProductID:       ProductCustom,
+		BaseCredits:     75,
+		BonusPercent:    0,
+		Credits:         75,
+		AmountKurus:     750,
+	}); err != nil {
+		t.Fatalf("quote: %v", err)
+	}
+	in := CreditGrantInput{
+		UserID:            userID,
+		Credits:           75,
+		ProductID:         ProductCustom,
+		Provider:          ProviderIyzico,
+		ProviderPaymentID: "iyzi-custom-" + uuid.NewString(),
+		PaymentIntentID:   intentID,
+	}
+	r, err := svc.GrantFromPayments(context.Background(), in)
+	if err != nil {
+		t.Fatalf("grant: %v", err)
+	}
+	if r.CreditsGranted != 75 {
+		t.Fatalf("granted=%d want 75", r.CreditsGranted)
+	}
+
+	in.Credits = 76
+	if _, err := svc.GrantFromPayments(context.Background(), in); err != ErrProductMismatch {
+		t.Fatalf("mismatch err=%v want ErrProductMismatch", err)
+	}
+}
+
+func TestWebPurchasePromoFrozenOnQuote(t *testing.T) {
+	pool := webTestPool(t)
+	userID := seedWebUser(t, pool)
+	promos := &PromoStore{Pool: pool}
+	if _, err := promos.Activate(context.Background(), userID, 50); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	svc := &WebPurchaseService{
+		Pool:   pool,
+		Wallet: &credits.Wallet{Pool: pool},
+		Packs:  &PackStore{Pool: pool},
+		Promos: promos,
+	}
+	intentID := uuid.New()
+	if err := InsertQuote(context.Background(), pool, PurchaseQuote{
+		PaymentIntentID: intentID,
+		UserID:          userID,
+		ProductID:       "credits_100",
+		BaseCredits:     100,
+		BonusPercent:    50,
+		Credits:         150,
+		AmountKurus:     999,
+	}); err != nil {
+		t.Fatalf("quote: %v", err)
+	}
+	if _, err := promos.Deactivate(context.Background(), userID); err != nil {
+		t.Fatalf("deactivate: %v", err)
+	}
+	in := CreditGrantInput{
+		UserID:            userID,
+		Credits:           150,
+		ProductID:         "credits_100",
+		Provider:          ProviderIyzico,
+		ProviderPaymentID: "iyzi-promo-" + uuid.NewString(),
+		PaymentIntentID:   intentID,
+	}
+	r, err := svc.GrantFromPayments(context.Background(), in)
+	if err != nil {
+		t.Fatalf("grant: %v", err)
+	}
+	if r.CreditsGranted != 150 {
+		t.Fatalf("granted=%d want 150 frozen promo", r.CreditsGranted)
+	}
+
+	noQuote := CreditGrantInput{
+		UserID:            userID,
+		Credits:           150,
+		ProductID:         "credits_100",
+		Provider:          ProviderIyzico,
+		ProviderPaymentID: "iyzi-noquote-" + uuid.NewString(),
+		PaymentIntentID:   uuid.New(),
+	}
+	if _, err := svc.GrantFromPayments(context.Background(), noQuote); err != ErrProductMismatch {
+		t.Fatalf("no-quote mismatch err=%v", err)
+	}
+}
+
+func TestCustomGrantRequiresQuote(t *testing.T) {
+	pool := webTestPool(t)
+	userID := seedWebUser(t, pool)
+	svc := &WebPurchaseService{
+		Pool:   pool,
+		Wallet: &credits.Wallet{Pool: pool},
+		Packs:  &PackStore{Pool: pool},
+	}
+	_, err := svc.GrantFromPayments(context.Background(), CreditGrantInput{
+		UserID:            userID,
+		Credits:           75,
+		ProductID:         ProductCustom,
+		Provider:          ProviderIyzico,
+		ProviderPaymentID: "iyzi-noquote-custom-" + uuid.NewString(),
+		PaymentIntentID:   uuid.New(),
+	})
+	if err != ErrUnknownProduct {
+		t.Fatalf("err=%v want ErrUnknownProduct", err)
+	}
+}
+

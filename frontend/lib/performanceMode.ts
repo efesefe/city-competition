@@ -14,17 +14,6 @@ export type ChoroplethPerfConfig = {
 const DEFAULT_PREF: PerformanceModePreference = "auto";
 const LOW_MEMORY_GB = 4;
 
-function readStorage(): Storage | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
 export function getDeviceMemoryGb(): number | undefined {
   if (typeof navigator === "undefined") {
     return undefined;
@@ -40,17 +29,14 @@ export function isLowMemoryDevice(
 }
 
 export function getPerformanceModePreference(): PerformanceModePreference {
-  const raw = readStorage()?.getItem(PERF_MODE_STORAGE_KEY);
-  if (raw === "auto" || raw === "on" || raw === "off") {
-    return raw;
-  }
+  // Player override was removed; leftover cc_perf_mode values are ignored.
   return DEFAULT_PREF;
 }
 
 export function setPerformanceModePreference(
-  pref: PerformanceModePreference,
+  _pref: PerformanceModePreference,
 ): void {
-  readStorage()?.setItem(PERF_MODE_STORAGE_KEY, pref);
+  // No-op: the map no longer exposes a performance-mode control.
 }
 
 export function isPerformanceModeEnabled(

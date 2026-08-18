@@ -135,6 +135,12 @@ export default function ModerationPage() {
           >
             Analitik
           </Link>
+          <Link
+            className={`${styles.button} ${styles.buttonSecondary}`}
+            href="/admin/promos"
+          >
+            Kredi kampanyaları
+          </Link>
         </div>
 
         {error ? <p className={styles.error}>{error}</p> : null}

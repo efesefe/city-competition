@@ -60,7 +60,6 @@ async function seedSessionAndPerf(page: Page) {
   await page.addInitScript(() => {
     localStorage.setItem("cc_session_token", "test-session-token");
     localStorage.setItem("cc_user_id", "00000000-0000-4000-8000-000000000001");
-    localStorage.setItem("cc_perf_mode", "on");
   });
 }
 
@@ -217,6 +216,7 @@ test.describe("perf mode support", () => {
     await page.goto("/map?il=34");
 
     await expect(page.getByTestId("map-screen")).toBeVisible();
+    await expect(page.getByTestId("perf-mode-toggle")).toHaveCount(0);
     await expect(page.getByTestId("turkiye-map")).toHaveAttribute(
       "data-map-ready",
       "true",

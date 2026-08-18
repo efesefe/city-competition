@@ -155,12 +155,16 @@ func TestSupportApplied_IncrementsGlobalTribeProvince(t *testing.T) {
 		t.Fatalf("effective=%v", res.EffectiveSupport)
 	}
 
-	member := userID.String()
 	for _, key := range []string{
 		leaderboard.GlobalKey(),
 		leaderboard.TribeKey(tribeID),
 		leaderboard.ProvinceKey("34"),
+		leaderboard.TribeRankKey(),
 	} {
+		member := userID.String()
+		if key == leaderboard.TribeRankKey() {
+			member = tribeID.String()
+		}
 		score, err := store.Score(context.Background(), key, member)
 		if err != nil {
 			t.Fatalf("score %s: %v", key, err)
@@ -374,3 +378,64 @@ func TestProvinceStandings_UsesControlCache(t *testing.T) {
 		t.Fatalf("standings=%+v", pc)
 	}
 }
+
+func TestTribeRank_SeedsFromProvinceScoresAndRanks(t *testing.T) {
+	pool := testPool(t)
+	rdb := newRedis(t)
+	seedBoundary(t, pool, "01")
+	a := seedTribe(t, pool)
+	b := seedTribe(t, pool)
+	userID, _ := seedUser(t, pool, &a, false)
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO tribe_province_scores (tribe_id, il_code, effective_support_sum)
+		VALUES ($1, '01', 40), ($2, '01', 25)
+	`, a, b)
+	if err != nil {
+		t.Fatalf("seed scores: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM tribe_province_scores WHERE tribe_id IN ($1,$2)`, a, b)
+	})
+
+	store := &leaderboard.LeaderboardStore{RDB: rdb}
+	sessions := &auth.SessionService{RDB: rdb}
+	token, err := sessions.Create(context.Background(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &leaderboard.Handler{Store: store, Pool: pool}
+	mux := http.NewServeMux()
+	mux.Handle("GET /v1/leaderboards/tribe-rank", auth.RequireSession(sessions, nil, http.HandlerFunc(h.TribeRank)))
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/leaderboards/tribe-rank", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Entries []struct {
+			TribeID uuid.UUID `json:"tribe_id"`
+			Score   float64   `json:"score"`
+			Rank    int       `json:"rank"`
+		} `json:"entries"`
+		Me *struct {
+			Rank  int64   `json:"rank"`
+			Score float64 `json:"score"`
+		} `json:"me"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Entries) < 2 {
+		t.Fatalf("entries=%d want at least 2", len(body.Entries))
+	}
+	if body.Entries[0].TribeID != a || body.Entries[0].Score != 40 {
+		t.Fatalf("leader=%+v want tribe %s score 40", body.Entries[0], a)
+	}
+	if body.Me == nil || body.Me.Rank != 1 || body.Me.Score != 40 {
+		t.Fatalf("me=%+v want rank 1 score 40", body.Me)
+	}
+}
+

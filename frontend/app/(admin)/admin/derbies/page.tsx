@@ -99,6 +99,9 @@ export default function AdminDerbiesPage() {
           <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/analytics">
             Analitik
           </Link>
+          <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/admin/promos">
+            Kredi kampanyaları
+          </Link>
         </div>
 
         {error ? <p className={styles.error}>{error}</p> : null}

@@ -18,6 +18,23 @@ export type PackOffer = {
 
 const BONUS_THRESHOLD = 10;
 
+export const CUSTOM_PRODUCT_ID = "credits_custom";
+
+export function grantedCredits(base: number, promoPercent: number): number {
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  if (!Number.isFinite(promoPercent) || promoPercent <= 0) return Math.floor(base);
+  return Math.floor(base) + Math.floor((Math.floor(base) * promoPercent) / 100);
+}
+
+export function customAmountKurus(
+  credits: number,
+  rateCredits: number,
+  rateKurus: number,
+): number {
+  if (credits <= 0 || rateCredits <= 0 || rateKurus <= 0) return 0;
+  return Math.ceil((credits * rateKurus) / rateCredits);
+}
+
 /** Format kuruş as TRY for display (e.g. 999 → "₺9,99"). */
 export function formatTryFromKurus(kurus: number, locale = "tr-TR"): string {
   const tryAmount = kurus / 100;

@@ -19,6 +19,7 @@ type Service struct {
 	Wallet   *credits.Wallet
 	Verifier ReceiptVerifier
 	Packs    *PackStore
+	Promos   *PromoStore
 	Invoices *InvoiceWriter
 }
 
@@ -97,6 +98,17 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 		return GrantResult{}, err
 	}
 
+	grantCredits := pack.Credits
+	if s.Promos != nil {
+		promo, perr := s.Promos.Active(ctx)
+		if perr != nil {
+			return GrantResult{}, perr
+		}
+		if promo.Active {
+			grantCredits = ApplyBonus(pack.Credits, promo.BonusPercent)
+		}
+	}
+
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return GrantResult{}, fmt.Errorf("begin: %w", err)
@@ -111,7 +123,7 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 		) VALUES ($1, $2, $3, $4, $5, $6, 'verified')
 		ON CONFLICT (provider_transaction_id) DO NOTHING
 		RETURNING id
-	`, purchaseID, userID, string(verified.Provider), verified.ProductID, verified.TransactionID, pack.Credits).Scan(&insertedID)
+	`, purchaseID, userID, string(verified.Provider), verified.ProductID, verified.TransactionID, grantCredits).Scan(&insertedID)
 
 	already := false
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -130,7 +142,7 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 			return GrantResult{}, ErrInvalidReceipt
 		}
 		purchaseID = existingID
-		pack.Credits = existingCredits
+		grantCredits = existingCredits
 	} else if err != nil {
 		return GrantResult{}, fmt.Errorf("insert iap_purchase: %w", err)
 	} else {
@@ -142,7 +154,7 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 	}
 	balanceAfter, err := s.Wallet.GrantCreditsOnTx(ctx, tx, credits.ApplyInput{
 		UserID:         userID,
-		Amount:         pack.Credits,
+		Amount:         grantCredits,
 		Reason:         credits.ReasonPurchase,
 		RefType:        "iap_purchase",
 		RefID:          purchaseID.String(),
@@ -177,7 +189,7 @@ func (s *Service) grantVerified(ctx context.Context, userID uuid.UUID, verified 
 
 	return GrantResult{
 		BalanceAfter:   balanceAfter,
-		CreditsGranted: pack.Credits,
+		CreditsGranted: grantCredits,
 		PurchaseID:     purchaseID,
 		InvoiceID:      invoiceID,
 		AlreadyGranted: already,

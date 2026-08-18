@@ -5,15 +5,24 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import CheckoutPanel from "@/components/topup/CheckoutPanel";
+import CustomAmount from "@/components/topup/CustomAmount";
 import PackageGrid from "@/components/topup/PackageGrid";
 import { useWallet } from "@/context/WalletContext";
-import { groupPackOffers, formatKurusBreakdown } from "@/lib/packOffers";
+import { getPaymentSurface } from "@/lib/iapBridge";
+import {
+  CUSTOM_PRODUCT_ID,
+  customAmountKurus,
+  formatKurusBreakdown,
+  grantedCredits,
+  groupPackOffers,
+} from "@/lib/packOffers";
 import {
   CHECKOUT_INTENT_STORAGE_KEY,
   fetchCheckoutStatus,
   fetchCreditPacks,
   fetchInvoice,
   simulateIyzicoSuccess,
+  type CreditPacksResponse,
   type GrantResult,
   type InvoiceResponse,
 } from "@/lib/topup-api";
@@ -41,8 +50,13 @@ function ProfileTopupInner() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [packsRaw, setPacksRaw] = useState<
-    Awaited<ReturnType<typeof fetchCreditPacks>>["packs"]
+    CreditPacksResponse["packs"]
   >([]);
+  const [promoPercent, setPromoPercent] = useState(0);
+  const [customPricing, setCustomPricing] = useState<
+    CreditPacksResponse["custom"]
+  >(null);
+  const [customCredits, setCustomCredits] = useState("100");
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     null,
   );
@@ -56,8 +70,37 @@ function ProfileTopupInner() {
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
 
   const offers = useMemo(() => groupPackOffers(packsRaw), [packsRaw]);
-  const selectedOffer =
-    offers.find((o) => o.product_id === selectedProductId) ?? null;
+  const surface = getPaymentSurface();
+  const parsedCustom = Number.parseInt(customCredits, 10);
+  const customValid =
+    surface === "web" &&
+    customPricing != null &&
+    Number.isFinite(parsedCustom) &&
+    parsedCustom >= customPricing.min_credits &&
+    parsedCustom <= customPricing.max_credits;
+  const selectedOffer = useMemo(() => {
+    if (selectedProductId === CUSTOM_PRODUCT_ID && customValid && customPricing) {
+      return {
+        product_id: CUSTOM_PRODUCT_ID,
+        credits: grantedCredits(parsedCustom, promoPercent),
+        amount_kurus: customAmountKurus(
+          parsedCustom,
+          customPricing.credits,
+          customPricing.amount_kurus,
+        ),
+        bonus_percent: promoPercent,
+        providers: ["iyzico"],
+      };
+    }
+    return offers.find((o) => o.product_id === selectedProductId) ?? null;
+  }, [
+    customPricing,
+    customValid,
+    offers,
+    parsedCustom,
+    promoPercent,
+    selectedProductId,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +111,8 @@ function ProfileTopupInner() {
         const res = await fetchCreditPacks();
         if (cancelled) return;
         setPacksRaw(res.packs);
+        setPromoPercent(res.promo?.bonus_percent ?? 0);
+        setCustomPricing(res.custom ?? null);
         const grouped = groupPackOffers(res.packs);
         if (grouped[0]) {
           setSelectedProductId((prev) => prev ?? grouped[0].product_id);
@@ -260,6 +305,11 @@ function ProfileTopupInner() {
     <main className={styles.page} data-testid="profile-topup-screen">
       <h1 className={styles.title}>{t("title")}</h1>
       <p className={styles.lead}>{t("lead")}</p>
+      {promoPercent > 0 ? (
+        <p className={styles.promoBanner} data-testid="topup-promo-banner">
+          {t("promoBanner", { percent: promoPercent })}
+        </p>
+      ) : null}
 
       {returnPending ? (
         <p className={styles.status} data-testid="topup-return-pending">
@@ -296,10 +346,33 @@ function ProfileTopupInner() {
           <PackageGrid
             offers={offers}
             selectedProductId={selectedProductId}
+            promoPercent={promoPercent}
             onSelect={setSelectedProductId}
           />
+          {surface === "web" && customPricing ? (
+            <CustomAmount
+              selected={selectedProductId === CUSTOM_PRODUCT_ID}
+              credits={customCredits}
+              pricing={customPricing}
+              promoPercent={promoPercent}
+              onSelect={() => setSelectedProductId(CUSTOM_PRODUCT_ID)}
+              onCreditsChange={(value) => {
+                setCustomCredits(value);
+                setSelectedProductId(CUSTOM_PRODUCT_ID);
+              }}
+            />
+          ) : null}
           <CheckoutPanel
-            offer={selectedOffer}
+            offer={
+              selectedProductId === CUSTOM_PRODUCT_ID && !customValid
+                ? null
+                : selectedOffer
+            }
+            customCredits={
+              selectedProductId === CUSTOM_PRODUCT_ID && customValid
+                ? parsedCustom
+                : undefined
+            }
             onIapSuccess={(grant) => void handleIapSuccess(grant)}
           />
         </>

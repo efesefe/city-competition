@@ -29,6 +29,9 @@ func TestScopeKeys(t *testing.T) {
 	if got := DerbyKey(derbyID); got != "lb:derby:22222222-2222-2222-2222-222222222222:supporters" {
 		t.Fatalf("derby=%q", got)
 	}
+	if got := TribeRankKey(); got != "lb:tribe_rank:supporters" {
+		t.Fatalf("tribe rank=%q", got)
+	}
 }
 
 func TestPublicVisible(t *testing.T) {

@@ -151,7 +151,7 @@ func scopeTypeFromKey(key string) (string, bool) {
 		return "", false
 	}
 	switch parts[1] {
-	case "global", "tribe", "province", "derby":
+	case "global", "tribe", "province", "derby", "tribe_rank":
 		return parts[1], true
 	default:
 		return "", false

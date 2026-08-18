@@ -8,6 +8,7 @@ import LeaderboardTabs, {
   type LeaderboardTabId,
 } from "@/components/leaderboard/LeaderboardTabs";
 import PullToRefresh from "@/components/leaderboard/PullToRefresh";
+import TribeRankList from "@/components/leaderboard/TribeRankList";
 import { useCityData } from "@/context/CityDataContext";
 import { useRealtime } from "@/context/RealtimeContext";
 import { useWallet } from "@/context/WalletContext";
@@ -20,7 +21,9 @@ import {
 import {
   fetchGlobalBoard,
   fetchTribeBoard,
+  fetchTribeRankBoard,
   type LeaderboardBoard,
+  type TribeRankBoard,
 } from "@/lib/leaderboard-api";
 import {
   createDebouncedRefetch,
@@ -40,6 +43,9 @@ export default function LeaderboardPage() {
   const [tab, setTab] = useState<LeaderboardTabId>("global");
   const [globalBoard, setGlobalBoard] = useState<LeaderboardBoard | null>(null);
   const [tribeBoard, setTribeBoard] = useState<LeaderboardBoard | null>(null);
+  const [tribeRankBoard, setTribeRankBoard] = useState<TribeRankBoard | null>(
+    null,
+  );
   const [tribeMeta, setTribeMeta] = useState<Tribe | null>(null);
   const [allTribes, setAllTribes] = useState<Tribe[]>([]);
   const [derbies, setDerbies] = useState<Derby[]>([]);
@@ -73,6 +79,11 @@ export default function LeaderboardPage() {
     setTribeBoard(board);
   }, []);
 
+  const loadTribeRank = useCallback(async () => {
+    const board = await fetchTribeRankBoard();
+    setTribeRankBoard(board);
+  }, []);
+
   const loadDerbiesAndStandings = useCallback(async () => {
     const { derbies: list } = await listDerbies();
     setDerbies(list);
@@ -102,13 +113,15 @@ export default function LeaderboardPage() {
         await loadGlobal();
       } else if (active === "tribes") {
         await loadTribe();
+      } else if (active === "tribeRank") {
+        await loadTribeRank();
       } else {
         await loadDerbiesAndStandings();
       }
     } catch {
       setError(t("loadFailed"));
     }
-  }, [loadDerbiesAndStandings, loadGlobal, loadTribe, t]);
+  }, [loadDerbiesAndStandings, loadGlobal, loadTribe, loadTribeRank, t]);
 
   const initialLoad = useCallback(async () => {
     setLoading(true);
@@ -117,6 +130,7 @@ export default function LeaderboardPage() {
       await Promise.all([
         loadGlobal(),
         loadTribe(),
+        loadTribeRank(),
         loadDerbiesAndStandings(),
         loadTribesMeta(),
       ]);
@@ -129,6 +143,7 @@ export default function LeaderboardPage() {
     loadDerbiesAndStandings,
     loadGlobal,
     loadTribe,
+    loadTribeRank,
     loadTribesMeta,
     t,
   ]);
@@ -169,13 +184,14 @@ export default function LeaderboardPage() {
         try {
           if (next === "global") await loadGlobal();
           else if (next === "tribes") await loadTribe();
+          else if (next === "tribeRank") await loadTribeRank();
           else await loadDerbiesAndStandings();
         } catch {
           setError(t("loadFailed"));
         }
       })();
     },
-    [loadDerbiesAndStandings, loadGlobal, loadTribe, t],
+    [loadDerbiesAndStandings, loadGlobal, loadTribe, loadTribeRank, t],
   );
 
   const hostTribe = useMemo(() => {
@@ -232,6 +248,14 @@ export default function LeaderboardPage() {
             loading={listLoading}
             error={error}
             tribe={tribeMeta ?? tribe}
+          />
+        ) : null}
+        {tab === "tribeRank" ? (
+          <TribeRankList
+            board={tribeRankBoard}
+            loading={listLoading}
+            error={error}
+            viewerTribeId={tribeId}
           />
         ) : null}
         {tab === "derbi" && primaryDerby ? (

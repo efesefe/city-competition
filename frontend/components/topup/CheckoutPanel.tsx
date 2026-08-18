@@ -20,6 +20,7 @@ import styles from "./CheckoutPanel.module.css";
 
 type Props = {
   offer: PackOffer | null;
+  customCredits?: number;
   onIapSuccess: (grant: GrantResult) => void;
 };
 
@@ -31,7 +32,11 @@ const PROVIDER_LABEL_KEYS: Record<string, string> = {
   google: "providerGoogle",
 };
 
-export default function CheckoutPanel({ offer, onIapSuccess }: Props) {
+export default function CheckoutPanel({
+  offer,
+  customCredits,
+  onIapSuccess,
+}: Props) {
   const t = useTranslations("profile.topup");
   const surface = getPaymentSurface();
   const available = useMemo(
@@ -63,6 +68,9 @@ export default function CheckoutPanel({ offer, onIapSuccess }: Props) {
           provider: selectedProvider as WebProvider,
           product_id: offer.product_id,
           return_url: returnUrl,
+          ...(typeof customCredits === "number"
+            ? { credits: customCredits }
+            : {}),
         });
         window.sessionStorage.setItem(
           CHECKOUT_INTENT_STORAGE_KEY,

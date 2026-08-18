@@ -20,11 +20,14 @@ const (
 	ActionAppealReviewed    = moderation.ActionAppealReviewed
 	ActionAppealDismissed   = moderation.ActionAppealDismissed
 	ActionDerbyForceResolve = "derby_force_resolve"
+	ActionPromoActivate     = "promo_activate"
+	ActionPromoDeactivate   = "promo_deactivate"
 
 	TargetTypeReport = "user_report"
 	TargetTypeFlag   = "flagged_user"
 	TargetTypeAppeal = moderation.TargetTypeAppeal
 	TargetTypeDerby  = "derby"
+	TargetTypePromo  = "purchase_promo"
 )
 
 // Writer appends immutable audit_log rows.

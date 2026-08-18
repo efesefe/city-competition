@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupPackOffers, providersForSurface } from "@/lib/packOffers";
+import { groupPackOffers, providersForSurface, grantedCredits, customAmountKurus } from "@/lib/packOffers";
 import type { CreditPack } from "@/lib/topup-api";
 
 const packs: CreditPack[] = [
@@ -36,5 +36,19 @@ describe("providersForSurface", () => {
     expect(providersForSurface(small, "ios")).toEqual(["apple"]);
     const big = offers.find((o) => o.product_id === "credits_1200")!;
     expect(providersForSurface(big, "android")).toEqual(["google"]);
+  });
+});
+
+describe("grantedCredits / customAmountKurus", () => {
+  it("applies floor percent extra", () => {
+    expect(grantedCredits(100, 50)).toBe(150);
+    expect(grantedCredits(7, 50)).toBe(10);
+    expect(grantedCredits(100, 0)).toBe(100);
+  });
+
+  it("prices custom amounts from the baseline pack rate, rounding up", () => {
+    expect(customAmountKurus(100, 100, 999)).toBe(999);
+    expect(customAmountKurus(50, 100, 999)).toBe(500);
+    expect(customAmountKurus(500, 100, 999)).toBe(4995);
   });
 });
