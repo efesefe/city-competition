@@ -1,0 +1,35 @@
+# Expo + Fastify vertical slice
+
+**Date:** 2026-11-15  
+**Branch:** `cursor/map-auth-spend-slice-bbd0`  
+**Why:** Product stack lock is Expo-only + Fastify + Fly FRA. This slice is the first runnable vertical path (map → auth → kabile → spend → flip) without rewriting the legacy Next/Go tree yet.
+
+## Location
+
+| Path | Role |
+|------|------|
+| `apps/api` | Fastify API, SQLite domain DB, in-memory WS bus |
+| `apps/client` | Expo Router web/mobile client |
+| `apps/README.md` | Local runbook |
+
+## Behavior covered
+
+- 81-province SVG map colored by ownership digest  
+- Guest map + city sheet + scoreboard  
+- Phone OTP (mock) + OAuth stubs; Kabile after verify (Big 4 first)  
+- Always-confirm spend; idempotent ledger; live flip over WS  
+- Daily 100 energy via claim / `grant-sim`  
+- Seeds from `docs/city-seed-matrix.md` logic (2–3 teams)
+
+## Not in this slice
+
+Production Supabase project, Netgsm delivery, Redis, Postgres, iyzico/IAP, match-day boosts, TR midnight cron worker.
+
+## Test
+
+```bash
+cd apps/api && npm run dev
+cd apps/client && EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
+```
+
+See `apps/README.md` for env and real-vs-stubbed table.

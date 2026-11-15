@@ -1,0 +1,104 @@
+import { API_URL } from "./config";
+
+export type PublicUser = {
+  id: string;
+  handle: string;
+  phoneVerified: boolean;
+  phoneE164: string | null;
+  tribeId: string | null;
+  tribeAlias: string | null;
+  energy: { free: number; paid: number; sub: number; total: number };
+};
+
+export type DigestCity = {
+  plate: string;
+  ownerTeamId: string | null;
+  ownerAlias: string | null;
+  ownerColor: string | null;
+};
+
+export type CitySheet = {
+  plate: string;
+  nameTr: string;
+  ownerTeamId: string | null;
+  ownerAlias: string | null;
+  ownerColor: string | null;
+  support: { teamId: string; alias: string; color: string; support: number }[];
+  leadMargin: number;
+  topContributors: { handle: string; support: number }[];
+};
+
+export type Team = {
+  internalId: string;
+  publicAlias: string;
+  primary: string;
+  secondary: string;
+  big4: boolean;
+};
+
+async function request<T>(
+  path: string,
+  opts: { method?: string; body?: unknown; token?: string | null } = {},
+): Promise<T> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  if (opts.token) headers.Authorization = `Bearer ${opts.token}`;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: opts.method ?? (opts.body ? "POST" : "GET"),
+    headers,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error((data as { error?: string }).error || res.statusText);
+    (err as Error & { status: number; data: unknown }).status = res.status;
+    (err as Error & { status: number; data: unknown }).data = data;
+    throw err;
+  }
+  return data as T;
+}
+
+export const api = {
+  meta: () => request<{ actionCost: number; freeDailyGrant: number; auth: { mockOtpCode: string | null; phoneOtp: string }; shop: unknown }>("/v1/meta"),
+  digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
+  scoreboard: () => request<{ teams: { teamId: string; alias: string; color: string; citiesOwned: number }[] }>("/v1/scoreboard"),
+  city: (plate: string) => request<CitySheet>(`/v1/cities/${plate}`),
+  teams: () => request<{ teams: Team[] }>("/v1/teams"),
+  me: (token: string) => request<{ user: PublicUser }>("/v1/me", { token }),
+  startPhone: (phone: string) =>
+    request<{ ok: true; phoneE164: string; mock?: boolean; code?: string }>("/v1/auth/phone/start", {
+      body: { phone },
+    }),
+  verifyPhone: (phone: string, code: string) =>
+    request<{ token: string; user: PublicUser }>("/v1/auth/phone/verify", {
+      body: { phone, code },
+    }),
+  oauthStub: (provider: "google" | "apple") =>
+    request<{ token: string; user: PublicUser; needsPhone: boolean; stub: boolean }>(
+      `/v1/auth/oauth/${provider}`,
+      { method: "POST", body: {} },
+    ),
+  bindPhone: (token: string, phone: string, code: string) =>
+    request<{ user: PublicUser }>("/v1/auth/phone/bind", { token, body: { phone, code } }),
+  pickTribe: (token: string, tribeId: string) =>
+    request<{ user: PublicUser }>("/v1/tribe/pick", { token, body: { tribeId } }),
+  claimEnergy: (token: string) =>
+    request<{ granted: boolean; user: PublicUser }>("/v1/energy/claim", { token, method: "POST", body: {} }),
+  grantSim: (token: string) =>
+    request<{ granted: boolean; amount: number; user: PublicUser }>("/v1/energy/grant-sim", {
+      token,
+      method: "POST",
+      body: {},
+    }),
+  spend: (
+    token: string,
+    plate: string,
+    opts: { confirmed: true; idempotencyKey: string; amount?: number },
+  ) =>
+    request<{
+      flipped: boolean;
+      sheet: CitySheet;
+      digest: DigestCity[];
+      user: PublicUser;
+    }>(`/v1/cities/${plate}/spend`, { token, body: opts }),
+};

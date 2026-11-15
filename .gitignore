@@ -28,3 +28,10 @@ data/avatars/
 data/turkiye-il.geojson
 data/geoBoundaries-TUR-ADM1*.geojson
 
+
+# Slice vertical (Expo + Fastify)
+apps/api/data/
+apps/api/node_modules/
+apps/client/node_modules/
+apps/client/.expo/
+*.sqlite
