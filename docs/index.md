@@ -4,6 +4,7 @@ Project context for future sessions. Update this list when adding a new module o
 
 | Doc | Topic |
 | --- | --- |
+| [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
 | [presence.md](presence.md) | Redis TTL presence: online count (`SCARD`), per-tribe online members, map chip + chat dots |
 | [conquest-ui.md](conquest-ui.md) | Capture toast, ranked supporter badge, conquest log unread, own-flip celebration |
 | [derbi-map-urgency.md](derbi-map-urgency.md) | Derby city fill intensity, pulsing glow, countdown chip on the Türkiye map |
