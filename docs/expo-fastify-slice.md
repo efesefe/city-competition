@@ -33,3 +33,7 @@ cd apps/client && EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 ```
 
 See `apps/README.md` for env and real-vs-stubbed table.
+
+## Follow-up (web SVG)
+
+Expo web crashed when province `Path` used `onPress` (RN responder props leaked into DOM). See [turkiye-map-web-svg.md](turkiye-map-web-svg.md).
