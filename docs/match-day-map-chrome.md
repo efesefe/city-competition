@@ -34,7 +34,7 @@
 
 | Piece | Detail |
 |-------|--------|
-| Migration `005_match_day_chrome.sql` | `team_boost_windows.spotlight_plate` + `label` |
+| Migration `006_match_day_chrome.sql` | `team_boost_windows.spotlight_plate` + `label` |
 | `GET /v1/match-day/active` | Guest-readable active windows for chrome |
 | `POST /v1/match-day/fixture-stub` | Opens +25% for caller’s tribe + spotlight (default İstanbul `34`) |
 | Spend path | Unchanged — still snapshots `team_boost_windows` via `boostSnapshotForUser` |
