@@ -7,6 +7,7 @@ export type PublicUser = {
   phoneE164: string | null;
   tribeId: string | null;
   tribeAlias: string | null;
+  subActive?: boolean;
   energy: { free: number; paid: number; sub: number; total: number };
   /** Live personal × team multipliers for boosted-support UI. */
   boost?: BoostSnapshot;
@@ -133,6 +134,7 @@ export const api = {
       actionCost: number;
       actionCostBand: { min: number; max: number; default: number };
       freeDailyGrant: number;
+      subDailyBonus: number;
       auth: AuthMeta;
       shop: unknown;
     }>("/v1/meta"),
@@ -186,7 +188,7 @@ export const api = {
       method: "POST",
       body: {},
     }),
-  /** Dev/ops: run TR midnight free-energy batch without waiting. */
+  /** Dev/ops: run TR midnight free + sub-bonus batch without waiting. */
   grantJob: (opts?: { force?: boolean }) =>
     request<{
       ok: true;
@@ -194,16 +196,25 @@ export const api = {
         timezone: string;
         date: string;
         amount: number;
+        freeAmount: number;
+        subBonusAmount: number;
         scanned: number;
         granted: number;
         skippedAlreadyGranted: number;
+        subBonusGranted: number;
+        subBonusSkipped: number;
         force: boolean;
       };
     }>("/v1/energy/grant-job", {
       method: "POST",
       body: { force: opts?.force ?? false },
     }),
-
+  /** Dev/ops: set subscription entitlement without payments. */
+  subEntitle: (token: string, opts: { active: boolean; userId?: string }) =>
+    request<{ ok: true; userId: string; subActive: boolean; user: PublicUser | null }>(
+      "/v1/energy/sub-entitle",
+      { token, method: "POST", body: opts },
+    ),
   /** Payments stub — activates personal +50% / 1h without charging. */
   activatePersonalBoostStub: (token: string) =>
     request<{ ok: true; stub: true; boost: BoostSnapshot; user: PublicUser }>(

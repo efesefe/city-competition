@@ -12,7 +12,8 @@
 | Amount | `tunables.free_daily_grant` (default **100**) |
 | Clock | **Europe/Istanbul** calendar day (`YYYY-MM-DD`) |
 | Banking | Free bucket is **replaced** on grant — leftover free does **not** roll |
-| Paid / sub | Untouched by this job (sub **+50** daily is a later Energy leaf) |
+| Paid | Untouched |
+| Sub daily +50 | Same TR clock — see [`midnight-sub-bonus-jobs.md`](midnight-sub-bonus-jobs.md) (CC-33) |
 | Cap | No overall energy storage cap |
 | Eligibility | Phone-verified users only (lazy claim + batch job) |
 | Once per day | `users.free_grant_date` must equal today's TR date |
@@ -87,7 +88,8 @@ Expect free energy **100**, `free_grant_date` = today's TR date, paid/sub unchan
 
 ## Out of scope (later Energy leaves)
 
-- Sub daily **+50** on the same clock  
 - Action-cost band admin UI / OTP  
 - Personal / match-day boost multipliers  
 - Push “energy ready” fan-out  
+
+Sub daily **+50** on the same clock: [`midnight-sub-bonus-jobs.md`](midnight-sub-bonus-jobs.md).

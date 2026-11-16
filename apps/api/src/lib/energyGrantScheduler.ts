@@ -9,10 +9,11 @@ type Logger = {
 };
 
 /**
- * In-process TR-midnight free-energy job.
+ * In-process TR-midnight free-energy + sub-bonus job.
  *
- * Arms a timer for the next 00:00 Europe/Istanbul, runs the batch grant,
- * then re-arms. Also usable immediately via {@link kickEnergyGrantJob}.
+ * Arms a timer for the next 00:00 Europe/Istanbul, runs the batch grant
+ * (100 free for verified users; +50 for `sub_active` subscribers), then re-arms.
+ * Also usable immediately via {@link kickEnergyGrantJob}.
  *
  * Enable with `ENERGY_GRANT_SCHEDULER=true` (off by default so local API
  * boots stay quiet; Fly can set the flag when ready).
@@ -21,7 +22,7 @@ export function startEnergyGrantScheduler(db: Db, log: Logger): () => void {
   if (process.env.ENERGY_GRANT_SCHEDULER !== "true") {
     log.info(
       { timezone: TR_TIMEZONE },
-      "energy grant scheduler idle (set ENERGY_GRANT_SCHEDULER=true to arm TR midnight)",
+      "energy grant scheduler idle (set ENERGY_GRANT_SCHEDULER=true to arm TR midnight free+sub)",
     );
     return () => undefined;
   }
@@ -54,9 +55,9 @@ export function startEnergyGrantScheduler(db: Db, log: Logger): () => void {
         try {
           const result = await runDailyFreeEnergyJob(db, { now: new Date() });
           lastRunDate = result.date;
-          log.info(result, "energy grant job completed");
+          log.info(result, "TR midnight free+sub energy job completed");
         } catch (err) {
-          log.error({ err }, "energy grant job failed");
+          log.error({ err }, "TR midnight free+sub energy job failed");
         }
       }
     }

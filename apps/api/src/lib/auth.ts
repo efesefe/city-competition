@@ -22,9 +22,12 @@ export type UserRow = {
   paid_energy: number;
   sub_energy: number;
   free_grant_date: string | null;
-  /** ISO timestamptz string when personal boost is active; null/undefined when inactive. */
-  personal_boost_expires_at?: string | Date | null;
+  /** Server entitlement for TR midnight +50; set by payments / ops, not client. */
+  sub_active?: boolean;
+  sub_grant_date?: string | null;
   created_at: string;
+  /** ISO timestamptz when personal boost is active; null when inactive. */
+  personal_boost_expires_at?: string | Date | null;
 };
 
 const MOCK_OTP = process.env.MOCK_OTP_CODE || "123456";
@@ -243,6 +246,7 @@ export function publicUser(
     phoneE164: user.phone_e164,
     tribeId: user.tribe_id,
     tribeAlias: teamAlias ?? null,
+    subActive: Boolean(user.sub_active),
     energy: {
       free: Number(user.free_energy),
       paid: Number(user.paid_energy),
