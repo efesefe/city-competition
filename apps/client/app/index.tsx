@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -9,9 +9,17 @@ import {
   View,
 } from "react-native";
 import { CitySheetModal } from "../components/CitySheet";
+import { MatchDayBanner } from "../components/MatchDayBanner";
 import { TurkiyeMap } from "../components/TurkiyeMap";
-import { api, boostFromUser, type CitySheet, type DigestCity } from "../lib/api";
+import {
+  api,
+  boostFromUser,
+  type CitySheet,
+  type DigestCity,
+  type MatchDayEvent,
+} from "../lib/api";
 import { wsUrl } from "../lib/config";
+import { selectBannerEvent, selectSpotlightPlates } from "../lib/matchDayChrome";
 import { useSession } from "../lib/session";
 
 function idemKey() {
@@ -34,6 +42,7 @@ export default function MapScreen() {
   const [actionCost, setActionCost] = useState(15);
   const [pulse, setPulse] = useState<Set<string>>(new Set());
   const [flipBanner, setFlipBanner] = useState<string | null>(null);
+  const [matchDayEvents, setMatchDayEvents] = useState<MatchDayEvent[]>([]);
   const fade = useRef(new Animated.Value(0)).current;
   const selectLock = useRef(false);
   const openedResume = useRef(false);
@@ -51,11 +60,35 @@ export default function MapScreen() {
     }
   }, []);
 
+  const loadMatchDay = useCallback(async () => {
+    try {
+      const res = await api.matchDayActive();
+      setMatchDayEvents(Array.isArray(res.events) ? res.events : []);
+    } catch {
+      /* chrome optional — map still works */
+    }
+  }, []);
+
   useEffect(() => {
     void api.meta().then((m) => setActionCost(m.actionCost)).catch(() => undefined);
     void loadDigest();
+    void loadMatchDay();
     void refresh();
-  }, [loadDigest, refresh]);
+  }, [loadDigest, loadMatchDay, refresh]);
+
+  useEffect(() => {
+    const id = setInterval(() => void loadMatchDay(), 60_000);
+    return () => clearInterval(id);
+  }, [loadMatchDay]);
+
+  const bannerEvent = useMemo(
+    () => selectBannerEvent(matchDayEvents, user?.tribeId),
+    [matchDayEvents, user?.tribeId],
+  );
+  const spotlightPlates = useMemo(
+    () => selectSpotlightPlates(matchDayEvents),
+    [matchDayEvents],
+  );
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -241,11 +274,21 @@ export default function MapScreen() {
         <Text style={styles.tagline}>Türkiye paylaşılıyor. Kabileni seç, şehirler için savaş.</Text>
       </View>
 
+      {bannerEvent ? (
+        <MatchDayBanner
+          event={bannerEvent}
+          onPressSpotlight={() => {
+            if (bannerEvent.spotlightPlate) void openCity(bannerEvent.spotlightPlate);
+          }}
+        />
+      ) : null}
+
       <View style={styles.mapPane}>
         <TurkiyeMap
           digest={digest}
           selectedPlate={selected}
           pulsePlates={pulse}
+          spotlightPlates={spotlightPlates}
           onSelect={openCity}
         />
         {digestStatus === "loading" ? (

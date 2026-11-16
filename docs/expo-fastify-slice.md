@@ -26,6 +26,7 @@
 - **Post-verify Kabile picker (CC-63):** Big 4 first then rest; `public_alias` from [team-aliases.md](team-aliases.md). See [post-verify-kabile-picker.md](post-verify-kabile-picker.md).  
 - City sheet combat panel (CC-26): owner, lead, real-handle contributors, Attack/Defend + confirm — see [city-sheet-combat-panel.md](city-sheet-combat-panel.md)  
 - Confirm spend + boosted support UI (CC-27): always-confirm modal; live personal×team multipliers on sheet/confirm; personal boost purchase stub — see [confirm-spend-boost-ui.md](confirm-spend-boost-ui.md)  
+- Match-day map chrome (CC-28): thin team-boost banner + city spotlight; fixture stub until Admin ops — see [match-day-map-chrome.md](match-day-map-chrome.md)  
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Action cost from `tunables.action_cost` (band **10–20**, default **15**) — admin `PUT /v1/admin/tunables/action-cost` (see [action-cost-tunable.md](action-cost-tunable.md))  
 - Daily 100 energy via claim / `grant-sim`  
@@ -33,7 +34,7 @@
 
 ## Not in this slice
 
-Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico/IAP (boost display + stub activate are in), admin-scheduled match-day windows, TR midnight cron worker, push delivery worker.
+Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico/IAP (boost display + stub activate are in), full admin MatchDay scheduling UI (fixture stub is in), TR midnight cron worker, push delivery worker.
 
 Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `docker compose` in `apps/api`, or Neon/Fly MPG + Upstash). See [postgres-migration.md](postgres-migration.md) and [redis-realtime-ops.md](redis-realtime-ops.md).
 

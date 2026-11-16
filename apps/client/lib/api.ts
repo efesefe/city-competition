@@ -90,6 +90,20 @@ export function effectiveSupport(base: number, boost: BoostSnapshot = DEFAULT_BO
   return Math.round(base * boost.personalBoostPct * boost.teamBoostPct * 1000) / 1000;
 }
 
+/** Active match-day window for map banner + spotlight chrome. */
+export type MatchDayEvent = {
+  id: string;
+  teamId: string;
+  teamAlias: string;
+  teamColor: string | null;
+  boostPct: number;
+  spotlightPlate: string | null;
+  cityNameTr: string | null;
+  label: string | null;
+  startsAt: string;
+  endsAt: string;
+};
+
 async function request<T>(
   path: string,
   opts: { method?: string; body?: unknown; token?: string | null } = {},
@@ -202,6 +216,20 @@ export const api = {
       "/v1/boosts/team/sim",
       { token, method: "POST", body: {} },
     ),
+  /** Guest-readable active match-day events (banner + spotlight). */
+  matchDayActive: () => request<{ events: MatchDayEvent[] }>("/v1/match-day/active"),
+  /** Fixture stub: team +25% + spotlight city until Admin MatchDay ops. */
+  matchDayFixtureStub: (
+    token: string,
+    body: { spotlightPlate?: string; label?: string | null; durationMs?: number } = {},
+  ) =>
+    request<{
+      ok: true;
+      stub: true;
+      event: MatchDayEvent;
+      boost: BoostSnapshot;
+      user: PublicUser;
+    }>("/v1/match-day/fixture-stub", { token, method: "POST", body }),
   spend: (
     token: string,
     plate: string,
