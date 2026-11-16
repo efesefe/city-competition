@@ -6,6 +6,7 @@ Project context for future sessions. Update this list when adding a new module o
 | --- | --- |
 | [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
 | [postgres-migration.md](postgres-migration.md) | API SQLite → Postgres (`DATABASE_URL`, migrations, Realtime ledger handoff) |
+| [redis-realtime-ops.md](redis-realtime-ops.md) | Redis/`REDIS_URL` for ownership pub/sub, rate limits, alert coalesce hooks |
 | [turkiye-map-web-svg.md](turkiye-map-web-svg.md) | Expo web fix: Path `onPress` → WebShape unknown event handlers |
 | [presence.md](presence.md) | Redis TTL presence: online count (`SCARD`), per-tribe online members, map chip + chat dots |
 | [conquest-ui.md](conquest-ui.md) | Capture toast, ranked supporter badge, conquest log unread, own-flip celebration |

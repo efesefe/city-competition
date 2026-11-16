@@ -10,6 +10,7 @@ import {
   type Queryable,
 } from "./db.js";
 import { publish, type OwnershipDigestCity } from "./bus.js";
+import { noteFlip, noteRivalAttack } from "./coalesce.js";
 import { TEAM_BY_ID } from "../data/teams.js";
 
 export async function ownershipDigest(db: Queryable): Promise<OwnershipDigestCity[]> {
@@ -323,20 +324,39 @@ export async function spendEnergy(
   }
 
   const applied = result;
+  const team = TEAM_BY_ID.get(applied.toTeamId);
+  const toAlias = team?.publicAlias ?? applied.toTeamId;
+  const toColor = team?.primary ?? "#888888";
+
+  // Alert coalesce hooks (5-min window) — push delivery is a later leaf.
+  if (applied.fromOwner && applied.fromOwner !== tribeId) {
+    await noteRivalAttack({
+      plate: opts.plate,
+      defendingTribeId: applied.fromOwner,
+      spenderTribeId: tribeId,
+      spenderAlias: TEAM_BY_ID.get(tribeId)?.publicAlias ?? tribeId,
+    });
+  }
+
   if (applied.flipped) {
-    const team = TEAM_BY_ID.get(applied.toTeamId);
-    publish({
+    await publish({
       type: "flip",
       plate: opts.plate,
       fromTeamId: applied.fromOwner,
       toTeamId: applied.toTeamId,
-      toAlias: team?.publicAlias ?? applied.toTeamId,
-      toColor: team?.primary ?? "#888888",
+      toAlias,
+      toColor,
+    });
+    await noteFlip({
+      plate: opts.plate,
+      fromTeamId: applied.fromOwner,
+      toTeamId: applied.toTeamId,
+      toAlias,
     });
   }
 
   const digest = await ownershipDigest(db);
-  publish({ type: "digest", cities: digest });
+  await publish({ type: "digest", cities: digest });
 
   const refreshed = await one(db, `SELECT * FROM users WHERE id = $1`, [opts.userId]);
 

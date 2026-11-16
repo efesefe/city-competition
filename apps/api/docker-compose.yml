@@ -1,4 +1,5 @@
-# Local Postgres for the Fastify slice (Neon / Fly MPG in prod via DATABASE_URL).
+# Local Postgres + Redis for the Fastify slice.
+# Prod: DATABASE_URL (Neon / Fly MPG) + REDIS_URL (Upstash rediss:// or equivalent EU Redis).
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,6 +13,16 @@ services:
       - city_pg_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U city -d city_competition"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 3s
       timeout: 3s
       retries: 10
