@@ -8,6 +8,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [supabase-auth-providers.md](supabase-auth-providers.md) | CC-19: Supabase Auth phone/Google/Apple + Send SMS Hook seam |
 | [netgsm-otp-sms-hook.md](netgsm-otp-sms-hook.md) | CC-20: Netgsm OTP send from `POST /v1/auth/hooks/send-sms` |
 | [phone-verify-before-play.md](phone-verify-before-play.md) | CC-21: Phone verify wall before spend + Kabile pick |
+| [gate-guest-actions.md](gate-guest-actions.md) | CC-23: Guests browse-only; other actions → login |
 | [postgres-migration.md](postgres-migration.md) | API SQLite → Postgres (`DATABASE_URL`, migrations, Realtime ledger handoff) |
 | [redis-realtime-ops.md](redis-realtime-ops.md) | Redis/`REDIS_URL` for ownership pub/sub, rate limits, alert coalesce hooks |
 | [persist-ledger-live-flips.md](persist-ledger-live-flips.md) | CC-35: `FOR UPDATE` spend, boost snapshot cols, strict-lead flips + Redis fan-out |

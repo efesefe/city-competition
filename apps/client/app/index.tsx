@@ -152,13 +152,18 @@ export default function MapScreen() {
     }
   }, []);
 
+  const goLogin = () => {
+    router.push("/auth");
+  };
+
   const goPlay = () => {
-    if (!token) {
-      router.push("/auth");
+    // Guests → login; unverified → phone wall on /auth; then Kabile (CC-21/23).
+    if (!token || !user) {
+      goLogin();
       return;
     }
-    if (!user?.phoneVerified) {
-      router.push("/auth");
+    if (!user.phoneVerified) {
+      goLogin();
       return;
     }
     if (!user.tribeId) {
@@ -167,8 +172,19 @@ export default function MapScreen() {
     }
   };
 
+  const openShop = () => {
+    if (!token || !user) {
+      goLogin();
+      return;
+    }
+    router.push("/shop");
+  };
+
   const onSpend = async (amount: number) => {
-    if (!token || !selected) return;
+    if (!token || !selected) {
+      goLogin();
+      return;
+    }
     const res = await api.spend(token, selected, {
       confirmed: true,
       idempotencyKey: idemKey(),
@@ -238,7 +254,7 @@ export default function MapScreen() {
         <Pressable style={styles.link} onPress={() => router.push("/scoreboard")}>
           <Text style={styles.linkText}>Skor</Text>
         </Pressable>
-        <Pressable style={styles.link} onPress={() => router.push("/shop")}>
+        <Pressable style={styles.link} onPress={openShop}>
           <Text style={styles.linkText}>Dükkan</Text>
         </Pressable>
         <Pressable style={styles.play} onPress={goPlay}>

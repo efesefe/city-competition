@@ -46,3 +46,24 @@ export function phoneGateMessage(err: unknown, kind: "play" | "spend" | "kabile"
 export function needsPhoneVerify(user: { phoneVerified?: boolean } | null | undefined): boolean {
   return Boolean(user) && !user!.phoneVerified;
 }
+
+/** Guest browse-only (CC-23). Locked copy for city-sheet CTA. */
+export const GUEST_SUPPORT_CTA = {
+  en: "Log in to support",
+  tr: "Desteklemek için giriş yap",
+} as const;
+
+export const GUEST_LOGIN_WALL = {
+  en: "Log in to continue — guests can only browse the map.",
+  tr: "Devam etmek için giriş yap — misafirler yalnızca haritayı gezebilir.",
+} as const;
+
+/** Paths guests may open without a session. */
+export function isGuestBrowseRoute(pathname: string): boolean {
+  const p = pathname.replace(/\/$/, "") || "/";
+  return p === "/" || p === "/scoreboard" || p === "/index";
+}
+
+export function isGuest(user: unknown, token: string | null | undefined): boolean {
+  return !token || !user;
+}

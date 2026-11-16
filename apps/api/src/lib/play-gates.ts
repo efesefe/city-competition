@@ -52,3 +52,16 @@ export function phoneUnverifiedPayload(
 export function isPhoneVerified(user: { phone_verified?: boolean; phoneVerified?: boolean }): boolean {
   return Boolean(user.phone_verified ?? user.phoneVerified);
 }
+
+/** Guest (no session) — any action beyond browse → login (CC-23). */
+export const GUEST_LOGIN_WALL = {
+  error: "unauthorized" as const,
+  code: "login_required" as const,
+  gate: "guest_login" as const,
+  message: "Log in to continue — guests can only browse the map.",
+  messageTr: "Devam etmek için giriş yap — misafirler yalnızca haritayı gezebilir.",
+};
+
+export function guestLoginPayload() {
+  return { ...GUEST_LOGIN_WALL };
+}
