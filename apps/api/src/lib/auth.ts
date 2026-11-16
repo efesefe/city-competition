@@ -28,7 +28,7 @@ export type UserRow = {
   created_at: string;
   /** ISO timestamptz when personal boost is active; null when inactive. */
   personal_boost_expires_at?: string | Date | null;
-  /** CC-61 tutorial flags (migration 008). */
+/** CC-61 tutorial flags (migration 008). */
   tutorial_claimed_energy?: boolean;
   tutorial_capture?: boolean;
   tutorial_live_fight?: boolean;
@@ -38,6 +38,8 @@ export type UserRow = {
   tutorial_fight_plate?: string | null;
   /** CC-62: confirms on capture city without flip (migration 009). */
   tutorial_capture_confirms?: number;
+  /** player | admin — gates /v1/admin/* */
+  role?: string;
 };
 
 const MOCK_OTP = process.env.MOCK_OTP_CODE || "123456";
@@ -274,6 +276,7 @@ export function publicUser(
     tribeId: user.tribe_id,
     tribeAlias: teamAlias ?? null,
     subActive: Boolean(user.sub_active),
+    role: user.role === "admin" ? "admin" : "player",
     energy: {
       free: Number(user.free_energy),
       paid: Number(user.paid_energy),

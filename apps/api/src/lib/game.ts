@@ -116,7 +116,8 @@ export async function listActiveMatchDayEvents(db: Queryable): Promise<MatchDayE
      FROM team_boost_windows w
      JOIN teams t ON t.internal_id = w.team_id
      LEFT JOIN cities c ON c.plate = w.spotlight_plate
-     WHERE w.starts_at <= NOW() AND w.ends_at > NOW()
+     WHERE w.canceled_at IS NULL
+       AND w.starts_at <= NOW() AND w.ends_at > NOW()
      ORDER BY w.ends_at DESC`,
   );
   return rows.map((r) => ({

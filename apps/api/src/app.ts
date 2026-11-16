@@ -44,6 +44,16 @@ import {
   teamScoreboard,
   type BoostSnapshot,
 } from "./lib/game.js";
+
+import {
+  cancelMatchDayWindow,
+  isAdminRole,
+  listMatchDayWindows,
+  promoteAdminSim,
+  scheduleDerbyWar,
+  scheduleTeamBoost,
+  updateMatchDayWindow,
+} from "./lib/admin-match-day.js";
 import {
   energyGrantTriggersEnabled,
   forceGrantDaily,
@@ -96,6 +106,16 @@ async function publicUserWithBoost(db: Db, user: UserRow, teamAlias?: string | n
         ? (TEAM_BY_ID.get(user.tribe_id)?.publicAlias ?? null)
         : null;
   return publicUser(user, alias, boost);
+}
+
+
+async function requireAdmin(db: Db, req: Parameters<typeof userFromRequest>[1]) {
+  const user = await userFromRequest(db, req);
+  if (!user) return { ok: false as const, status: 401 as const, error: "unauthorized" as const };
+  if (!isAdminRole(user.role)) {
+    return { ok: false as const, status: 403 as const, error: "forbidden" as const };
+  }
+  return { ok: true as const, user };
 }
 
 /** Build the Fastify app (shared by server boot and load/smoke tests). */
@@ -755,6 +775,118 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       user: await publicUserWithBoost(db, refreshed),
       note: "Fixture stub — Admin MatchDay scheduling leaf replaces this",
     };
+  });
+
+  /** Slice bootstrap: promote verified caller to admin (OTP enrollment is a later leaf). */
+  app.post("/v1/admin/promote-sim", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const result = await promoteAdminSim(db, user.id);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    const refreshed = (await getUserById(db, user.id))!;
+    return { ok: true, simulated: true, user: await publicUserWithBoost(db, refreshed) };
+  });
+
+  /** CC-50/51: list scheduled match-day windows (team boosts + derby wars). */
+  app.get("/v1/admin/match-day", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const q = req.query as { includeCanceled?: string; kind?: string };
+    const kind =
+      q.kind === "team_boost" || q.kind === "derby_war" ? q.kind : undefined;
+    const windows = await listMatchDayWindows(db, {
+      includeCanceled: q.includeCanceled === "1" || q.includeCanceled === "true",
+      kind,
+    });
+    return { windows };
+  });
+
+  /** CC-50: schedule +25% team boost (kickoff−1h → FT+30m via kickoffAt/fullTimeAt, or explicit window). */
+  app.post("/v1/admin/match-day/team-boosts", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        teamId: z.string().min(1),
+        boostPct: z.number().min(1).max(3).optional(),
+        startsAt: z.string().optional(),
+        endsAt: z.string().optional(),
+        kickoffAt: z.string().optional(),
+        fullTimeAt: z.string().optional(),
+        notes: z.string().nullable().optional(),
+        label: z.string().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await scheduleTeamBoost(db, {
+      ...body.data,
+      adminUserId: gate.user.id,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return reply.code(201).send({ window: result.window });
+  });
+
+  /** CC-51: schedule derby timed city war (spotlight on plate; boost optional, default 1.0). */
+  app.post("/v1/admin/match-day/derby-wars", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        teamId: z.string().min(1),
+        spotlightPlate: z.string().min(1).max(3),
+        boostPct: z.number().min(1).max(3).optional(),
+        startsAt: z.string().optional(),
+        endsAt: z.string().optional(),
+        kickoffAt: z.string().optional(),
+        fullTimeAt: z.string().optional(),
+        notes: z.string().nullable().optional(),
+        label: z.string().nullable().optional(),
+        involvedAliases: z.string().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await scheduleDerbyWar(db, {
+      ...body.data,
+      adminUserId: gate.user.id,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return reply.code(201).send({ window: result.window });
+  });
+
+  app.patch<{ Params: { id: string } }>("/v1/admin/match-day/:id", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const id = req.params.id;
+    const body = z
+      .object({
+        boostPct: z.number().min(1).max(3).optional(),
+        startsAt: z.string().optional(),
+        endsAt: z.string().optional(),
+        notes: z.string().nullable().optional(),
+        label: z.string().nullable().optional(),
+        spotlightPlate: z.string().nullable().optional(),
+        involvedAliases: z.string().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await updateMatchDayWindow(db, id, body.data);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return { window: result.window };
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/admin/match-day/:id/cancel", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const id = req.params.id;
+    const result = await cancelMatchDayWindow(db, id);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return { window: result.window };
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {

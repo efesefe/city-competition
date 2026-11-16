@@ -19,6 +19,7 @@ export default function RootLayout() {
         <Stack.Screen name="pick-tribe" options={{ title: "Kabile seç" }} />
         <Stack.Screen name="scoreboard" options={{ title: "Season 0 · Boards" }} />
         <Stack.Screen name="shop" options={{ title: "Dükkan (stub)" }} />
+        <Stack.Screen name="admin" options={{ title: "Admin — maç günü" }} />
       </Stack>
     </SessionProvider>
   );
