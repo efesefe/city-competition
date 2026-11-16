@@ -43,21 +43,7 @@ export default function PickTribeScreen() {
   );
 
   useEffect(() => {
-  
-  const submitTicket = async () => {
-    if (!token || !ticketClub.trim()) return;
-    setTicketNote(null);
-    try {
-      await api.submitTeamAddTicket(token, ticketClub.trim());
-      setTicketNote("Talep alındı — admin inceleyecek.");
-      setTicketClub("");
-      setHint(null);
-    } catch (e) {
-      setTicketNote(e instanceof Error ? e.message : "ticket_failed");
-    }
-  };
-
-  if (!token || !user) {
+    if (!token || !user) {
       setLoading(false);
       return;
     }
@@ -83,6 +69,19 @@ export default function PickTribeScreen() {
       cancelled = true;
     };
   }, [token, user]);
+
+  const submitTicket = async () => {
+    if (!token || !ticketClub.trim()) return;
+    setTicketNote(null);
+    try {
+      await api.submitTeamAddTicket(token, ticketClub.trim());
+      setTicketNote("Talep alındı — admin inceleyecek.");
+      setTicketClub("");
+      setHint(null);
+    } catch (e) {
+      setTicketNote(e instanceof Error ? e.message : "ticket_failed");
+    }
+  };
 
   const resumeHome = () => {
     const resume = typeof params.resume === "string" ? params.resume : "";
@@ -330,4 +329,33 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   error: { color: "#e07070", marginBottom: 8 },
   hint: { color: "#8fd4a0", marginBottom: 8, fontSize: 13, lineHeight: 18 },
+  ticketBox: {
+    marginTop: 12,
+    gap: 8,
+    backgroundColor: "#13261d",
+    padding: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#1e3329",
+  },
+  ticketTitle: { color: "#c8a96b", fontWeight: "700", fontSize: 14 },
+  input: {
+    backgroundColor: "#0b1f17",
+    borderWidth: 1,
+    borderColor: "#1e3329",
+    borderRadius: 8,
+    color: "#f4e7c5",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  ticketCta: {
+    backgroundColor: "#1a3226",
+    borderWidth: 1,
+    borderColor: "#c8a96b",
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  ticketCtaText: { color: "#c8a96b", fontWeight: "700", fontSize: 14 },
+  ticketNote: { color: "#8fd4a0", fontSize: 13, lineHeight: 18 },
 });

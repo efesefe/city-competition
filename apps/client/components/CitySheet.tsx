@@ -29,11 +29,17 @@ type Props = {
   actionCost: number;
   /** Live boost snapshot from /v1/me (personal × team). */
   boost?: BoostSnapshot;
+  /** Logged-in support share CTA (CC-59). */
+  shareAvailable?: boolean;
+  /** Show accomplishment share after a successful flip. */
+  flippedShareAvailable?: boolean;
   onClose: () => void;
   onPlay: () => void;
-  onSpend: (amount: number) => Promise<void>;
+  onSpend: (amount: number) => Promise<void | { flipped: boolean } | undefined>;
   onClaim?: () => void;
   onShop?: () => void;
+  onShareSupport?: () => Promise<void>;
+  onShareFlip?: () => Promise<void>;
 };
 
 function displayHandle(handle: string): string {
@@ -433,5 +439,14 @@ const styles = StyleSheet.create({
   ctaDisabled: { opacity: 0.4 },
   ctaText: { color: "#0b1f17", fontWeight: "700", fontSize: 16 },
   ctaSub: { color: "#3d2e12", fontSize: 12, marginTop: 2 },
+  shareBtn: {
+    borderWidth: 1,
+    borderColor: "#c8a96b",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  shareText: { color: "#c8a96b", fontWeight: "700", fontSize: 14 },
   error: { color: "#e07070", marginTop: 6 },
 });
