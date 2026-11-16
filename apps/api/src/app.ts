@@ -30,10 +30,12 @@ import {
 } from "./lib/actionCost.js";
 import { closeDb, getActionCost, getFreeGrant, one, setActionCost, type Db } from "./lib/db.js";
 import {
+  activateMatchDayFixtureStub,
   activatePersonalBoostStub,
   activateTeamBoostSim,
   boostSnapshotForUser,
   citySheet,
+  listActiveMatchDayEvents,
   loadOwnershipDigest,
   pickTribe,
   scoreboard,
@@ -629,6 +631,41 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       boost: result.boost,
       windowId: result.windowId,
       user: await publicUserWithBoost(db, refreshed),
+    };
+  });
+
+  /** Guest-readable active match-day windows for map banner + spotlight chrome. */
+  app.get("/v1/match-day/active", async () => ({
+    events: await listActiveMatchDayEvents(db),
+  }));
+
+  /**
+   * Fixture stub until Admin MatchDay ops: team +25% + spotlight city (default İstanbul).
+   * Prefer this over team-boost-only sims when verifying locked banner+spotlight chrome.
+   */
+  app.post("/v1/match-day/fixture-stub", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        spotlightPlate: z.string().min(1).max(3).optional(),
+        label: z.string().max(80).nullable().optional(),
+        durationMs: z.number().int().min(60_000).max(8 * 60 * 60 * 1000).optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await activateMatchDayFixtureStub(db, user.id, body.data);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    const refreshed = (await getUserById(db, user.id))!;
+    return {
+      ok: true,
+      stub: true,
+      event: result.event,
+      boost: result.boost,
+      user: await publicUserWithBoost(db, refreshed),
+      note: "Fixture stub — Admin MatchDay scheduling leaf replaces this",
     };
   });
 

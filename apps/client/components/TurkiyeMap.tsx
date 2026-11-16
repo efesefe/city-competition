@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useRef } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 import type { DigestCity } from "../lib/api";
@@ -16,6 +16,8 @@ export type TurkiyeMapProps = {
   digest: DigestCity[];
   selectedPlate?: string | null;
   pulsePlates?: Set<string>;
+  /** Match-day timed-war / derby city plates (locked with banner). */
+  spotlightPlates?: Set<string>;
   onSelect: (plate: string) => void;
 };
 
@@ -117,12 +119,41 @@ const ProvincePathNative = memo(
  * Expo web: never mount react-native-svg Path with onPress — WebShape forwards
  * RN responder props into createElement and blank the map. DOM <svg>/<path> only.
  */
-function TurkiyeMapWeb({ digest, selectedPlate, pulsePlates, onSelect }: TurkiyeMapProps) {
+function useSpotlightPulse(active: boolean) {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    if (!active) {
+      setPhase(0);
+      return;
+    }
+    let raf = 0;
+    let start = 0;
+    const tick = (t: number) => {
+      if (!start) start = t;
+      setPhase(((t - start) % 1600) / 1600);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active]);
+  return phase;
+}
+
+function TurkiyeMapWeb({
+  digest,
+  selectedPlate,
+  pulsePlates,
+  spotlightPlates,
+  onSelect,
+}: TurkiyeMapProps) {
   const colorByPlate = useColorByPlate(digest);
   const vb = parseViewBox(atlas.viewBox);
+  const hasSpotlight = (spotlightPlates?.size ?? 0) > 0;
+  const phase = useSpotlightPulse(hasSpotlight);
+  const glowOpacity = hasSpotlight ? 0.35 + 0.35 * Math.sin(phase * Math.PI * 2) : 0;
 
   return (
-    <View style={styles.wrap}>
+    <View style={styles.wrap} testID="turkiye-map">
       {/* eslint-disable-next-line react/no-unknown-property -- DOM svg */}
       <svg
         width="100%"
@@ -138,21 +169,54 @@ function TurkiyeMapWeb({ digest, selectedPlate, pulsePlates, onSelect }: Turkiye
           <ProvincePathWeb
             key={f.plate}
             feature={f}
-            paint={provinceStyle(f.plate, colorByPlate, selectedPlate, pulsePlates)}
+            paint={provinceStyle(
+              f.plate,
+              colorByPlate,
+              selectedPlate,
+              pulsePlates,
+              spotlightPlates,
+            )}
             onSelect={onSelect}
           />
         ))}
+        {/* Soft amber halo under spotlight cities — pulse without badge stickers. */}
+        {hasSpotlight
+          ? atlas.features
+              .filter((f) => spotlightPlates?.has(f.plate))
+              .map((f) => (
+                <path
+                  key={`glow-${f.plate}`}
+                  d={f.path}
+                  fill="none"
+                  stroke="#e8b84a"
+                  strokeWidth={4.5}
+                  strokeOpacity={glowOpacity}
+                  pointerEvents="none"
+                  vectorEffect="non-scaling-stroke"
+                  data-testid={`match-day-spotlight-${f.plate}`}
+                />
+              ))
+          : null}
       </svg>
     </View>
   );
 }
 
-function TurkiyeMapNative({ digest, selectedPlate, pulsePlates, onSelect }: TurkiyeMapProps) {
+function TurkiyeMapNative({
+  digest,
+  selectedPlate,
+  pulsePlates,
+  spotlightPlates,
+  onSelect,
+}: TurkiyeMapProps) {
   const colorByPlate = useColorByPlate(digest);
   const vb = parseViewBox(atlas.viewBox);
+  const hasSpotlight = (spotlightPlates?.size ?? 0) > 0;
+  const phase = useSpotlightPulse(hasSpotlight);
+  const glowOpacity = hasSpotlight ? 0.35 + 0.35 * Math.sin(phase * Math.PI * 2) : 0;
 
   return (
-    <View style={styles.wrap} collapsable={false}>
+    <View style={styles.wrap} collapsable={false} testID="turkiye-map">
       <Svg
         width="100%"
         height="100%"
@@ -165,10 +229,31 @@ function TurkiyeMapNative({ digest, selectedPlate, pulsePlates, onSelect }: Turk
           <ProvincePathNative
             key={f.plate}
             feature={f}
-            paint={provinceStyle(f.plate, colorByPlate, selectedPlate, pulsePlates)}
+            paint={provinceStyle(
+              f.plate,
+              colorByPlate,
+              selectedPlate,
+              pulsePlates,
+              spotlightPlates,
+            )}
             onSelect={onSelect}
           />
         ))}
+        {hasSpotlight
+          ? atlas.features
+              .filter((f) => spotlightPlates?.has(f.plate))
+              .map((f) => (
+                <Path
+                  key={`glow-${f.plate}`}
+                  d={f.path}
+                  fill="none"
+                  stroke="#e8b84a"
+                  strokeWidth={4.5}
+                  strokeOpacity={glowOpacity}
+                  pointerEvents="none"
+                />
+              ))
+          : null}
       </Svg>
     </View>
   );
