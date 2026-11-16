@@ -46,8 +46,9 @@ Upstash / managed: set `REDIS_URL` to the TLS URL (`rediss://…`).
 | Redis connect + ping | **Real** |
 | Multi-instance WS fan-out via pub/sub | **Real** |
 | Spend / OTP rate limits (429 + Retry-After) | **Real** |
-| 5-min coalesce buffers + `notif_queue` enqueue | **Real hooks** |
-| Expo Push / APNs / FCM delivery | **Stub** (worker leaf later) |
+| 5-min coalesce buffers + `notif_queue` enqueue | **Real** (CC-57 attack path dual-writes inbox + queue) |
+| In-process push worker draining `notif_queue` | **Real** (LogPushSender until FCM/APNs) |
+| Expo Push / APNs / FCM provider credentials | **Stub** (tokens accepted; provider not wired) |
 | Digest cache warm path | **Real** (CC-36): boot warm + spend refresh; WS subscribe reads `cc:digest:cache` |
 
 ## Follow-up

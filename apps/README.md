@@ -149,7 +149,8 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 | Derby timed war | Spotlight plate on window row | Admin schedule (`/v1/admin/match-day/derby-wars`) |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | RevenueCat native packs+sub (iOS+Android); stub via `ALLOW_IAP_STUB` | Web iyzico still separate leaf |
-| Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | Push delivery worker still stub |
+| Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | — |
+| Attack alerts (owned + 24h spend, 5-min coalesce) | Yes — inbox + `notif_queue` worker | FCM/APNs provider credentials |
 | Postgres | Yes (`DATABASE_URL`) | — |
 | Lost-SIM phone rebind | Support API + audit (`SUPPORT_OPS_KEY`) | No self-serve UI |
 
