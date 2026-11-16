@@ -28,6 +28,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [midnight-sub-bonus-jobs.md](midnight-sub-bonus-jobs.md) | CC-33: TR midnight free 100 + sub +50 stacked grants |
 | [personal-boost-logic.md](personal-boost-logic.md) | CC-32: personal +50%/1h with real expiry; personal×team stack on spend; purchase stub |
 | [admin-match-day-schedule.md](admin-match-day-schedule.md) | CC-50/51: admin schedule team +25% windows + derby timed city wars |
+| [admin-ops-mvp.md](admin-ops-mvp.md) | CC-52…55: OTP-gated admin writes, team-add triage, seed load, ops metrics |
 | [idempotent-spend.md](idempotent-spend.md) | CC-37: concurrent idempotent spend load/smoke tests + HTTP retry/single-flight harden |
 | [websocket-city-digest.md](websocket-city-digest.md) | CC-36: guest/player WS subscribe, 81-city ownership+support digest, spend/flip live |
 | [turkiye-map-web-svg.md](turkiye-map-web-svg.md) | Expo web fix: Path `onPress` → WebShape unknown event handlers |

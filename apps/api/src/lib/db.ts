@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { CITY_SEEDS } from "../data/city-seeds.js";
-import { TEAM_BY_ALIAS, TEAMS } from "../data/teams.js";
+import { registerTeam, TEAM_BY_ALIAS, TEAMS } from "../data/teams.js";
 import {
   ACTION_COST_DEFAULT,
   coerceActionCost,
@@ -130,6 +130,8 @@ async function ensureSeedAndTunables(database: Db) {
   const teamCount = await one<{ c: string }>(database, `SELECT COUNT(*)::text AS c FROM teams`);
   if (Number(teamCount?.c ?? 0) === 0) {
     await seed(database);
+  } else {
+    await hydrateTeamRegistry(database);
   }
 
   const actionCost = await one<{ value: string }>(
@@ -158,6 +160,25 @@ async function ensureSeedAndTunables(database: Db) {
       "sub_daily_bonus",
       "50",
     ]);
+  }
+}
+
+async function hydrateTeamRegistry(database: Db) {
+  const rows = await many<{
+    internal_id: string;
+    public_alias: string;
+    primary_color: string;
+    secondary_color: string;
+    big4: boolean;
+  }>(database, `SELECT internal_id, public_alias, primary_color, secondary_color, big4 FROM teams`);
+  for (const r of rows) {
+    registerTeam({
+      internalId: r.internal_id,
+      publicAlias: r.public_alias,
+      primary: r.primary_color,
+      secondary: r.secondary_color,
+      big4: Boolean(r.big4),
+    });
   }
 }
 

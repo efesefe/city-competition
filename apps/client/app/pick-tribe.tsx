@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { GuestLoginWall } from "../components/GuestLoginWall";
@@ -29,6 +30,8 @@ export default function PickTribeScreen() {
   const [rest, setRest] = useState<Team[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [ticketClub, setTicketClub] = useState("");
+  const [ticketNote, setTicketNote] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -40,7 +43,21 @@ export default function PickTribeScreen() {
   );
 
   useEffect(() => {
-    if (!token || !user) {
+  
+  const submitTicket = async () => {
+    if (!token || !ticketClub.trim()) return;
+    setTicketNote(null);
+    try {
+      await api.submitTeamAddTicket(token, ticketClub.trim());
+      setTicketNote("Talep alındı — admin inceleyecek.");
+      setTicketClub("");
+      setHint(null);
+    } catch (e) {
+      setTicketNote(e instanceof Error ? e.message : "ticket_failed");
+    }
+  };
+
+  if (!token || !user) {
       setLoading(false);
       return;
     }
@@ -203,17 +220,21 @@ export default function PickTribeScreen() {
             </View>
           ))}
 
-          <Pressable
-            style={styles.secondary}
-            onPress={() =>
-              setHint(
-                "Eksik kabile? Doğrulanmış hesapla ekip ekleme bileti yakında. / Missing club? Add-team ticket coming for verified accounts.",
-              )
-            }
-            testID="kabile-request-add"
-          >
-            <Text style={styles.secondaryText}>Eksik kabile? Ekleme iste / Request add-team</Text>
-          </Pressable>
+          <View style={styles.ticketBox} testID="kabile-request-add">
+            <Text style={styles.ticketTitle}>Takım ekle talebi / Request add-team</Text>
+            <Text style={styles.sub}>Listede yoksa ops’a ilet (resmi isim admin’de kalır).</Text>
+            <TextInput
+              style={styles.input}
+              value={ticketClub}
+              onChangeText={setTicketClub}
+              placeholder="İstediğin kulüp (ops notu)"
+              placeholderTextColor="#5a7266"
+            />
+            <Pressable style={styles.ticketCta} onPress={submitTicket}>
+              <Text style={styles.ticketCtaText}>Ticket gönder</Text>
+            </Pressable>
+            {ticketNote ? <Text style={styles.ticketNote}>{ticketNote}</Text> : null}
+          </View>
         </ScrollView>
       )}
 
