@@ -54,15 +54,20 @@ export function CitySheetModal({
   user,
   actionCost,
   boost = DEFAULT_BOOST,
+  shareAvailable,
+  flippedShareAvailable,
   onClose,
   onPlay,
   onSpend,
   onClaim,
   onShop,
+  onShareSupport,
+  onShareFlip,
 }: Props) {
   const cost = clampCost(actionCost);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,7 +88,22 @@ export function CitySheetModal({
   const combatLabelTr = ownsCity ? "Savun" : "Saldır";
 
   const credited = useMemo(() => effectiveSupport(cost, boost), [cost, boost]);
-  const boosted = boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
+  const boosted =
+    boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
+  const canShare = !!(user?.phoneVerified && user.tribeId);
+
+  const runShare = async (fn?: () => Promise<void>) => {
+    if (!fn || !canShare) return;
+    setShareBusy(true);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "share_failed");
+    } finally {
+      setShareBusy(false);
+    }
+  };
 
   /** Sheet CTA never spends — only opens the always-confirm modal (or auth). */
   const openConfirm = () => {
@@ -189,6 +209,29 @@ export function CitySheetModal({
                 <Text style={styles.meta}>Fark: {Math.round(sheet.leadMargin)} destek</Text>
               ) : null}
 
+
+                  {shareAvailable && onShareSupport ? (
+                    <Pressable
+                      style={[styles.shareBtn, shareBusy && styles.ctaDisabled]}
+                      disabled={shareBusy}
+                      onPress={() => void runShare(onShareSupport)}
+                    >
+                      <Text style={styles.shareText}>
+                        {shareBusy ? "…" : "Paylaş — destek"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {flippedShareAvailable && onShareFlip ? (
+                    <Pressable
+                      style={[styles.shareBtn, shareBusy && styles.ctaDisabled]}
+                      disabled={shareBusy}
+                      onPress={() => void runShare(onShareFlip)}
+                    >
+                      <Text style={styles.shareText}>
+                        {shareBusy ? "…" : "Paylaş — aldık!"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
               <Text style={styles.section}>Top contributors</Text>
               <Text style={styles.sectionTr}>En çok katkı (gerçek handle)</Text>
               {sheet.topContributors.length === 0 ? (

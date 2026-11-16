@@ -649,7 +649,24 @@ tutorial: (token: string) =>
         openTeamAddTickets: number;
         note: string;
       };
-    }>("/v1/admin/metrics", { token }),
+    }>("/v1/admin/metrics", { token }),,
+
+  /** Logged-in only — mints a static support / accomplishment share card. */
+  createShareCard: (
+    token: string,
+    body:
+      | { kind: "support"; plate: string; cityName?: string; boosted?: boolean }
+      | {
+          kind: "accomplishment";
+          variant: "took_city" | "cities_owned" | "held_city";
+          plate?: string;
+          cityName?: string;
+          citiesOwned?: number;
+          season?: string;
+        },
+  ) =>
+    request<{ card: ShareCard }>(`/v1/share/cards`, { token, body }),
+  getShareCard: (id: string) => request<ShareCard>(`/v1/share/${id}`),
 };
 
 export type TeamAddTicket = {
@@ -663,5 +680,20 @@ export type TeamAddTicket = {
   createdTeamId: string | null;
   triagedBy: string | null;
   triagedAt: string | null;
+};
+
+export type ShareCard = {
+  id: string;
+  kind: "support" | "accomplishment";
+  title: string;
+  description: string;
+  lineTr: string;
+  lineEn: string;
+  brand: string;
+  season: string | null;
+  deepLink: string;
+  sharePath: string;
+  cardSvgPath: string;
+  primaryColor: string;
   createdAt: string;
 };

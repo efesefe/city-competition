@@ -45,9 +45,11 @@ export default function MapScreen() {
   const [pulse, setPulse] = useState<Set<string>>(new Set());
   const [flipBanner, setFlipBanner] = useState<string | null>(null);
   const [matchDayEvents, setMatchDayEvents] = useState<MatchDayEvent[]>([]);
-  const [tutorial, setTutorial] = useState<TutorialState | null>(null);
+const [tutorial, setTutorial] = useState<TutorialState | null>(null);
   const [tutorialBusy, setTutorialBusy] = useState(false);
   const [showDoneCard, setShowDoneCard] = useState(false);
+  const [shareAvailable, setShareAvailable] = useState(false);
+  const [flippedShareAvailable, setFlippedShareAvailable] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const selectLock = useRef(false);
   const openedResume = useRef(false);
@@ -199,6 +201,8 @@ export default function MapScreen() {
     setSheetLoading(true);
     setSheet(null);
     setSheetError(null);
+    setShareAvailable(false);
+    setFlippedShareAvailable(false);
     try {
       const s = await api.city(plate);
       setSheet(s);
@@ -279,7 +283,7 @@ export default function MapScreen() {
     setDigest(res.digest);
     setDigestStatus("ready");
     updateUser(res.user);
-    if (res.user.tutorial) {
+if (res.user.tutorial) {
       setTutorial((prev) => ({
         ...(prev ?? res.user.tutorial!),
         ...res.user.tutorial!,
@@ -292,6 +296,33 @@ export default function MapScreen() {
     } else {
       void loadTutorial();
     }
+    // Logged-in share entry points only (no guest map share).
+    setShareAvailable(true);
+    setFlippedShareAvailable(!!res.flipped);
+    return { flipped: res.flipped };
+  };
+
+  const onShareSupport = async () => {
+    if (!token || !sheet) return;
+    const { shareCardNative } = await import("../lib/share");
+    const { card } = await api.createShareCard(token, {
+      kind: "support",
+      plate: sheet.plate,
+      cityName: sheet.nameTr,
+    });
+    await shareCardNative(card);
+  };
+
+  const onShareFlip = async () => {
+    if (!token || !sheet) return;
+    const { shareCardNative } = await import("../lib/share");
+    const { card } = await api.createShareCard(token, {
+      kind: "accomplishment",
+      variant: "took_city",
+      plate: sheet.plate,
+      cityName: sheet.nameTr,
+    });
+    await shareCardNative(card);
   };
 
   const closeSheet = () => {
@@ -453,11 +484,19 @@ export default function MapScreen() {
         user={user}
         actionCost={actionCost}
         boost={boostFromUser(user)}
-        onClose={closeSheet}
+        shareAvailable={shareAvailable}
+        flippedShareAvailable={flippedShareAvailable}
+        onClose={() => {
+          closeSheet();
+          setShareAvailable(false);
+          setFlippedShareAvailable(false);
+        }}
         onPlay={goPlay}
         onSpend={onSpend}
         onClaim={onClaim}
         onShop={onShop}
+        onShareSupport={onShareSupport}
+        onShareFlip={onShareFlip}
       />
     </View>
   );

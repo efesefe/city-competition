@@ -119,6 +119,17 @@ import {
   parseRevenueCatWebhook,
   verifyRevenueCatAuthorization,
 } from "./lib/revenuecatWebhook.js";
+import {
+  ShareKindAccomplishment,
+  ShareKindSupport,
+  accomplishmentPayloadFrom,
+  createShareCard,
+  getShareCard,
+  listMyShareCards,
+  renderShareSvg,
+  supportPayloadFrom,
+  toPublicView,
+} from "./lib/share.js";
 
 export type BuildAppOptions = {
   db: Db;
@@ -1307,6 +1318,128 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       platform: body.data.platform,
     });
     return { ok: true };
+  });
+
+
+  /**
+   * Mint a static share card (logged-in + verified + tribe only).
+   * Guest / map-generic share is intentionally unsupported.
+   */
+  app.post("/v1/share/cards", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user.phone_verified) return reply.code(403).send({ error: "phone_unverified" });
+    if (!user.tribe_id) return reply.code(403).send({ error: "tribe_required" });
+
+    const body = z
+      .discriminatedUnion("kind", [
+        z.object({
+          kind: z.literal(ShareKindSupport),
+          plate: z.string().min(1).max(4),
+          cityName: z.string().min(1).max(80).optional(),
+          boosted: z.boolean().optional(),
+        }),
+        z.object({
+          kind: z.literal(ShareKindAccomplishment),
+          variant: z.enum(["took_city", "cities_owned", "held_city"]),
+          plate: z.string().min(1).max(4).optional(),
+          cityName: z.string().min(1).max(80).optional(),
+          citiesOwned: z.number().int().min(0).max(81).optional(),
+          season: z.string().max(16).optional(),
+        }),
+      ])
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+    if (body.data.kind === ShareKindSupport) {
+      let cityName = body.data.cityName;
+      if (!cityName) {
+        const city = await one<{ name_tr: string }>(
+          db,
+          `SELECT name_tr FROM cities WHERE plate = $1`,
+          [body.data.plate],
+        );
+        if (!city) return reply.code(404).send({ error: "city_not_found" });
+        cityName = city.name_tr;
+      }
+      const card = await createShareCard(db, {
+        userId: user.id,
+        kind: ShareKindSupport,
+        payload: supportPayloadFrom({
+          plate: body.data.plate,
+          cityName,
+          tribeId: user.tribe_id,
+          boosted: body.data.boosted,
+        }),
+      });
+      return { card: toPublicView(card) };
+    }
+
+    if (body.data.variant === "took_city" || body.data.variant === "held_city") {
+      if (!body.data.plate) return reply.code(400).send({ error: "plate_required" });
+      let cityName = body.data.cityName;
+      if (!cityName) {
+        const city = await one<{ name_tr: string }>(
+          db,
+          `SELECT name_tr FROM cities WHERE plate = $1`,
+          [body.data.plate],
+        );
+        if (!city) return reply.code(404).send({ error: "city_not_found" });
+        cityName = city.name_tr;
+      }
+      const card = await createShareCard(db, {
+        userId: user.id,
+        kind: ShareKindAccomplishment,
+        payload: accomplishmentPayloadFrom({
+          variant: body.data.variant,
+          tribeId: user.tribe_id,
+          plate: body.data.plate,
+          cityName,
+          season: body.data.season,
+        }),
+      });
+      return { card: toPublicView(card) };
+    }
+
+    let citiesOwned = body.data.citiesOwned;
+    if (citiesOwned === undefined) {
+      const board = await scoreboard(db);
+      const mine = board.find((t) => t.teamId === user.tribe_id);
+      citiesOwned = mine?.citiesOwned ?? 0;
+    }
+    const card = await createShareCard(db, {
+      userId: user.id,
+      kind: ShareKindAccomplishment,
+      payload: accomplishmentPayloadFrom({
+        variant: "cities_owned",
+        tribeId: user.tribe_id,
+        citiesOwned,
+        season: body.data.season,
+      }),
+    });
+    return { card: toPublicView(card) };
+  });
+
+  app.get("/v1/share/cards/mine", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const cards = await listMyShareCards(db, user.id);
+    return { cards: cards.map(toPublicView) };
+  });
+
+  /** Public metadata for a share card (OG / client share sheet). */
+  app.get<{ Params: { id: string } }>("/v1/share/:id", async (req, reply) => {
+    const card = await getShareCard(db, req.params.id);
+    if (!card) return reply.code(404).send({ error: "not_found" });
+    return toPublicView(card);
+  });
+
+  /** Static SVG image for the share card. */
+  app.get<{ Params: { id: string } }>("/v1/share/:id/card.svg", async (req, reply) => {
+    const card = await getShareCard(db, req.params.id);
+    if (!card) return reply.code(404).send({ error: "not_found" });
+    const svg = renderShareSvg(toPublicView(card));
+    return reply.type("image/svg+xml; charset=utf-8").send(svg);
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {

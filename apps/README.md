@@ -139,7 +139,8 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 |------|---------------|-----------------|
 | Map 81 + ownership colors | Yes | — |
 | Seed matrix 2–3 teams | Yes | — |
-| Guest browse / scoreboard | Yes | Guest share = blocked by product (no UI) |
+| Guest browse / scoreboard | Yes | Guest share = blocked by product (no map share UI) |
+| Logged-in static share | Yes | Support + accomplishment SVG cards (`/v1/share/*`); guests cannot mint |
 | Phone OTP session | Yes — Supabase SDK when env set; else local mock | SMS dry-run when Netgsm keys absent |
 | Google / Apple | Supabase OAuth when env set | Stub buttons in mock mode → still need phone |
 | Send SMS Hook | Endpoint + secret + Netgsm OTP (when env live) | Dry-run log without keys / dry-run flag |
