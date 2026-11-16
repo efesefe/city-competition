@@ -152,6 +152,24 @@ export const api = {
       method: "POST",
       body: {},
     }),
+  /** Dev/ops: run TR midnight free-energy batch without waiting. */
+  grantJob: (opts?: { force?: boolean }) =>
+    request<{
+      ok: true;
+      job: {
+        timezone: string;
+        date: string;
+        amount: number;
+        scanned: number;
+        granted: number;
+        skippedAlreadyGranted: number;
+        force: boolean;
+      };
+    }>("/v1/energy/grant-job", {
+      method: "POST",
+      body: { force: opts?.force ?? false },
+    }),
+
   spend: (
     token: string,
     plate: string,
