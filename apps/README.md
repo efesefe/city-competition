@@ -15,16 +15,36 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 
 ## Run locally (web)
 
+### 0. Postgres
+
+`DATABASE_URL` is required. Use local Docker, Neon (EU), or Fly Managed Postgres.
+
+```bash
+cd apps/api
+docker compose up -d
+# → postgres://city:city@127.0.0.1:5432/city_competition
+```
+
+Or point `DATABASE_URL` at a Neon / Fly MPG connection string. Set `DATABASE_SSL=true` for managed TLS.
+
 ### 1. API (terminal A)
 
 ```bash
 cd apps/api
+cp .env.example .env   # edit DATABASE_URL if needed
 npm install
 npm run dev
-# → http://localhost:8787  (SQLite file under apps/api/data/)
+# → http://localhost:8787
+# On boot: applies migrations/ + seeds teams/cities if empty
 ```
 
-Health: `curl http://localhost:8787/health`
+Health: `curl http://localhost:8787/health` → `"db":"postgres"`
+
+Optional one-shot migrate without serving:
+
+```bash
+DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition npm run migrate
+```
 
 ### 2. Expo web (terminal B)
 
@@ -48,7 +68,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Variable | Default | Notes |
 |----------|---------|--------|
 | `PORT` | `8787` | API |
-| `SQLITE_PATH` | `apps/api/data/slice.sqlite` | Slice storage (Postgres later) |
+| `DATABASE_URL` | — | **Required.** Neon / Fly MPG / local `docker compose` |
+| `DATABASE_SSL` | unset | Set `true` for Neon / managed TLS |
+| `PG_POOL_MAX` | `10` | `pg` pool size |
 | `MOCK_OTP_CODE` | `123456` | Used when Netgsm keys absent |
 | `NETGSM_USERCODE` / `NETGSM_PASSWORD` | — | If set, OTP is random (SMS hook placeholder) |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | — | Advertised in `/v1/meta` (shape only) |
@@ -57,7 +79,19 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 
 ## Fly-ready
 
-`apps/api/fly.toml` targets `fra`. Deploy when secrets + managed Postgres/Redis are ready. This slice uses **SQLite + in-memory WS bus** so `npm run dev` works without Docker.
+`apps/api/fly.toml` targets `fra`. Set Fly secret `DATABASE_URL` (Neon EU or Fly MPG). Redis / full deploy are later Wave 2 leaves — this PR only needs Postgres.
+
+## Schema (migrations)
+
+`apps/api/migrations/001_init.sql` creates:
+
+- `teams` (aliases / colors / big4)  
+- `cities` + `city_support` (ownership + cumulative tallies)  
+- `users` (energy buckets + tribe) / `sessions` / `otp_codes`  
+- `support_ledger` (append-only, unique `idempotency_key`)  
+- `tunables` (`action_cost`, `free_daily_grant`)
+
+**Realtime handoff:** ledger + `city_support` + owner flip already commit in one Postgres transaction. Keep that atomicity; add boost snapshot columns when match-day/personal boost land; fan-out digest/flips via Redis in the next leaf.
 
 ## Real vs stubbed
 
@@ -72,7 +106,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | UI stub | No payments |
 | Redis | — | In-memory pub/sub |
-| Postgres | — | SQLite for zero-deps local |
+| Postgres | Yes (`DATABASE_URL`) | — |
 
 ## API sketch
 

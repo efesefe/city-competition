@@ -8,9 +8,10 @@
 
 | Path | Role |
 |------|------|
-| `apps/api` | Fastify API, SQLite domain DB, in-memory WS bus |
+| `apps/api` | Fastify API, **Postgres** domain DB (`DATABASE_URL`), in-memory WS bus |
 | `apps/client` | Expo Router web/mobile client |
 | `apps/README.md` | Local runbook |
+| [postgres-migration.md](postgres-migration.md) | SQLite → Postgres migration + Realtime ledger handoff |
 
 ## Behavior covered
 
@@ -23,12 +24,14 @@
 
 ## Not in this slice
 
-Production Supabase project, Netgsm delivery, Redis, Postgres, iyzico/IAP, match-day boosts, TR midnight cron worker.
+Production Supabase project, Netgsm delivery, Redis, iyzico/IAP, match-day boosts, TR midnight cron worker.
+
+Postgres is in: set `DATABASE_URL` (local `docker compose` in `apps/api`, or Neon / Fly MPG). See [postgres-migration.md](postgres-migration.md).
 
 ## Test
 
 ```bash
-cd apps/api && npm run dev
+cd apps/api && docker compose up -d && DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition npm run dev
 cd apps/client && EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 ```
 
