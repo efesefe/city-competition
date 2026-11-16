@@ -53,19 +53,22 @@ export type MatchDayWindow = {
 
 export type ShopCatalog = {
   stub: boolean;
-  platform: "ios";
   provider: "revenuecat";
   packs: {
     sku: string;
     kind: "pack";
     energy: number;
     productId: string;
+    iosProductId?: string;
+    androidProductId?: string;
     tryPlaceholder: number;
   }[];
   subscription: {
     sku: string;
     kind: "subscription";
     productId: string;
+    iosProductId?: string;
+    androidProductId?: string;
     entitlementId: string;
     dailyBonus: number;
     tryPlaceholder: number;
@@ -378,7 +381,12 @@ export const api = {
 
   iapSync: (
     token: string,
-    body: { productId: string; transactionId: string; platform: "ios"; environment?: string },
+    body: {
+      productId: string;
+      transactionId: string;
+      platform: "ios" | "android";
+      environment?: string;
+    },
   ) =>
     request<{
       ok: true;
@@ -390,7 +398,10 @@ export const api = {
       user: PublicUser;
     }>("/v1/iap/sync", { token, method: "POST", body }),
 
-  iapStub: (token: string, body: { productId: string; transactionId?: string }) =>
+  iapStub: (
+    token: string,
+    body: { productId: string; transactionId?: string; platform?: "ios" | "android" },
+  ) =>
     request<{
       ok: true;
       alreadyGranted: boolean;

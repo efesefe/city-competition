@@ -4,15 +4,24 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "
 import { GuestLoginWall } from "../components/GuestLoginWall";
 import { PhoneVerifyWall } from "../components/PhoneVerifyWall";
 import { api, boostFromUser, type ShopCatalog } from "../lib/api";
-import { revenueCatIosApiKey } from "../lib/iapCatalog";
+import { revenueCatAndroidApiKey, revenueCatIosApiKey } from "../lib/iapCatalog";
 import { isGuest, needsPhoneVerify } from "../lib/play-gates";
 import {
   configureRevenueCat,
   identifyRevenueCatUser,
-  purchaseIosProduct,
-  restoreIosPurchases,
+  nativeBillingPlatform,
+  purchaseNativeProduct,
+  restoreNativePurchases,
 } from "../lib/revenuecat";
 import { useSession } from "../lib/session";
+
+function productIdForSurface(
+  pack: { productId: string; iosProductId?: string; androidProductId?: string },
+): string {
+  if (Platform.OS === "android") return pack.androidProductId || pack.productId;
+  if (Platform.OS === "ios") return pack.iosProductId || pack.productId;
+  return pack.productId;
+}
 
 export default function ShopScreen() {
   const router = useRouter();
@@ -22,6 +31,10 @@ export default function ShopScreen() {
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rcReady, setRcReady] = useState(false);
+  const platform = nativeBillingPlatform();
+  const hasNativeKey =
+    (platform === "android" && Boolean(revenueCatAndroidApiKey())) ||
+    (platform === "ios" && Boolean(revenueCatIosApiKey()));
 
   useEffect(() => {
     void api.meta().then((m) => {
@@ -30,7 +43,6 @@ export default function ShopScreen() {
     });
   }, []);
 
-  // Guests may not enter shop — redirect to login/signup (CC-23).
   useEffect(() => {
     if (isGuest(user, token)) {
       router.replace("/auth");
@@ -38,14 +50,14 @@ export default function ShopScreen() {
   }, [token, user, router]);
 
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
+    if (!platform) return;
     if (isGuest(user, token) || needsPhoneVerify(user)) return;
     void (async () => {
       const res = await configureRevenueCat(user?.id ?? null);
       setRcReady(res.ok);
       if (res.ok && user?.id) await identifyRevenueCatUser(user.id);
     })();
-  }, [user?.id, token, user]);
+  }, [user?.id, platform, token, user]);
 
   const goAuth = () => router.replace("/auth");
 
@@ -57,35 +69,16 @@ export default function ShopScreen() {
     [updateUser],
   );
 
-  if (isGuest(user, token)) {
-    return (
-      <View style={styles.root}>
-        <Text style={styles.title}>Dükkan</Text>
-        <GuestLoginWall variant="action" onLogin={goAuth} />
-      </View>
-    );
-  }
-
-  if (needsPhoneVerify(user)) {
-    return (
-      <View style={styles.root}>
-        <Text style={styles.title}>Dükkan</Text>
-        <Text style={styles.sub}>Satın alma ve enerji grant için telefon doğrula.</Text>
-        <PhoneVerifyWall kind="play" onVerify={goAuth} />
-      </View>
-    );
-  }
-
   const buy = async (productId: string, label: string) => {
     if (!token) {
-      goAuth();
+      setNote("Giriş gerekli");
       return;
     }
     setBusy(productId);
     setNote(null);
     try {
-      if (Platform.OS === "ios" && revenueCatIosApiKey()) {
-        const payload = await purchaseIosProduct(productId);
+      if (platform && hasNativeKey) {
+        const payload = await purchaseNativeProduct(productId);
         const res = await api.iapSync(token, payload);
         afterGrant(
           res.user,
@@ -94,7 +87,10 @@ export default function ShopScreen() {
             : `+${res.energyGranted} enerji yüklendi`,
         );
       } else if (stubEnabled) {
-        const res = await api.iapStub(token, { productId });
+        const res = await api.iapStub(token, {
+          productId,
+          platform: platform ?? "android",
+        });
         afterGrant(
           res.user,
           res.kind === "subscription"
@@ -103,9 +99,11 @@ export default function ShopScreen() {
         );
       } else {
         setNote(
-          Platform.OS === "ios"
-            ? "RevenueCat iOS anahtarı yok (EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)."
-            : "App Store IAP yalnızca iOS. Android ayrı yaprak (CC-45).",
+          platform === "android"
+            ? "RevenueCat Android anahtarı yok (EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY)."
+            : platform === "ios"
+              ? "RevenueCat iOS anahtarı yok (EXPO_PUBLIC_REVENUECAT_IOS_API_KEY)."
+              : "Native IAP için Android/iOS derlemesi + RC anahtarı; web = iyzico.",
         );
       }
     } catch (e) {
@@ -118,14 +116,14 @@ export default function ShopScreen() {
 
   const restore = async () => {
     if (!token) {
-      goAuth();
+      setNote("Giriş gerekli");
       return;
     }
     setBusy("restore");
     setNote(null);
     try {
-      if (Platform.OS === "ios" && revenueCatIosApiKey()) {
-        const { payloads, subActive } = await restoreIosPurchases();
+      if (platform && hasNativeKey) {
+        const { payloads, subActive } = await restoreNativePurchases();
         let lastUser = user;
         for (const p of payloads) {
           const res = await api.iapSync(token, p);
@@ -140,7 +138,7 @@ export default function ShopScreen() {
       } else if (stubEnabled) {
         setNote("Stub modunda Restore yok — paketi tekrar satınal (idempotent).");
       } else {
-        setNote("Restore için iOS + RevenueCat anahtarı gerekli.");
+        setNote("Restore için native platform + RevenueCat anahtarı gerekli.");
       }
     } catch (e) {
       const err = e as Error & { code?: string };
@@ -163,7 +161,6 @@ export default function ShopScreen() {
       setNote(e instanceof Error ? e.message : "grant_failed");
     }
   };
-
 
   const activatePersonalBoost = async () => {
     if (!token) {
@@ -215,44 +212,48 @@ export default function ShopScreen() {
     <View style={styles.root}>
       <Text style={styles.title}>Dükkan</Text>
       <Text style={styles.sub}>
-        iOS App Store IAP · RevenueCat. Enerji paketleri 200 / 600 / 1500 + aylık abonelik (+50/gün).
+        Native IAP · RevenueCat (Play Billing + App Store). Paketler 200 / 600 / 1500 + aylık abonelik
+        (+50/gün).
       </Text>
-      {Platform.OS !== "ios" ? (
-        <Text style={styles.warn}>Bu ekran native satın almayı iOS için bağlar. Web’de stub / önizleme.</Text>
+      {!platform ? (
+        <Text style={styles.warn}>Web önizleme — gerçek Play Billing Android derlemesinde.</Text>
       ) : null}
       {!shop ? (
         <ActivityIndicator color="#c8a96b" />
       ) : (
         <>
-          {shop.packs.map((p) => (
-            <View key={p.productId} style={styles.card}>
-              <Text style={styles.pack}>
-                {p.sku.toUpperCase()} — {p.energy} enerji
-              </Text>
-              <Text style={styles.price}>₺{p.tryPlaceholder} (listing TBD)</Text>
-              <Text style={styles.sku}>{p.productId}</Text>
-              <Pressable
-                style={[styles.cta, busy && styles.ctaDisabled]}
-                disabled={Boolean(busy)}
-                onPress={() => void buy(p.productId, p.sku)}
-              >
-                <Text style={styles.ctaText}>
-                  {busy === p.productId ? "…" : "Satın al"}
+          {shop.packs.map((p) => {
+            const pid = productIdForSurface(p);
+            return (
+              <View key={pid} style={styles.card}>
+                <Text style={styles.pack}>
+                  {p.sku.toUpperCase()} — {p.energy} enerji
                 </Text>
-              </Pressable>
-            </View>
-          ))}
+                <Text style={styles.price}>₺{p.tryPlaceholder} (listing TBD)</Text>
+                <Text style={styles.sku}>{pid}</Text>
+                <Pressable
+                  style={[styles.cta, busy && styles.ctaDisabled]}
+                  disabled={Boolean(busy)}
+                  onPress={() => void buy(pid, p.sku)}
+                >
+                  <Text style={styles.ctaText}>{busy === pid ? "…" : "Satın al"}</Text>
+                </Pressable>
+              </View>
+            );
+          })}
           <View style={styles.card}>
             <Text style={styles.pack}>Aylık abonelik — +{shop.subscription.dailyBonus}/gün</Text>
             <Text style={styles.price}>₺{shop.subscription.tryPlaceholder} (listing TBD)</Text>
-            <Text style={styles.sku}>{shop.subscription.productId}</Text>
+            <Text style={styles.sku}>{productIdForSurface(shop.subscription)}</Text>
             <Pressable
               style={[styles.cta, busy && styles.ctaDisabled]}
               disabled={Boolean(busy)}
-              onPress={() => void buy(shop.subscription.productId, "monthly")}
+              onPress={() =>
+                void buy(productIdForSurface(shop.subscription), "monthly")
+              }
             >
               <Text style={styles.ctaText}>
-                {busy === shop.subscription.productId ? "…" : "Abone ol"}
+                {busy === productIdForSurface(shop.subscription) ? "…" : "Abone ol"}
               </Text>
             </Pressable>
           </View>
@@ -298,6 +299,7 @@ export default function ShopScreen() {
           {user.subActive ? " · Abonelik aktif" : ""}
           {rcReady ? " · RC hazır" : ""}
           {stubEnabled ? " · stub açık" : ""}
+          {platform ? ` · ${platform}` : ""}
         </Text>
       ) : null}
       {note ? <Text style={styles.note}>{note}</Text> : null}

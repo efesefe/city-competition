@@ -42,7 +42,8 @@ Project context for future sessions. Update this list when adding a new module o
 | [credit-flow.md](credit-flow.md) | Coin burst from the CreditHeader balance to the supported city on spend |
 | [threat-alert-ui.md](threat-alert-ui.md) | Rival-threat push deep links, in-map ThreatAlertBanner, Defend → credit input |
 | [web-payments.md](web-payments.md) | Web checkout is iyzico-only; Papara/BKM packs deactivated; native IAP unchanged |
-| [ios-iap-revenuecat.md](ios-iap-revenuecat.md) | CC-44: iOS App Store packs + sub via RevenueCat (env SKUs, webhook, restore) |
+| [ios-iap-revenuecat.md](ios-iap-revenuecat.md) | CC-44: App Store IAP via RevenueCat; shared `iap_grants` / `/v1/iap/sync` entitlement hook |
+| [android-play-billing-revenuecat.md](android-play-billing-revenuecat.md) | CC-45: Google Play Billing via RevenueCat; same entitlement hook as iOS |
 | [tribe-emblems.md](tribe-emblems.md) | Original mascot silhouettes on tribe crests (slug-keyed, no official club marks) |
 | [tribe-stripes.md](tribe-stripes.md) | Vertical kit-color stripes on held Türkiye map provinces |
 | [frontend-docker-build.md](frontend-docker-build.md) | Next `npm run build` in the frontend image; LeaderboardScope typecheck |

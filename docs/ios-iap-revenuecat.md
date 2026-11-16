@@ -14,7 +14,7 @@
 | Stub | `ALLOW_IAP_STUB=true` → `POST /v1/iap/stub` for local QA without StoreKit |
 | Ledger | `iap_grants` + `users.sub_active` / paid_energy credits |
 
-Android Play Billing is a sibling leaf (CC-45) — webhook ignores non–App Store events.
+Android Play Billing is a sibling leaf ([android-play-billing-revenuecat.md](android-play-billing-revenuecat.md), CC-45) — **same** entitlement apply / sync / webhook routes; Play product IDs via `RC_ANDROID_*`.
 
 ## Env matrix
 
@@ -86,7 +86,7 @@ Real StoreKit needs an EAS **development build** (Expo Go uses RevenueCat Previe
 
 ## Out of scope
 
-- Google Play Billing (CC-45)
+- Google Play Billing details (see CC-45 doc — shapes shared here)
 - iyzico web checkout (separate payments leaf)
-- Cross-platform entitlement unify beyond this ledger (CC-46)
+- Cross-platform entitlement unify beyond this ledger (CC-47)
 - Personal boost IAP SKU

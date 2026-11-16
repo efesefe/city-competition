@@ -1,16 +1,21 @@
 import { Platform } from "react-native";
 import {
+  allAndroidProductIds,
   allIosProductIds,
+  androidSubEntitlementId,
+  androidSubProductId,
   iosSubEntitlementId,
   iosSubProductId,
+  revenueCatAndroidApiKey,
   revenueCatIosApiKey,
 } from "./iapCatalog";
+
+export type NativeBillingPlatform = "ios" | "android";
 
 export type PurchaseSyncPayload = {
   productId: string;
   transactionId: string;
-  platform: "ios";
-  environment?: string;
+  platform: NativeBillingPlatform;
 };
 
 export type RcOfferingPackage = {
@@ -21,10 +26,20 @@ export type RcOfferingPackage = {
 type PurchasesModule = typeof import("react-native-purchases").default;
 
 let configured = false;
+let configuredPlatform: NativeBillingPlatform | null = null;
 let purchases: PurchasesModule | null = null;
 
-async function loadPurchases(): Promise<PurchasesModule | null> {
-  if (Platform.OS !== "ios") return null;
+export function nativeBillingPlatform(): NativeBillingPlatform | null {
+  if (Platform.OS === "ios") return "ios";
+  if (Platform.OS === "android") return "android";
+  return null;
+}
+
+function apiKeyFor(platform: NativeBillingPlatform): string | null {
+  return platform === "android" ? revenueCatAndroidApiKey() : revenueCatIosApiKey();
+}
+
+async function loadPurchases(platform: NativeBillingPlatform): Promise<PurchasesModule | null> {
   if (purchases) return purchases;
   try {
     const mod = await import("react-native-purchases");
@@ -35,24 +50,26 @@ async function loadPurchases(): Promise<PurchasesModule | null> {
   }
 }
 
-/** Configure RevenueCat once on iOS when EXPO_PUBLIC_REVENUECAT_IOS_API_KEY is set. */
+/** Configure RevenueCat on iOS or Android when the matching public SDK key is set. */
 export async function configureRevenueCat(appUserId?: string | null): Promise<{
   ok: boolean;
   reason?: string;
 }> {
-  if (Platform.OS !== "ios") return { ok: false, reason: "not_ios" };
-  const apiKey = revenueCatIosApiKey();
+  const platform = nativeBillingPlatform();
+  if (!platform) return { ok: false, reason: "web_surface" };
+  const apiKey = apiKeyFor(platform);
   if (!apiKey) return { ok: false, reason: "missing_api_key" };
 
-  const RC = await loadPurchases();
+  const RC = await loadPurchases(platform);
   if (!RC) return { ok: false, reason: "sdk_unavailable" };
 
-  if (!configured) {
+  if (!configured || configuredPlatform !== platform) {
     RC.configure({
       apiKey,
       appUserID: appUserId ?? undefined,
     });
     configured = true;
+    configuredPlatform = platform;
   } else if (appUserId) {
     await RC.logIn(appUserId);
   }
@@ -60,14 +77,17 @@ export async function configureRevenueCat(appUserId?: string | null): Promise<{
 }
 
 export function isRevenueCatReady(): boolean {
-  return Platform.OS === "ios" && Boolean(revenueCatIosApiKey()) && configured;
+  const platform = nativeBillingPlatform();
+  if (!platform) return false;
+  return Boolean(apiKeyFor(platform)) && configured && configuredPlatform === platform;
 }
 
 export async function identifyRevenueCatUser(userId: string): Promise<void> {
-  if (Platform.OS !== "ios" || !revenueCatIosApiKey()) return;
-  const RC = await loadPurchases();
+  const platform = nativeBillingPlatform();
+  if (!platform || !apiKeyFor(platform)) return;
+  const RC = await loadPurchases(platform);
   if (!RC) return;
-  if (!configured) {
+  if (!configured || configuredPlatform !== platform) {
     await configureRevenueCat(userId);
     return;
   }
@@ -76,7 +96,9 @@ export async function identifyRevenueCatUser(userId: string): Promise<void> {
 
 export async function logoutRevenueCat(): Promise<void> {
   if (!configured) return;
-  const RC = await loadPurchases();
+  const platform = configuredPlatform ?? nativeBillingPlatform();
+  if (!platform) return;
+  const RC = await loadPurchases(platform);
   if (!RC) return;
   try {
     await RC.logOut();
@@ -85,18 +107,26 @@ export async function logoutRevenueCat(): Promise<void> {
   }
 }
 
-/** Fetch store products for our env-mapped iOS SKUs. */
-export async function getIosProducts(): Promise<
+/** Fetch store products for env-mapped SKUs on the current native platform. */
+export async function getNativeProducts(): Promise<
   { identifier: string; title: string; priceString: string }[]
 > {
-  const RC = await loadPurchases();
+  const platform = nativeBillingPlatform();
+  if (!platform) return [];
+  const RC = await loadPurchases(platform);
   if (!RC || !configured) return [];
-  const products = await RC.getProducts(allIosProductIds());
+  const ids = platform === "android" ? allAndroidProductIds() : allIosProductIds();
+  const products = await RC.getProducts(ids);
   return products.map((p) => ({
     identifier: p.identifier,
     title: p.title,
     priceString: p.priceString,
   }));
+}
+
+/** @deprecated use getNativeProducts — kept for CC-44 call sites */
+export async function getIosProducts() {
+  return getNativeProducts();
 }
 
 function transactionIdFromInfo(
@@ -130,22 +160,23 @@ function transactionIdFromInfo(
 }
 
 /**
- * Purchase an iOS pack or subscription by App Store / RevenueCat product id.
- * Returns fields for POST /v1/iap/sync.
+ * Purchase a pack or subscription by store / RevenueCat product id.
+ * Returns fields for POST /v1/iap/sync (shared iOS + Android entitlement hook).
  */
-export async function purchaseIosProduct(productId: string): Promise<PurchaseSyncPayload> {
-  if (Platform.OS !== "ios") {
-    throw Object.assign(new Error("iap_ios_only"), { code: "iap_ios_only" });
+export async function purchaseNativeProduct(productId: string): Promise<PurchaseSyncPayload> {
+  const platform = nativeBillingPlatform();
+  if (!platform) {
+    throw Object.assign(new Error("iap_native_only"), { code: "iap_native_only" });
   }
-  const apiKey = revenueCatIosApiKey();
+  const apiKey = apiKeyFor(platform);
   if (!apiKey) {
     throw Object.assign(new Error("iap_not_configured"), { code: "iap_not_configured" });
   }
-  const RC = await loadPurchases();
+  const RC = await loadPurchases(platform);
   if (!RC) {
     throw Object.assign(new Error("iap_unavailable"), { code: "iap_unavailable" });
   }
-  if (!configured) await configureRevenueCat();
+  if (!configured || configuredPlatform !== platform) await configureRevenueCat();
 
   const products = await RC.getProducts([productId]);
   const product = products[0];
@@ -156,32 +187,37 @@ export async function purchaseIosProduct(productId: string): Promise<PurchaseSyn
   const { customerInfo } = await RC.purchaseStoreProduct(product);
   const transactionId = transactionIdFromInfo(customerInfo, productId);
   if (!transactionId) {
-    // Fallback: originalAppUserId + product + latest purchase date hash-ish
     const fallback = `${customerInfo.originalAppUserId}:${productId}:${Date.now()}`;
-    return { productId, transactionId: fallback, platform: "ios" };
+    return { productId, transactionId: fallback, platform };
   }
-  return { productId, transactionId, platform: "ios" };
+  return { productId, transactionId, platform };
+}
+
+/** @deprecated use purchaseNativeProduct */
+export async function purchaseIosProduct(productId: string): Promise<PurchaseSyncPayload> {
+  return purchaseNativeProduct(productId);
 }
 
 /**
- * Restore App Store purchases, return sync payloads for active sub + recent packs.
+ * Restore store purchases; return sync payloads for active sub + recent packs.
  */
-export async function restoreIosPurchases(): Promise<{
+export async function restoreNativePurchases(): Promise<{
   payloads: PurchaseSyncPayload[];
   subActive: boolean;
 }> {
-  if (Platform.OS !== "ios") {
-    throw Object.assign(new Error("iap_ios_only"), { code: "iap_ios_only" });
+  const platform = nativeBillingPlatform();
+  if (!platform) {
+    throw Object.assign(new Error("iap_native_only"), { code: "iap_native_only" });
   }
-  const apiKey = revenueCatIosApiKey();
+  const apiKey = apiKeyFor(platform);
   if (!apiKey) {
     throw Object.assign(new Error("iap_not_configured"), { code: "iap_not_configured" });
   }
-  const RC = await loadPurchases();
+  const RC = await loadPurchases(platform);
   if (!RC) {
     throw Object.assign(new Error("iap_unavailable"), { code: "iap_unavailable" });
   }
-  if (!configured) await configureRevenueCat();
+  if (!configured || configuredPlatform !== platform) await configureRevenueCat();
 
   const info = await RC.restorePurchases();
   const payloads: PurchaseSyncPayload[] = [];
@@ -193,11 +229,11 @@ export async function restoreIosPurchases(): Promise<{
     payloads.push({
       productId: t.productIdentifier,
       transactionId: t.transactionIdentifier,
-      platform: "ios",
+      platform,
     });
   }
 
-  const subEnt = iosSubEntitlementId();
+  const subEnt = platform === "android" ? androidSubEntitlementId() : iosSubEntitlementId();
   const activeSub = info.entitlements.active[subEnt];
   const subActive = Boolean(activeSub);
   if (activeSub?.productIdentifier) {
@@ -205,12 +241,19 @@ export async function restoreIosPurchases(): Promise<{
     const txn = `${info.originalAppUserId}:sub:${activeSub.productIdentifier}:${stamp}`;
     if (!seen.has(txn)) {
       payloads.push({
-        productId: activeSub.productIdentifier || iosSubProductId(),
+        productId:
+          activeSub.productIdentifier ||
+          (platform === "android" ? androidSubProductId() : iosSubProductId()),
         transactionId: txn,
-        platform: "ios",
+        platform,
       });
     }
   }
 
   return { payloads, subActive };
+}
+
+/** @deprecated use restoreNativePurchases */
+export async function restoreIosPurchases() {
+  return restoreNativePurchases();
 }
