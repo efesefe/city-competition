@@ -58,43 +58,76 @@ export default function MapScreen() {
   useEffect(() => {
     let ws: WebSocket | null = null;
     let closed = false;
-    try {
-      ws = new WebSocket(wsUrl());
-      ws.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(String(ev.data));
-          if (msg.type === "digest" && Array.isArray(msg.cities)) {
-            setDigest(msg.cities);
-            setDigestStatus("ready");
-            setDigestError(null);
+    let retry: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        ws = new WebSocket(wsUrl());
+        ws.onopen = () => {
+          // Guests + logged-in share the same digest channel (no auth on subscribe).
+          ws?.send(JSON.stringify({ type: "subscribe", channel: "digest" }));
+        };
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(String(ev.data));
+            if (msg.type === "digest" && Array.isArray(msg.cities)) {
+              setDigest(msg.cities);
+              setDigestStatus("ready");
+              setDigestError(null);
+            }
+            if (msg.type === "support" && msg.plate) {
+              // Patch single-city support tallies without waiting for full digest.
+              setDigest((prev) =>
+                prev.map((c) =>
+                  c.plate === msg.plate
+                    ? {
+                        ...c,
+                        ownerTeamId: msg.ownerTeamId ?? c.ownerTeamId,
+                        ownerAlias: msg.ownerAlias ?? c.ownerAlias,
+                        ownerColor: msg.ownerColor ?? c.ownerColor,
+                        leadSupport: msg.leadSupport,
+                        rivalSupport: msg.rivalSupport,
+                        leadMargin: msg.leadMargin,
+                      }
+                    : c,
+                ),
+              );
+            }
+            if (msg.type === "flip") {
+              setPulse((prev) => new Set(prev).add(msg.plate));
+              setFlipBanner(`${msg.toAlias} aldı: ${msg.plate}`);
+              setTimeout(() => {
+                setPulse((prev) => {
+                  const n = new Set(prev);
+                  n.delete(msg.plate);
+                  return n;
+                });
+              }, 2500);
+              Animated.sequence([
+                Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }),
+                Animated.delay(1800),
+                Animated.timing(fade, { toValue: 0, duration: 400, useNativeDriver: true }),
+              ]).start(() => setFlipBanner(null));
+            }
+          } catch {
+            /* ignore */
           }
-          if (msg.type === "flip") {
-            setPulse((prev) => new Set(prev).add(msg.plate));
-            setFlipBanner(`${msg.toAlias} aldı: ${msg.plate}`);
-            setTimeout(() => {
-              setPulse((prev) => {
-                const n = new Set(prev);
-                n.delete(msg.plate);
-                return n;
-              });
-            }, 2500);
-            Animated.sequence([
-              Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }),
-              Animated.delay(1800),
-              Animated.timing(fade, { toValue: 0, duration: 400, useNativeDriver: true }),
-            ]).start(() => setFlipBanner(null));
-          }
-        } catch {
-          /* ignore */
-        }
-      };
-    } catch {
-      /* ws optional for browse */
-    }
+        };
+        ws.onclose = () => {
+          if (closed) return;
+          retry = setTimeout(connect, 2000);
+        };
+      } catch {
+        /* ws optional for browse */
+      }
+    };
+
+    connect();
     return () => {
       closed = true;
+      if (retry) clearTimeout(retry);
       ws?.close();
-      void closed;
     };
   }, [fade]);
 

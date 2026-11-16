@@ -13,6 +13,7 @@
 | `apps/README.md` | Local runbook |
 | [postgres-migration.md](postgres-migration.md) | SQLite → Postgres migration + Realtime ledger handoff |
 | [redis-realtime-ops.md](redis-realtime-ops.md) | Redis pub/sub, rate limits, coalesce hooks |
+| [websocket-city-digest.md](websocket-city-digest.md) | Guest/player WS digest subscribe + support ticks |
 
 ## Behavior covered
 
