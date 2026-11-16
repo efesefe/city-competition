@@ -23,6 +23,7 @@
 - **Phone verify gate (CC-21):** spend / claim / Kabile pick return `403 phone_unverified` with EN/TR wall copy; client shows `PhoneVerifyWall`. See [phone-verify-before-play.md](phone-verify-before-play.md).  
 - **Guest gate (CC-23):** guests browse map / city sheet / scoreboard only; shop + play actions → `/auth`. See [gate-guest-actions.md](gate-guest-actions.md).  
 - **Post-verify Kabile picker (CC-63):** Big 4 first then rest; `public_alias` from [team-aliases.md](team-aliases.md). See [post-verify-kabile-picker.md](post-verify-kabile-picker.md).  
+- City sheet combat panel (CC-26): owner, lead, real-handle contributors, Attack/Defend + confirm — see [city-sheet-combat-panel.md](city-sheet-combat-panel.md)  
 
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Daily 100 energy via claim / `grant-sim`  

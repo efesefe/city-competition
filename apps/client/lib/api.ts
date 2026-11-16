@@ -21,6 +21,13 @@ export type DigestCity = {
   leadMargin?: number;
 };
 
+export type CityContributor = {
+  handle: string;
+  /** Current Kabile public_alias for the contributor (may be null). */
+  alias: string | null;
+  support: number;
+};
+
 export type CitySheet = {
   plate: string;
   nameTr: string;
@@ -29,7 +36,7 @@ export type CitySheet = {
   ownerColor: string | null;
   support: { teamId: string; alias: string; color: string; support: number }[];
   leadMargin: number;
-  topContributors: { handle: string; support: number }[];
+  topContributors: CityContributor[];
 };
 
 export type Team = {
@@ -51,6 +58,21 @@ export type AuthMeta = {
   supabaseAnonKeyConfigured: boolean;
   smsHook: { path: string; secretConfigured: boolean; netgsmDelivery: string };
 };
+
+/** Personal × team boost multipliers (shop / match-day). Defaults until wired. */
+export type BoostSnapshot = {
+  personalBoostPct: number;
+  teamBoostPct: number;
+};
+
+export const DEFAULT_BOOST: BoostSnapshot = {
+  personalBoostPct: 1,
+  teamBoostPct: 1,
+};
+
+export function effectiveSupport(base: number, boost: BoostSnapshot = DEFAULT_BOOST): number {
+  return Math.round(base * boost.personalBoostPct * boost.teamBoostPct * 1000) / 1000;
+}
 
 async function request<T>(
   path: string,
@@ -140,5 +162,8 @@ export const api = {
       sheet: CitySheet;
       digest: DigestCity[];
       user: PublicUser;
+      boost?: BoostSnapshot;
+      supportCredited?: number;
+      energySpent?: number;
     }>(`/v1/cities/${plate}/spend`, { token, body: opts }),
 };
