@@ -36,9 +36,10 @@ import {
   citySheet,
   loadOwnershipDigest,
   pickTribe,
-  scoreboard,
+  playerScoreboard,
   findLedgerByIdempotencyKey,
   spendEnergy,
+  teamScoreboard,
   type BoostSnapshot,
 } from "./lib/game.js";
 import {
@@ -274,7 +275,45 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     cities: await loadOwnershipDigest(db),
   }));
 
-  app.get("/v1/scoreboard", async () => ({ teams: await scoreboard(db) }));
+  /** Team board (cities owned) — guest browse OK. */
+  app.get("/v1/scoreboards/teams", async () => teamScoreboard(db));
+
+  /** User board (total support spent this season) — guest browse OK. */
+  app.get("/v1/scoreboards/players", async (req) => {
+    const q = req.query as { limit?: string };
+    const limit = q.limit ? Number(q.limit) : 50;
+    const viewer = await userFromRequest(db, req); // optional — guests still get the board
+    return playerScoreboard(db, {
+      limit: Number.isFinite(limit) ? limit : 50,
+      viewerId: viewer?.id ?? null,
+    });
+  });
+
+  /** Combined boards payload for the scoreboard screen (guest OK). */
+  app.get("/v1/scoreboards", async (req) => {
+    const q = req.query as { limit?: string };
+    const limit = q.limit ? Number(q.limit) : 50;
+    const viewer = await userFromRequest(db, req);
+    const [teams, players] = await Promise.all([
+      teamScoreboard(db),
+      playerScoreboard(db, {
+        limit: Number.isFinite(limit) ? limit : 50,
+        viewerId: viewer?.id ?? null,
+      }),
+    ]);
+    return { teams, players, guestBrowse: true as const };
+  });
+
+  /** Legacy alias — same team rows as /v1/scoreboards/teams.teams */
+  app.get("/v1/scoreboard", async () => {
+    const board = await teamScoreboard(db);
+    return {
+      season: board.season,
+      metric: board.metric,
+      guestBrowse: board.guestBrowse,
+      teams: board.teams,
+    };
+  });
 
   app.get<{ Params: { plate: string } }>("/v1/cities/:plate", async (req, reply) => {
     const sheet = await citySheet(db, req.params.plate);
