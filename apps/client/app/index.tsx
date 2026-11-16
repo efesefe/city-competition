@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ type DigestStatus = "loading" | "ready" | "error";
 
 export default function MapScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ openPlate?: string }>();
   const { user, token, updateUser, refresh } = useSession();
   const [digest, setDigest] = useState<DigestCity[]>([]);
   const [digestStatus, setDigestStatus] = useState<DigestStatus>("loading");
@@ -35,6 +36,7 @@ export default function MapScreen() {
   const [flipBanner, setFlipBanner] = useState<string | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
   const selectLock = useRef(false);
+  const openedResume = useRef(false);
 
   const loadDigest = useCallback(async () => {
     setDigestStatus("loading");
@@ -152,6 +154,15 @@ export default function MapScreen() {
     }
   }, []);
 
+  // Resume city sheet after post-verify Kabile pick (CC-63).
+  useEffect(() => {
+    const plate = typeof params.openPlate === "string" ? params.openPlate : "";
+    if (!plate || openedResume.current) return;
+    if (!/^\d{2}$/.test(plate)) return;
+    openedResume.current = true;
+    void openCity(plate);
+  }, [params.openPlate, openCity]);
+
   const goLogin = () => {
     router.push("/auth");
   };
@@ -167,7 +178,10 @@ export default function MapScreen() {
       return;
     }
     if (!user.tribeId) {
-      router.push("/pick-tribe");
+      router.push({
+        pathname: "/pick-tribe",
+        params: selected ? { resume: selected } : undefined,
+      });
       return;
     }
   };

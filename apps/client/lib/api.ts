@@ -86,7 +86,13 @@ export const api = {
       "/v1/scoreboard",
     ),
   city: (plate: string) => request<CitySheet>(`/v1/cities/${plate}`),
-  teams: () => request<{ teams: Team[] }>("/v1/teams"),
+  teams: () =>
+    request<{
+      order: "big4_first";
+      teams: Team[];
+      big4: Team[];
+      rest: Team[];
+    }>("/v1/teams"),
   me: (token: string) => request<{ user: PublicUser }>("/v1/me", { token }),
   startPhone: (phone: string) =>
     request<{ ok: true; phoneE164: string; mock?: boolean; code?: string }>("/v1/auth/phone/start", {

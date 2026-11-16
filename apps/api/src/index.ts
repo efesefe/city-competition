@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import { z } from "zod";
-import { teamsForPicker, TEAM_BY_ID } from "./data/teams.js";
+import { teamsForPicker, teamsGroupedForPicker, TEAM_BY_ID } from "./data/teams.js";
 import {
   authMode,
   getUserById,
@@ -104,7 +104,16 @@ async function main() {
     },
   }));
 
-  app.get("/v1/teams", async () => ({ teams: teamsForPicker() }));
+  /** Kabile picker roster — `public_alias` only; Big 4 first (CC-63). */
+  app.get("/v1/teams", async () => {
+    const grouped = teamsGroupedForPicker();
+    return {
+      order: "big4_first" as const,
+      teams: teamsForPicker(),
+      big4: grouped.big4,
+      rest: grouped.rest,
+    };
+  });
 
   app.get("/v1/map/digest", async () => ({
     cities: await loadOwnershipDigest(db),
