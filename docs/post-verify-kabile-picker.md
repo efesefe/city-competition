@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-16  
 **Branch:** `cursor/post-verify-kabile-picker-438f`  
-**Stacked on:** Auth tip #44 (CC-23 guest gate) → #43 phone verify → #41 Netgsm → #40 Supabase  
+**Stacked on:** Auth tip #46 (CC-22 lost-SIM) → #44 guest gate → #43 phone verify → #41 Netgsm → #40 Supabase  
 **Why:** Product lock — pick `public_alias` only **after** phone verification; list **Big 4 first**, then rest ([team-aliases.md](team-aliases.md)).
 
 ## Docs read (store / product)
