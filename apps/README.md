@@ -7,7 +7,7 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 
 1. Türkiye **81-province** clickable ownership map (SVG)  
 2. **Guest** browse: map + city sheet + scoreboard (no guest share)  
-3. Auth stubs in **Supabase Auth shape** — phone OTP (mock SMS if Netgsm keys absent); Google/Apple stub buttons  
+3. **Supabase Auth** — phone OTP + Google + Apple when `SUPABASE_*` / `EXPO_PUBLIC_SUPABASE_*` set; otherwise local mock OTP + OAuth stubs. SMS Send Hook seam ready (Netgsm = CC-20) 
 4. After verify → **Kabile pick** (Big 4 first, then rest)  
 5. Spend energy with **always-confirm**; live ownership flip over WebSocket  
 6. Daily free energy **100** @ 00:00 TR — simulate via `POST /v1/energy/grant-sim`  
@@ -73,11 +73,14 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `DATABASE_SSL` | unset | Set `true` for Neon / managed TLS |
 | `PG_POOL_MAX` | `10` | `pg` pool size |
 | `REDIS_URL` | — | **Required.** Upstash `rediss://` or local `redis://127.0.0.1:6379` |
-| `MOCK_OTP_CODE` | `123456` | Used when Netgsm keys absent |
-| `NETGSM_USERCODE` / `NETGSM_PASSWORD` | — | If set, OTP is random (SMS hook placeholder) |
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | — | Advertised in `/v1/meta` (shape only) |
-| `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | — | OAuth still stubbed in slice |
+| `MOCK_OTP_CODE` | `123456` | Mock mode only (no Supabase JWT secret) |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_JWT_SECRET` | — | Live Auth: JWT verify + `/v1/auth/supabase/session` |
+| `SEND_SMS_HOOK_SECRETS` | — | Auth for `POST /v1/auth/hooks/send-sms` (CC-20 Netgsm) |
+| `SMS_HOOK_DRY_RUN` | `true` | Log OTP server-side; no vendor send yet |
+| `NETGSM_USERCODE` / `NETGSM_PASSWORD` | — | Reserved for CC-20 |
+| `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | — | Optional `/v1/meta` flags when live |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8787` | Client → API |
+| `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | — | Client Supabase SDK (match API project) |
 
 ## Fly-ready
 
@@ -104,8 +107,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Map 81 + ownership colors | Yes | — |
 | Seed matrix 2–3 teams | Yes | — |
 | Guest browse / scoreboard | Yes | Guest share = blocked by product (no UI) |
-| Phone OTP session | Yes (local) | SMS = mock without Netgsm; not live Supabase project |
-| Google / Apple | Buttons | Always stub login → still need phone |
+| Phone OTP session | Yes — Supabase SDK when env set; else local mock | SMS delivery = hook dry-run until CC-20 Netgsm |
+| Google / Apple | Supabase OAuth when env set | Stub buttons in mock mode → still need phone |
+| Send SMS Hook | Endpoint + secret check | Netgsm send not implemented (CC-20) |
 | Spend + confirm + flip | Yes (Postgres `FOR UPDATE`, idempotent ledger, Redis live flip) | Boost multipliers still `1.0` until shop / match-day |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | UI stub | No payments |
@@ -118,8 +122,10 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 - `GET /v1/cities/:plate` — city sheet  
 - `GET /v1/scoreboard`  
 - `GET /v1/teams` — Big 4 first  
-- `POST /v1/auth/phone/start|verify`  
-- `POST /v1/auth/oauth/:provider` — stub  
+- `POST /v1/auth/phone/start|verify` — mock mode only  
+- `POST /v1/auth/supabase/session` — exchange Supabase access_token → User  
+- `POST /v1/auth/hooks/send-sms` — Supabase Send SMS Hook seam (CC-20)  
+- `POST /v1/auth/oauth/:provider` — mock stub only  
 - `POST /v1/tribe/pick`  
 - `POST /v1/cities/:plate/spend` — `{ confirmed: true, idempotencyKey }`  
 - `POST /v1/energy/grant-sim` — simulate 00:00 TR  

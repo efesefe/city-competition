@@ -36,6 +36,18 @@ export type Team = {
   big4: boolean;
 };
 
+export type AuthMeta = {
+  mode: "supabase" | "mock";
+  mockOtpCode: string | null;
+  phoneOtp: string;
+  googleEnabled: boolean;
+  appleEnabled: boolean;
+  oauthMode: "supabase" | "stub";
+  supabaseUrl: string | null;
+  supabaseAnonKeyConfigured: boolean;
+  smsHook: { path: string; secretConfigured: boolean; netgsmDelivery: string };
+};
+
 async function request<T>(
   path: string,
   opts: { method?: string; body?: unknown; token?: string | null } = {},
@@ -59,9 +71,15 @@ async function request<T>(
 }
 
 export const api = {
-  meta: () => request<{ actionCost: number; freeDailyGrant: number; auth: { mockOtpCode: string | null; phoneOtp: string }; shop: unknown }>("/v1/meta"),
+  meta: () =>
+    request<{ actionCost: number; freeDailyGrant: number; auth: AuthMeta; shop: unknown }>(
+      "/v1/meta",
+    ),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
-  scoreboard: () => request<{ teams: { teamId: string; alias: string; color: string; citiesOwned: number }[] }>("/v1/scoreboard"),
+  scoreboard: () =>
+    request<{ teams: { teamId: string; alias: string; color: string; citiesOwned: number }[] }>(
+      "/v1/scoreboard",
+    ),
   city: (plate: string) => request<CitySheet>(`/v1/cities/${plate}`),
   teams: () => request<{ teams: Team[] }>("/v1/teams"),
   me: (token: string) => request<{ user: PublicUser }>("/v1/me", { token }),
@@ -73,17 +91,28 @@ export const api = {
     request<{ token: string; user: PublicUser }>("/v1/auth/phone/verify", {
       body: { phone, code },
     }),
+  /** Local stub only — when API auth.mode === mock. */
   oauthStub: (provider: "google" | "apple") =>
     request<{ token: string; user: PublicUser; needsPhone: boolean; stub: boolean }>(
       `/v1/auth/oauth/${provider}`,
       { method: "POST", body: {} },
+    ),
+  /** Exchange Supabase access_token for game User row. */
+  exchangeSupabaseSession: (accessToken: string) =>
+    request<{ token: string; user: PublicUser; needsPhone: boolean; mode: "supabase" }>(
+      "/v1/auth/supabase/session",
+      { method: "POST", token: accessToken, body: {} },
     ),
   bindPhone: (token: string, phone: string, code: string) =>
     request<{ user: PublicUser }>("/v1/auth/phone/bind", { token, body: { phone, code } }),
   pickTribe: (token: string, tribeId: string) =>
     request<{ user: PublicUser }>("/v1/tribe/pick", { token, body: { tribeId } }),
   claimEnergy: (token: string) =>
-    request<{ granted: boolean; user: PublicUser }>("/v1/energy/claim", { token, method: "POST", body: {} }),
+    request<{ granted: boolean; user: PublicUser }>("/v1/energy/claim", {
+      token,
+      method: "POST",
+      body: {},
+    }),
   grantSim: (token: string) =>
     request<{ granted: boolean; amount: number; user: PublicUser }>("/v1/energy/grant-sim", {
       token,

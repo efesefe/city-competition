@@ -18,14 +18,14 @@
 
 - 81-province SVG map colored by ownership digest  
 - Guest map + city sheet + scoreboard  
-- Phone OTP (mock) + OAuth stubs; Kabile after verify (Big 4 first)  
+- Phone OTP + Google/Apple via **Supabase Auth** when env set; local mock OTP + OAuth stubs otherwise; Kabile after verify (Big 4 first). See [supabase-auth-providers.md](supabase-auth-providers.md). 
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Daily 100 energy via claim / `grant-sim`  
 - Seeds from `docs/city-seed-matrix.md` logic (2–3 teams)
 
 ## Not in this slice
 
-Production Supabase project, Netgsm delivery, iyzico/IAP, match-day boosts, TR midnight cron worker, push delivery worker.
+Live Supabase project credentials (optional — code path is wired), Netgsm delivery (CC-20; hook seam exists), iyzico/IAP, match-day boosts, TR midnight cron worker, push delivery worker.
 
 Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `docker compose` in `apps/api`, or Neon/Fly MPG + Upstash). See [postgres-migration.md](postgres-migration.md) and [redis-realtime-ops.md](redis-realtime-ops.md).
 
