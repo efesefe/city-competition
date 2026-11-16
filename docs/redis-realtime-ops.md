@@ -48,7 +48,7 @@ Upstash / managed: set `REDIS_URL` to the TLS URL (`rediss://…`).
 | Spend / OTP rate limits (429 + Retry-After) | **Real** |
 | 5-min coalesce buffers + `notif_queue` enqueue | **Real hooks** |
 | Expo Push / APNs / FCM delivery | **Stub** (worker leaf later) |
-| Digest cache warm path | Key reserved; spend still reads Postgres digest |
+| Digest cache warm path | **Real** (CC-36): boot warm + spend refresh; WS subscribe reads `cc:digest:cache` |
 
 ## Follow-up
 

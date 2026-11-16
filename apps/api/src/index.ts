@@ -14,16 +14,24 @@ import {
   userFromRequest,
   verifyOtp,
 } from "./lib/auth.js";
-import { clientCount, startBus, subscribe } from "./lib/bus.js";
+import {
+  attachClient,
+  clientCount,
+  digestSubscriberCount,
+  startBus,
+  subscribeChannel,
+  unsubscribeChannel,
+} from "./lib/bus.js";
 import { closeDb, getActionCost, getFreeGrant, initDb, one } from "./lib/db.js";
 import {
   citySheet,
   forceGrantDaily,
+  loadOwnershipDigest,
   maybeGrantDailyEnergy,
-  ownershipDigest,
   pickTribe,
   scoreboard,
   spendEnergy,
+  warmDigestCache,
 } from "./lib/game.js";
 import { allow, DEFAULT_LIMITS, GROUPS } from "./lib/ratelimit.js";
 import { closeRedis, pingRedis } from "./lib/redis.js";
@@ -34,6 +42,8 @@ const HOST = process.env.HOST || "0.0.0.0";
 async function main() {
   const db = await initDb();
   await startBus();
+  const warmed = await warmDigestCache(db);
+  console.info(`[digest] warmed Redis cache with ${warmed} cities`);
   const app = Fastify({ logger: true });
 
   await app.register(cors, { origin: true });
@@ -54,6 +64,7 @@ async function main() {
       db: "postgres",
       redis,
       wsClients: clientCount(),
+      digestSubscribers: digestSubscriberCount(),
       auth: authMode(),
     };
   });
@@ -74,7 +85,9 @@ async function main() {
 
   app.get("/v1/teams", async () => ({ teams: teamsForPicker() }));
 
-  app.get("/v1/map/digest", async () => ({ cities: await ownershipDigest(db) }));
+  app.get("/v1/map/digest", async () => ({
+    cities: await loadOwnershipDigest(db),
+  }));
 
   app.get("/v1/scoreboard", async () => ({ teams: await scoreboard(db) }));
 
@@ -254,11 +267,82 @@ async function main() {
     };
   });
 
+  /**
+   * Live ownership/support digest for guests and logged-in players.
+   *
+   * Protocol:
+   *   ← { type: "hello", channels: ["digest"], authRequired: false }
+   *   → { type: "subscribe", channel: "digest" }
+   *   ← { type: "subscribed", channel: "digest" }
+   *   ← { type: "digest", cities: [...81] }   // snapshot (Redis cache when warm)
+   *   ← { type: "support" | "flip" | "digest" | "ping" }  // live
+   *   → { type: "unsubscribe", channel: "digest" }
+   *   → { type: "ping" } → ← { type: "pong" }
+   *
+   * No auth gate: guests receive the same digest channel as fighters (architecture lock).
+   */
   app.get("/v1/ws", { websocket: true }, (socket) => {
-    subscribe(socket);
-    void ownershipDigest(db).then((cities) => {
-      if (socket.readyState === 1) socket.send(JSON.stringify({ type: "digest", cities }));
+    attachClient(socket);
+    if (socket.readyState === 1) {
+      socket.send(
+        JSON.stringify({
+          type: "hello",
+          channels: ["digest"],
+          authRequired: false,
+          note: "Send {type:\"subscribe\",channel:\"digest\"} for the 81-city snapshot + live updates",
+        }),
+      );
+    }
+
+    const sendDigestSnapshot = async () => {
+      const cities = await loadOwnershipDigest(db);
+      if (socket.readyState === 1) {
+        socket.send(JSON.stringify({ type: "digest", cities }));
+      }
+    };
+
+    socket.on("message", (raw) => {
+      let msg: { type?: string; channel?: string };
+      try {
+        msg = JSON.parse(String(raw)) as { type?: string; channel?: string };
+      } catch {
+        if (socket.readyState === 1) {
+          socket.send(JSON.stringify({ type: "error", error: "invalid_json" }));
+        }
+        return;
+      }
+
+      if (msg.type === "ping") {
+        if (socket.readyState === 1) socket.send(JSON.stringify({ type: "pong" }));
+        return;
+      }
+
+      if (msg.type === "subscribe") {
+        if (msg.channel !== "digest") {
+          if (socket.readyState === 1) {
+            socket.send(JSON.stringify({ type: "error", error: "unknown_channel" }));
+          }
+          return;
+        }
+        subscribeChannel(socket, "digest");
+        if (socket.readyState === 1) {
+          socket.send(JSON.stringify({ type: "subscribed", channel: "digest" }));
+        }
+        void sendDigestSnapshot();
+        return;
+      }
+
+      if (msg.type === "unsubscribe") {
+        if (msg.channel === "digest") {
+          unsubscribeChannel(socket, "digest");
+          if (socket.readyState === 1) {
+            socket.send(JSON.stringify({ type: "unsubscribed", channel: "digest" }));
+          }
+        }
+        return;
+      }
     });
+
     const ping = setInterval(() => {
       if (socket.readyState === 1) socket.send(JSON.stringify({ type: "ping" }));
     }, 25000);
@@ -266,7 +350,7 @@ async function main() {
   });
 
   await app.listen({ port: PORT, host: HOST });
-  app.log.info(`City Competition API on http://${HOST}:${PORT} (Postgres + Redis)`);
+  app.log.info(`City Competition API on http://${HOST}:${PORT} (Postgres + Redis + WS digest)`);
 }
 
 main().catch((err) => {

@@ -15,6 +15,10 @@ export type DigestCity = {
   ownerTeamId: string | null;
   ownerAlias: string | null;
   ownerColor: string | null;
+  /** Present on WS/HTTP digest after CC-36 — top cumulative support. */
+  leadSupport?: number;
+  rivalSupport?: number;
+  leadMargin?: number;
 };
 
 export type CitySheet = {

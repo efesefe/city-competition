@@ -33,21 +33,96 @@ export function creditedSupport(energySpent: number, boost: BoostSnapshot): numb
 async function cacheDigest(cities: OwnershipDigestCity[]): Promise<void> {
   try {
     const r = await getRedis();
-    await r.set(KEYS.digestCache, JSON.stringify(cities), { EX: 30 });
+    await r.set(KEYS.digestCache, JSON.stringify(cities), { EX: 60 });
   } catch (err) {
     console.warn("[digest] redis cache warm failed", err);
   }
 }
 
+/** Read warm Redis digest cache (null on miss / error). */
+export async function readCachedDigest(): Promise<OwnershipDigestCity[] | null> {
+  try {
+    const r = await getRedis();
+    const raw = await r.get(KEYS.digestCache);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as OwnershipDigestCity[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    return parsed;
+  } catch (err) {
+    console.warn("[digest] redis cache read failed", err);
+    return null;
+  }
+}
+
+/**
+ * Compact 81-city ownership + support digest (lead/rival tallies for contested heat).
+ * Prefer `loadOwnershipDigest` on WS reconnect so Redis cache can serve the snapshot.
+ */
 export async function ownershipDigest(db: Queryable): Promise<OwnershipDigestCity[]> {
-  return many<OwnershipDigestCity>(
+  const rows = await many<{
+    plate: string;
+    ownerTeamId: string | null;
+    ownerAlias: string | null;
+    ownerColor: string | null;
+    leadSupport: string | number | null;
+    rivalSupport: string | number | null;
+  }>(
     db,
-    `SELECT c.plate, c.owner_team_id AS "ownerTeamId", t.public_alias AS "ownerAlias",
-            t.primary_color AS "ownerColor"
+    `SELECT c.plate,
+            c.owner_team_id AS "ownerTeamId",
+            t.public_alias AS "ownerAlias",
+            t.primary_color AS "ownerColor",
+            lead.support AS "leadSupport",
+            rival.support AS "rivalSupport"
      FROM cities c
      LEFT JOIN teams t ON t.internal_id = c.owner_team_id
+     LEFT JOIN LATERAL (
+       SELECT support FROM city_support
+       WHERE city_plate = c.plate
+       ORDER BY support DESC, team_id ASC
+       LIMIT 1
+     ) lead ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT support FROM city_support
+       WHERE city_plate = c.plate
+       ORDER BY support DESC, team_id ASC
+       OFFSET 1 LIMIT 1
+     ) rival ON TRUE
      ORDER BY c.plate`,
   );
+  return rows.map((r) => {
+    const leadSupport = Number(r.leadSupport ?? 0);
+    const rivalSupport = Number(r.rivalSupport ?? 0);
+    return {
+      plate: r.plate,
+      ownerTeamId: r.ownerTeamId,
+      ownerAlias: r.ownerAlias,
+      ownerColor: r.ownerColor,
+      leadSupport,
+      rivalSupport,
+      leadMargin: leadSupport - rivalSupport,
+    };
+  });
+}
+
+/** Cache-first digest for WS subscribe / reconnect; always refreshes TTL on hit or miss. */
+export async function loadOwnershipDigest(db: Queryable): Promise<OwnershipDigestCity[]> {
+  const cached = await readCachedDigest();
+  if (cached) {
+    // Refresh TTL so active WS sessions keep the warm path.
+    void cacheDigest(cached);
+    return cached;
+  }
+  const cities = await ownershipDigest(db);
+  await cacheDigest(cities);
+  return cities;
+}
+
+/** Warm Redis digest at boot so the first guest subscribe is cache-fast. */
+export async function warmDigestCache(db: Queryable): Promise<number> {
+  const cities = await ownershipDigest(db);
+  await cacheDigest(cities);
+  return cities.length;
 }
 
 export async function citySheet(db: Queryable, plate: string) {
@@ -425,6 +500,19 @@ export async function spendEnergy(
   }
 
   const digest = await ownershipDigest(db);
+  const citySnap = digest.find((c) => c.plate === opts.plate);
+  await publish({
+    type: "support",
+    plate: opts.plate,
+    ownerTeamId: citySnap?.ownerTeamId ?? applied.toTeamId,
+    ownerAlias: citySnap?.ownerAlias ?? toAlias,
+    ownerColor: citySnap?.ownerColor ?? toColor,
+    leadSupport: citySnap?.leadSupport ?? applied.supportCredited,
+    rivalSupport: citySnap?.rivalSupport ?? 0,
+    leadMargin: citySnap?.leadMargin ?? 0,
+    spentTeamId: tribeId,
+    supportCredited: applied.supportCredited,
+  });
   await publish({ type: "digest", cities: digest });
   await cacheDigest(digest);
 
