@@ -15,6 +15,7 @@ import {
   toIso,
   type BoostSnapshot,
 } from "./boost.js";
+import { recordOwnershipFlip } from "./admin-ops.js";
 import { noteFlip, noteRivalAttack } from "./coalesce.js";
 import { singleFlight } from "./idempotency.js";
 import { getRedis, KEYS } from "./redis.js";
@@ -817,6 +818,12 @@ async function spendEnergyOnce(
   }
 
   if (applied.flipped) {
+    await recordOwnershipFlip(db, {
+      plate: opts.plate,
+      fromTeamId: applied.fromOwner,
+      toTeamId: applied.toTeamId,
+      userId: opts.userId,
+    });
     await publish({
       type: "flip",
       plate: opts.plate,

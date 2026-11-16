@@ -427,4 +427,167 @@ tutorial: (token: string) =>
       method: "POST",
       body: {},
     }),
+
+  adminOtpStatus: (token: string) =>
+    request<{ enrolled: boolean; phoneE164: string | null; purposes: string[] }>(
+      "/v1/admin/otp/status",
+      { token },
+    ),
+
+  adminOtpEnroll: (token: string, phone?: string) =>
+    request<{ ok: true; phoneE164: string; enrolled: true }>("/v1/admin/otp/enroll", {
+      token,
+      body: phone ? { phone } : {},
+    }),
+
+  adminOtpChallenge: (token: string, purpose: string) =>
+    request<{
+      ok: true;
+      challengeId: string;
+      purpose: string;
+      mock: boolean;
+      code?: string;
+      expiresAt: string;
+    }>("/v1/admin/otp/challenge", { token, body: { purpose } }),
+
+  adminEconomy: (token: string) =>
+    request<{
+      prices: {
+        smallTry: number | null;
+        mediumTry: number | null;
+        largeTry: number | null;
+        subTry: number | null;
+        personalBoostTry: number | null;
+      };
+      freeDailyGrant: number;
+      actionCost: number;
+      season: {
+        season0StartsAt: string;
+        season0EndsAt: string;
+        season1PrepStartsAt: string | null;
+      };
+    }>("/v1/admin/economy", { token }),
+
+  adminUpdatePackPrices: (
+    token: string,
+    body: {
+      otp: string;
+      smallTry?: number | null;
+      mediumTry?: number | null;
+      largeTry?: number | null;
+      subTry?: number | null;
+      personalBoostTry?: number | null;
+    },
+  ) =>
+    request<{ ok: true; prices: unknown }>("/v1/admin/economy/pack-prices", {
+      token,
+      body,
+    }),
+
+  adminUpdateTunables: (
+    token: string,
+    body: { otp: string; freeDailyGrant?: number; actionCost?: number },
+  ) =>
+    request<{ ok: true; freeDailyGrant: number; actionCost: number }>(
+      "/v1/admin/economy/tunables",
+      { token, body },
+    ),
+
+  adminUpdateSeason: (
+    token: string,
+    body: {
+      otp: string;
+      season0StartsAt?: string;
+      season0EndsAt?: string;
+      season1PrepStartsAt?: string | null;
+    },
+  ) =>
+    request<{ ok: true; bounds: unknown }>("/v1/admin/season/bounds", {
+      token,
+      body,
+    }),
+
+  adminSeedStatus: (token: string) =>
+    request<{
+      teams: number;
+      cities: number;
+      supportRows: number;
+      expectedTeams: number;
+      expectedCities: number;
+      confirmedAt: string | null;
+      aliases: { internalId: string; publicAlias: string }[];
+    }>("/v1/admin/seeds/status", { token }),
+
+  adminSeedLoad: (token: string, body: { otp: string; resetSupport?: boolean }) =>
+    request<{ ok: true; status: unknown }>("/v1/admin/seeds/load", { token, body }),
+
+  submitTeamAddTicket: (token: string, requestedClub: string) =>
+    request<{ ok: true; ticket: TeamAddTicket }>("/v1/tickets/team-add", {
+      token,
+      body: { requestedClub },
+    }),
+
+  adminListTickets: (token: string, status?: string) => {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    return request<{ tickets: TeamAddTicket[] }>(`/v1/admin/tickets/team-add${q}`, {
+      token,
+    });
+  },
+
+  adminTriageTicket: (
+    token: string,
+    id: string,
+    body: {
+      action: "accept" | "reject" | "defer";
+      adminNote?: string | null;
+      publicAlias?: string;
+      primaryColor?: string;
+      secondaryColor?: string;
+    },
+  ) =>
+    request<{ ok: true; ticket: TeamAddTicket }>(
+      `/v1/admin/tickets/team-add/${id}/triage`,
+      { token, body },
+    ),
+
+  adminMetrics: (token: string) =>
+    request<{
+      metrics: {
+        dau: number;
+        dauSparkline: { day: string; dau: number }[];
+        flipsToday: number;
+        flips7d: number;
+        revenueTodayTry: number;
+        revenueMtdTry: number;
+        matchDay: {
+          nextEvent: {
+            id: string;
+            kind: string;
+            label: string | null;
+            startsAt: string;
+            endsAt: string;
+          } | null;
+          lastPeakConcurrent: number | null;
+          lastPeakAt: string | null;
+          currentConcurrent: number;
+          inMatchWindow: boolean;
+        };
+        openTeamAddTickets: number;
+        note: string;
+      };
+    }>("/v1/admin/metrics", { token }),
+};
+
+export type TeamAddTicket = {
+  id: string;
+  userId: string;
+  requesterHandle: string | null;
+  requestedClub: string;
+  status: "open" | "accepted" | "rejected" | "deferred";
+  adminNote: string | null;
+  createdPublicAlias: string | null;
+  createdTeamId: string | null;
+  triagedBy: string | null;
+  triagedAt: string | null;
+  createdAt: string;
 };

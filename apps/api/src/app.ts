@@ -54,6 +54,26 @@ import {
   scheduleTeamBoost,
   updateMatchDayWindow,
 } from "./lib/admin-match-day.js";
+
+import {
+  adminOtpStatus,
+  challengeAdminOtp,
+  enrollAdminPhone,
+  ensureAdminOpsDefaults,
+  getOpsMetrics,
+  getPackPrices,
+  getSeasonBounds,
+  getSeedStatus,
+  listAuditLog,
+  listTeamAddTickets,
+  loadAliasesAndSeedMatrix,
+  recordPurchaseStub,
+  submitTeamAddTicket,
+  triageTeamAddTicket,
+  updateEconomyTunables,
+  updatePackPrices,
+  updateSeasonBounds,
+} from "./lib/admin-ops.js";
 import {
   energyGrantTriggersEnabled,
   forceGrantDaily,
@@ -121,6 +141,7 @@ async function requireAdmin(db: Db, req: Parameters<typeof userFromRequest>[1]) 
 /** Build the Fastify app (shared by server boot and load/smoke tests). */
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
   const { db } = opts;
+  await ensureAdminOpsDefaults(db);
   const app = Fastify({ logger: opts.logger ?? true });
 
   await app.register(cors, { origin: true });
@@ -198,6 +219,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.get("/v1/meta", async () => {
     const freeDailyGrant = await getFreeGrant(db);
     const subDailyBonus = await getSubDailyBonus(db);
+    const prices = await getPackPrices(db);
+    const season = await getSeasonBounds(db);
     return {
       actionCost: await getActionCost(db),
       actionCostBand: ACTION_COST_BAND,
@@ -205,6 +228,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       subDailyBonus,
       timezone: TR_TIMEZONE,
       trDate: trDateString(),
+      season,
       auth: authMode(),
       support: {
         lostSimRebind: true,
@@ -215,17 +239,22 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       shop: {
         stub: true,
         packs: [
-          { sku: "small", energy: 200, tryPlaceholder: 49.99 },
-          { sku: "medium", energy: 600, tryPlaceholder: 129.99 },
-          { sku: "large", energy: 1500, tryPlaceholder: 249.99 },
+          { sku: "small", energy: 200, tryPlaceholder: prices.smallTry },
+          { sku: "medium", energy: 600, tryPlaceholder: prices.mediumTry },
+          { sku: "large", energy: 1500, tryPlaceholder: prices.largeTry },
         ],
         subDailyBonus,
+        subscription: {
+          sku: "monthly_sub",
+          dailyBonus: 50,
+          tryPlaceholder: prices.subTry,
+        },
         /** Payments not ready — client shows SKU; activate via stub endpoint. */
         personalBoost: {
           sku: "personal_boost_1h",
           effect: "+50% support",
           durationMinutes: 60,
-          tryPlaceholder: null,
+          tryPlaceholder: prices.personalBoostTry,
           purchase: "stub",
         },
       },
@@ -887,6 +916,231 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     const result = await cancelMatchDayWindow(db, id);
     if (!result.ok) return reply.code(result.status).send({ error: result.error });
     return { window: result.window };
+  });
+
+
+  /** CC-52: admin phone enrollment + purpose OTP for gated writes. */
+  app.get("/v1/admin/otp/status", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    return adminOtpStatus(db, gate.user.id);
+  });
+
+  app.post("/v1/admin/otp/enroll", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z.object({ phone: z.string().optional() }).safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const result = await enrollAdminPhone(db, gate.user.id, body.data.phone);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  app.post("/v1/admin/otp/challenge", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z.object({ purpose: z.string().min(1) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const result = await challengeAdminOtp(db, gate.user.id, body.data.purpose);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  app.get("/v1/admin/economy", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    return {
+      prices: await getPackPrices(db),
+      freeDailyGrant: await getFreeGrant(db),
+      actionCost: await getActionCost(db),
+      season: await getSeasonBounds(db),
+    };
+  });
+
+  app.post("/v1/admin/economy/pack-prices", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        otp: z.string().min(4),
+        smallTry: z.number().nonnegative().nullable().optional(),
+        mediumTry: z.number().nonnegative().nullable().optional(),
+        largeTry: z.number().nonnegative().nullable().optional(),
+        subTry: z.number().nonnegative().nullable().optional(),
+        personalBoostTry: z.number().nonnegative().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const { otp, ...prices } = body.data;
+    const result = await updatePackPrices(db, { actorUserId: gate.user.id, otp, prices });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  app.post("/v1/admin/economy/tunables", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        otp: z.string().min(4),
+        freeDailyGrant: z.number().optional(),
+        actionCost: z.number().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await updateEconomyTunables(db, {
+      actorUserId: gate.user.id,
+      otp: body.data.otp,
+      freeDailyGrant: body.data.freeDailyGrant,
+      actionCost: body.data.actionCost,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  app.post("/v1/admin/season/bounds", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        otp: z.string().min(4),
+        season0StartsAt: z.string().optional(),
+        season0EndsAt: z.string().optional(),
+        season1PrepStartsAt: z.string().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await updateSeasonBounds(db, {
+      actorUserId: gate.user.id,
+      otp: body.data.otp,
+      season0StartsAt: body.data.season0StartsAt,
+      season0EndsAt: body.data.season0EndsAt,
+      season1PrepStartsAt: body.data.season1PrepStartsAt,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  /** CC-54: aliases + 81-city seed matrix status / OTP-gated load. */
+  app.get("/v1/admin/seeds/status", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    return getSeedStatus(db);
+  });
+
+  app.post("/v1/admin/seeds/load", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        otp: z.string().min(4),
+        resetSupport: z.boolean().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await loadAliasesAndSeedMatrix(db, {
+      actorUserId: gate.user.id,
+      otp: body.data.otp,
+      resetSupport: body.data.resetSupport,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  /** CC-53: player submit + admin triage team-add tickets. */
+  app.post("/v1/tickets/team-add", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user.phone_verified) return reply.code(403).send({ error: "phone_unverified" });
+    const body = z.object({ requestedClub: z.string().min(2).max(120) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const result = await submitTeamAddTicket(db, {
+      userId: user.id,
+      requestedClub: body.data.requestedClub,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return reply.code(201).send(result);
+  });
+
+  app.get("/v1/admin/tickets/team-add", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const q = req.query as { status?: string };
+    const status =
+      q.status === "open" ||
+      q.status === "accepted" ||
+      q.status === "rejected" ||
+      q.status === "deferred"
+        ? q.status
+        : undefined;
+    return { tickets: await listTeamAddTickets(db, { status }) };
+  });
+
+  app.post<{ Params: { id: string } }>("/v1/admin/tickets/team-add/:id/triage", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const id = req.params.id;
+    const body = z
+      .object({
+        action: z.enum(["accept", "reject", "defer"]),
+        adminNote: z.string().nullable().optional(),
+        publicAlias: z.string().optional(),
+        primaryColor: z.string().optional(),
+        secondaryColor: z.string().optional(),
+        internalId: z.string().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await triageTeamAddTicket(db, {
+      ticketId: id,
+      adminUserId: gate.user.id,
+      ...body.data,
+    });
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    return result;
+  });
+
+  /** CC-55: soft-launch ops metrics (watch-only; no kill gates). */
+  app.get("/v1/admin/metrics", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    return { metrics: await getOpsMetrics(db) };
+  });
+
+  app.get("/v1/admin/audit", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    return { entries: await listAuditLog(db) };
+  });
+
+  /** Dev stub: record a purchase event so revenue widgets are exercisable. */
+  app.post("/v1/admin/metrics/purchase-sim", async (req, reply) => {
+    const gate = await requireAdmin(db, req);
+    if (!gate.ok) return reply.code(gate.status).send({ error: gate.error });
+    const body = z
+      .object({
+        sku: z.string().min(1).default("small"),
+        amountTry: z.number().positive(),
+        userId: z.string().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const result = await recordPurchaseStub(db, {
+      userId: body.data.userId ?? gate.user.id,
+      sku: body.data.sku,
+      amountTry: body.data.amountTry,
+    });
+    return { simulated: true, ...result };
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {

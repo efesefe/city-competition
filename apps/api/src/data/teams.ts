@@ -32,15 +32,31 @@ export const TEAMS: Team[] = [
 export const TEAM_BY_ALIAS = new Map(TEAMS.map((t) => [t.publicAlias, t]));
 export const TEAM_BY_ID = new Map(TEAMS.map((t) => [t.internalId, t]));
 
-/** Big 4 (Aslan / Kanarya / Kartal / Fırtına) then remaining Süper Lig aliases. */
+/** Runtime registry for ticket-accepted / DB-loaded teams beyond the static Süper Lig set. */
+const DYNAMIC: Team[] = [];
+
+export function registerTeam(t: Team): void {
+  TEAM_BY_ID.set(t.internalId, t);
+  TEAM_BY_ALIAS.set(t.publicAlias, t);
+  const idx = DYNAMIC.findIndex((x) => x.internalId === t.internalId);
+  if (idx >= 0) DYNAMIC[idx] = t;
+  else if (!TEAMS.some((x) => x.internalId === t.internalId)) DYNAMIC.push(t);
+}
+
+function allTeams(): Team[] {
+  return [...TEAMS, ...DYNAMIC.filter((d) => !TEAMS.some((t) => t.internalId === d.internalId))];
+}
+
+/** Big 4 (Aslan / Kanarya / Kartal / Fırtına) then remaining Süper Lig aliases (+ dynamic). */
 export function teamsForPicker(): Team[] {
   const { big4, rest } = teamsGroupedForPicker();
   return [...big4, ...rest];
 }
 
 export function teamsGroupedForPicker(): { big4: Team[]; rest: Team[] } {
+  const all = allTeams();
   return {
-    big4: TEAMS.filter((t) => t.big4),
-    rest: TEAMS.filter((t) => !t.big4),
+    big4: all.filter((t) => t.big4),
+    rest: all.filter((t) => !t.big4),
   };
 }

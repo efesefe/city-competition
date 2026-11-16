@@ -67,9 +67,12 @@ curl -s -X POST "$API/v1/admin/match-day/derby-wars" \
 
 ## Still later
 
-- Admin phone OTP on gated economy saves (CC-52+)
-- Fixture-list import / MatchDay templates leaf
+- Fixture-list auto-import from calendar feed (manual kickoff/FT scheduling is in)
 - Map chrome consumer of `spotlight_plate` (CC-28) — this leaf writes the rows chrome will read
+
+## Follow-up shipped on stack
+
+OTP-gated economy/season/seed + tickets + metrics: [admin-ops-mvp.md](admin-ops-mvp.md)
 
 ## Test
 
