@@ -690,7 +690,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
 
-  /** Payments stub: grant personal +50% / 1h without charging (display path real). */
+  /** Payments stub until IAP/iyzico — activates +50% / 1h with real expiry timing. */
   app.post("/v1/boosts/personal/stub", async (req, reply) => {
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
@@ -706,7 +706,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     };
   });
 
-  /** Dev/sim: open match-day +25% team window for caller's tribe (admin leaf later). */
+  /** Dev/sim team +25% window so personal×team stacking can be exercised before admin match-day. */
   app.post("/v1/boosts/team/sim", async (req, reply) => {
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });

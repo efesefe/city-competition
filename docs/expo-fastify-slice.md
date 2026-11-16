@@ -32,6 +32,7 @@
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Action cost from `tunables.action_cost` (band **10–20**, default **15**) — admin `PUT /v1/admin/tunables/action-cost` (see [action-cost-tunable.md](action-cost-tunable.md))  
 - Daily 100 energy via claim / `grant-sim`  
+- Personal +50%/1h boost with real expiry + personal×team stack on spend (purchase stub) — see [personal-boost-logic.md](personal-boost-logic.md)  
 - Seeds from `docs/city-seed-matrix.md` logic (2–3 teams)
 
 ## Not in this slice
