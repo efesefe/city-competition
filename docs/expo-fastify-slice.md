@@ -39,7 +39,7 @@
 
 ## Not in this slice
 
-Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico/IAP (boost display + activate stub are in), admin MatchDay + OTP ops are in, TR midnight cron worker, push delivery worker.
+Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico web checkout, Android Play Billing (iOS IAP is in — see [ios-iap-revenuecat.md](ios-iap-revenuecat.md)), TR midnight cron worker, push delivery worker. Admin MatchDay + OTP ops are in; personal boost display + activate stub remain available. `ALLOW_IAP_STUB` for local iOS grants.
 
 Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `docker compose` in `apps/api`, or Neon/Fly MPG + Upstash). See [postgres-migration.md](postgres-migration.md) and [redis-realtime-ops.md](redis-realtime-ops.md).
 
