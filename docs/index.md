@@ -15,7 +15,8 @@ Project context for future sessions. Update this list when adding a new module o
 | [city-sheet-combat-panel.md](city-sheet-combat-panel.md) | CC-26: City sheet owner / lead / real-handle contributors / Attack·Defend |
 | [postgres-migration.md](postgres-migration.md) | API SQLite → Postgres (`DATABASE_URL`, migrations, Realtime ledger handoff) |
 | [redis-realtime-ops.md](redis-realtime-ops.md) | Redis/`REDIS_URL` for ownership pub/sub, rate limits, alert coalesce hooks |
-| [fly-deploy.md](fly-deploy.md) | Fly.io `fra` deploy: `web` (API+WS) + `worker`, secrets, scale runbook |
+| [fly-deploy.md](fly-deploy.md) | CC-41: Fly.io `fra` deploy — `web` (API+WS) + `worker` |
+| [fly-secrets-health-scale.md](fly-secrets-health-scale.md) | CC-42: env/secrets checklist, `/health` 503 semantics, match-day scale steps |
 | [persist-ledger-live-flips.md](persist-ledger-live-flips.md) | CC-35: `FOR UPDATE` spend, boost snapshot cols, strict-lead flips + Redis fan-out |
 | [daily-free-energy.md](daily-free-energy.md) | CC-30: Daily free energy grant (Europe/Istanbul) |
 | [idempotent-spend.md](idempotent-spend.md) | CC-37: concurrent idempotent spend load/smoke tests + HTTP retry/single-flight harden |

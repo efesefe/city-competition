@@ -3,7 +3,7 @@
 **Date:** 2026-11-16  
 **Tracker:** CC-41 (Wave 2 — Deploy API/WS/workers on Fly.io PAYG)  
 **Region lock:** Frankfurt (`fra`)  
-**App path:** [`apps/api`](../apps/api) (`fly.toml`, `Dockerfile`, `src/index.ts`, `src/worker.ts`)
+**App path:** [`apps/api`](../apps/api) (`fly.toml`, `Dockerfile`, `src/app.ts` + `src/index.ts`, `src/worker.ts`)
 
 API HTTP and live ownership WebSocket share the **`web`** process. Background jobs run as the **`worker`** process in the same Fly app (same image, separate Machines). Game spend/flip math is unchanged.
 
@@ -97,7 +97,8 @@ fly scale vm shared-cpu-1x --memory 256 --process-group worker -a city-competiti
 fly status -a city-competition-api
 fly logs -a city-competition-api
 curl -sS https://city-competition-api.fly.dev/health
-# → {"ok":true,"db":"postgres","redis":"PONG", …}
+# → 200 {"ok":true,"db":"postgres","redis":"PONG", …}
+# → 503 {"ok":false,"reason":"db_unreachable"|…} if Postgres/Redis down (see fly-secrets-health-scale.md)
 
 # WS smoke (requires websocat or similar)
 # websocat wss://city-competition-api.fly.dev/v1/ws
@@ -143,7 +144,8 @@ docker run --rm -e DATABASE_URL -e REDIS_URL city-competition-api:local npm run 
 
 ## Related
 
+- [fly-secrets-health-scale.md](fly-secrets-health-scale.md) — full secrets checklist, `/health` 503 semantics, match-day scale timeline (CC-42)  
 - [postgres-migration.md](postgres-migration.md) — `DATABASE_URL`  
 - [redis-realtime-ops.md](redis-realtime-ops.md) — `REDIS_URL`, `cc:ownership`, `notif_queue`  
 - [expo-fastify-slice.md](expo-fastify-slice.md) — slice behavior  
-- Product architecture (store): Fly `fra` + PAYG Machines for API/WS/workers  
+- Product architecture (store): Fly `fra` + PAYG Machines for API/WS/workers 

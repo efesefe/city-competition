@@ -1,6 +1,7 @@
 # City Competition — Fly.io Frankfurt (Season 0 lock: fra)
 # Process groups: web = HTTPS API + WebSocket (/v1/ws); worker = TR grant + notif_queue drain.
-# Deploy recipe + secrets: docs/fly-deploy.md
+# Deploy recipe: docs/fly-deploy.md
+# Secrets / health 503 / match-day scale: docs/fly-secrets-health-scale.md
 
 app = "city-competition-api"
 primary_region = "fra"

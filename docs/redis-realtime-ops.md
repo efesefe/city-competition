@@ -13,7 +13,7 @@
 | Pub/sub | Channel `cc:ownership` fans flip + digest JSON to every API process → local WS clients |
 | Rate limits | Redis Lua token bucket: `support-spend`, `otp-start`, `otp-verify` |
 | Coalesce | 5-min `SET NX EX` windows + buffer hashes; first event enqueues `notif_queue` (push worker later) |
-| Health | `GET /health` → `{ redis: "PONG", db: "postgres" }` |
+| Health | `GET /health` (and `/healthz`) → `200` + `{ redis: "PONG", db: "postgres" }`; `503` + `errors` if either fails — see [fly-secrets-health-scale.md](fly-secrets-health-scale.md) |
 
 **Not required for local demo:** Upstash cloud account. Local `redis-server` or `docker compose` Redis is enough.
 
