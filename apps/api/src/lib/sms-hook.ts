@@ -1,11 +1,20 @@
 /**
- * Supabase Auth Send SMS Hook seam (CC-19).
- * Netgsm / İleti Merkezi delivery is CC-20 — do not call vendor APIs here yet.
+ * Supabase Auth Send SMS Hook (CC-20).
  *
  * Dashboard: Authentication → Hooks → Send SMS → HTTP endpoint
  *   POST {API}/v1/auth/hooks/send-sms
- * Secret: SEND_SMS_HOOK_SECRETS (Supabase hook secret / Standard Webhooks).
+ * Secret: SEND_SMS_HOOK_SECRETS (Bearer / x-supabase-hook-secret; Standard Webhooks secret string).
+ *
+ * Delivery:
+ *   - Credentials absent OR SMS_HOOK_DRY_RUN !== "false" → dry-run (log OTP, no vendor call)
+ *   - NETGSM_USERCODE + NETGSM_PASSWORD + NETGSM_MSGHEADER + SMS_HOOK_DRY_RUN=false → live Netgsm OTP
  */
+
+import {
+  netgsmCredentialsConfigured,
+  netgsmReadyForLiveSend,
+  sendNetgsmOtp,
+} from "./netgsm.js";
 
 export type SendSmsHookBody = {
   user?: { phone?: string; id?: string };
@@ -15,23 +24,37 @@ export type SendSmsHookBody = {
 
 export type SmsDeliverResult = {
   delivered: boolean;
-  provider: "dry-run" | "pending-netgsm";
+  provider: "dry-run" | "netgsm";
   note: string;
+  jobId?: string;
+  error?: string;
 };
 
 export function smsHookConfigured(): boolean {
   return Boolean(process.env.SEND_SMS_HOOK_SECRETS);
 }
 
+export function smsHookDryRun(): boolean {
+  // Default safe: dry-run unless explicitly disabled.
+  return process.env.SMS_HOOK_DRY_RUN !== "false";
+}
+
+export function netgsmDeliveryMode(): "live" | "dry-run" {
+  return netgsmReadyForLiveSend() && !smsHookDryRun() ? "live" : "dry-run";
+}
+
 /**
- * Minimal secret check. Full Standard Webhooks signature verify lands with CC-20
- * alongside Netgsm; until then accept `Authorization: Bearer <secret>` or
- * `x-supabase-hook-secret` matching SEND_SMS_HOOK_SECRETS (comma-separated ok).
+ * Accept `Authorization: Bearer <secret>` or `x-supabase-hook-secret`.
+ * `SEND_SMS_HOOK_SECRETS` is one secret by default (often `v1,whsec_…`).
+ * Multiple secrets: separate with `|` (never comma — Standard Webhooks uses commas).
  */
 export function verifySmsHookSecret(headers: Record<string, string | string[] | undefined>): boolean {
   const raw = process.env.SEND_SMS_HOOK_SECRETS;
   if (!raw) return false;
-  const secrets = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const secrets = raw
+    .split("|")
+    .map((s) => s.trim())
+    .filter(Boolean);
   const auth = headerValue(headers, "authorization");
   const hookHeader = headerValue(headers, "x-supabase-hook-secret");
   const bearer = auth?.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : null;
@@ -55,35 +78,72 @@ export function parseSendSmsHookBody(body: unknown): { phone: string | null; otp
 }
 
 /**
- * Delivery seam for CC-20. Logs OTP in dry-run so a real Supabase project + tunnel
- * can complete phone verify without Netgsm. Never returns the OTP to the client.
+ * Deliver OTP via Netgsm when live; otherwise dry-run log.
+ * Never echoes the OTP in the HTTP response body.
  */
 export async function deliverOtpSms(opts: {
   phone: string | null;
   otp: string | null;
 }): Promise<SmsDeliverResult> {
-  const hasNetgsm = Boolean(process.env.NETGSM_USERCODE && process.env.NETGSM_PASSWORD);
-  const dryRun = process.env.SMS_HOOK_DRY_RUN !== "false";
+  const dryRun = smsHookDryRun();
+  const hasCreds = netgsmCredentialsConfigured();
 
-  if (hasNetgsm && !dryRun) {
-    // CC-20: call Netgsm / İleti Merkezi here. Keep return shape stable.
-    console.info(
-      `[sms-hook] Netgsm credentials present but delivery not implemented (CC-20); phone=${redactPhone(opts.phone)}`,
-    );
+  if (!opts.phone || !opts.otp) {
     return {
       delivered: false,
-      provider: "pending-netgsm",
-      note: "CC-20 Netgsm hook not wired — set SMS_HOOK_DRY_RUN=true to log OTP locally",
+      provider: dryRun || !hasCreds ? "dry-run" : "netgsm",
+      note: "missing phone or otp in hook body",
+      error: "missing_phone_or_otp",
     };
   }
 
-  console.info(
-    `[sms-hook] dry-run OTP for ${redactPhone(opts.phone)}: ${opts.otp ?? "(none)"} (CC-20: replace with Netgsm)`,
+  if (dryRun || !hasCreds) {
+    console.info(
+      `[sms-hook] dry-run OTP for ${redactPhone(opts.phone)}: ${opts.otp}` +
+        (hasCreds ? " (SMS_HOOK_DRY_RUN; set false for live Netgsm)" : " (NETGSM_* unset)"),
+    );
+    return {
+      delivered: false,
+      provider: "dry-run",
+      note: hasCreds
+        ? "SMS not sent — dry-run (set SMS_HOOK_DRY_RUN=false for live Netgsm)"
+        : "SMS not sent — set NETGSM_USERCODE, NETGSM_PASSWORD, NETGSM_MSGHEADER",
+    };
+  }
+
+  if (!netgsmReadyForLiveSend()) {
+    console.warn(
+      `[sms-hook] Netgsm credentials present but NETGSM_MSGHEADER/NETGSM_SENDER missing; phone=${redactPhone(opts.phone)}`,
+    );
+    return {
+      delivered: false,
+      provider: "netgsm",
+      note: "NETGSM_MSGHEADER (approved başlık) required for live send",
+      error: "sender_missing",
+    };
+  }
+
+  const result = await sendNetgsmOtp({ phone: opts.phone, otp: opts.otp });
+  if (result.ok) {
+    console.info(
+      `[sms-hook] Netgsm OTP accepted jobId=${result.jobId} phone=${redactPhone(opts.phone)}`,
+    );
+    return {
+      delivered: true,
+      provider: "netgsm",
+      note: "OTP accepted by Netgsm",
+      jobId: result.jobId,
+    };
+  }
+
+  console.error(
+    `[sms-hook] Netgsm OTP failed status=${result.status} code=${result.code} phone=${redactPhone(opts.phone)}: ${result.message}`,
   );
   return {
     delivered: false,
-    provider: "dry-run",
-    note: "SMS not sent — dry-run seam; wire Netgsm in CC-20",
+    provider: "netgsm",
+    note: "Netgsm OTP send failed",
+    error: `${result.code}: ${result.message}`,
   };
 }
 

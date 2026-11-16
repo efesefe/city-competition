@@ -7,7 +7,8 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 
 1. Türkiye **81-province** clickable ownership map (SVG)  
 2. **Guest** browse: map + city sheet + scoreboard (no guest share)  
-3. **Supabase Auth** — phone OTP + Google + Apple when `SUPABASE_*` / `EXPO_PUBLIC_SUPABASE_*` set; otherwise local mock OTP + OAuth stubs. SMS Send Hook seam ready (Netgsm = CC-20) 
+3. **Supabase Auth** — phone OTP + Google + Apple when `SUPABASE_*` / `EXPO_PUBLIC_SUPABASE_*` set; otherwise local mock OTP + OAuth stubs. Send SMS Hook → Netgsm when env live (dry-run otherwise)  
+
 4. After verify → **Kabile pick** (Big 4 first, then rest)  
 5. Spend energy with **always-confirm**; live ownership flip over WebSocket  
 6. Daily free energy **100** @ 00:00 TR — simulate via `POST /v1/energy/grant-sim`  
@@ -75,9 +76,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `REDIS_URL` | — | **Required.** Upstash `rediss://` or local `redis://127.0.0.1:6379` |
 | `MOCK_OTP_CODE` | `123456` | Mock mode only (no Supabase JWT secret) |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `SUPABASE_JWT_SECRET` | — | Live Auth: JWT verify + `/v1/auth/supabase/session` |
-| `SEND_SMS_HOOK_SECRETS` | — | Auth for `POST /v1/auth/hooks/send-sms` (CC-20 Netgsm) |
-| `SMS_HOOK_DRY_RUN` | `true` | Log OTP server-side; no vendor send yet |
-| `NETGSM_USERCODE` / `NETGSM_PASSWORD` | — | Reserved for CC-20 |
+| `SEND_SMS_HOOK_SECRETS` | — | Auth for `POST /v1/auth/hooks/send-sms` |
+| `SMS_HOOK_DRY_RUN` | `true` (implicit) | Set `false` for live Netgsm |
+| `NETGSM_USERCODE` / `NETGSM_PASSWORD` / `NETGSM_MSGHEADER` | — | Live OTP via Netgsm v3 (`docs/netgsm-otp-sms-hook.md`) |
 | `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | — | Optional `/v1/meta` flags when live |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8787` | Client → API |
 | `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | — | Client Supabase SDK (match API project) |
@@ -107,9 +108,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Map 81 + ownership colors | Yes | — |
 | Seed matrix 2–3 teams | Yes | — |
 | Guest browse / scoreboard | Yes | Guest share = blocked by product (no UI) |
-| Phone OTP session | Yes — Supabase SDK when env set; else local mock | SMS delivery = hook dry-run until CC-20 Netgsm |
+| Phone OTP session | Yes — Supabase SDK when env set; else local mock | SMS dry-run when Netgsm keys absent |
 | Google / Apple | Supabase OAuth when env set | Stub buttons in mock mode → still need phone |
-| Send SMS Hook | Endpoint + secret check | Netgsm send not implemented (CC-20) |
+| Send SMS Hook | Endpoint + secret + Netgsm OTP (when env live) | Dry-run log without keys / dry-run flag |
 | Spend + confirm + flip | Yes (Postgres `FOR UPDATE`, idempotent ledger, Redis live flip) | Boost multipliers still `1.0` until shop / match-day |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | UI stub | No payments |

@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-16  
 **Branch:** `cursor/supabase-auth-providers-7719`  
-**Why:** Wire Season 0 Auth stack (locked: Supabase Auth, not Firebase) onto the Expo + Fastify slice, with a local mock fallback when no live project is configured. Netgsm SMS delivery is **CC-20** — this leaf only leaves the Send SMS Hook seam.
+**Why:** Wire Season 0 Auth stack (locked: Supabase Auth, not Firebase) onto the Expo + Fastify slice, with a local mock fallback when no live project is configured. Netgsm SMS delivery is implemented in **CC-20** — see [`netgsm-otp-sms-hook.md`](netgsm-otp-sms-hook.md).
 
 ## Modes
 
@@ -21,8 +21,8 @@ API advertises mode on `GET /v1/meta` → `auth.mode` / `auth.oauthMode` / `auth
 | `SUPABASE_ANON_KEY` | Advertised / client-aligned |
 | `SUPABASE_JWT_SECRET` | Verify access tokens (HS256); JWKS fallback if asymmetric |
 | `SEND_SMS_HOOK_SECRETS` | Hook auth for `POST /v1/auth/hooks/send-sms` |
-| `SMS_HOOK_DRY_RUN` | Default dry-run logs OTP server-side (no Netgsm) |
-| `NETGSM_*` | Present but **not** used for send until CC-20 |
+| `SMS_HOOK_DRY_RUN` | Default dry-run logs OTP; set `false` for live Netgsm (CC-20) |
+| `NETGSM_*` | See [`netgsm-otp-sms-hook.md`](netgsm-otp-sms-hook.md) |
 | `MOCK_OTP_CODE` | Mock-only |
 | `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | Optional flags for `/v1/meta` when live |
 
@@ -49,13 +49,12 @@ Client (Supabase SDK) ──phone OTP / OAuth──► Supabase Auth
 
 Migration: `apps/api/migrations/003_supabase_auth.sql` adds `users.supabase_user_id`.
 
-## SMS Hook seam (ready for CC-20)
+## SMS Hook (CC-20 Netgsm)
 
 - Path: `POST /v1/auth/hooks/send-sms`
 - Point Supabase Dashboard → Auth → Hooks → Send SMS here (tunnel for local).
 - Verifies `SEND_SMS_HOOK_SECRETS` (Bearer / `x-supabase-hook-secret`).
-- `deliverOtpSms()` logs OTP in dry-run; **does not** call Netgsm yet.
-- CC-20: implement vendor send inside `deliverOtpSms` and tighten Standard Webhooks verify.
+- Dry-run when keys absent / `SMS_HOOK_DRY_RUN` unset; live Netgsm when configured — [`netgsm-otp-sms-hook.md`](netgsm-otp-sms-hook.md).
 
 ## Real vs stub
 
@@ -64,7 +63,7 @@ Migration: `apps/api/migrations/003_supabase_auth.sql` adds `users.supabase_user
 | JWT verify + User upsert | Yes when Supabase env set | — |
 | Phone OTP via Supabase SDK | Yes when client+API env set | Local mock OTP |
 | Google / Apple | Yes via Supabase providers | Local stub buttons |
-| SMS delivery (Netgsm) | Seam only | Dry-run log / CC-20 |
+| SMS delivery (Netgsm) | Yes when env live (CC-20) | Dry-run log when keys absent |
 | Session for spend gates | Bearer JWT or local session token | Mock sessions table |
 
 ## Test
@@ -83,6 +82,6 @@ curl -s http://localhost:8787/v1/meta | jq .auth
 
 ## Explicit non-goals (this leaf)
 
-- Netgsm / İleti Merkezi API send (CC-20)
+- İleti Merkezi failover (still later)
 - Lost-SIM support rebind UI
 - Fighting map-only TurkiyeMap PRs

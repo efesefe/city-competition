@@ -26,7 +26,7 @@
 
 ## Not in this slice
 
-Live Supabase project credentials (optional — code path is wired), Netgsm delivery (CC-20; hook seam exists), iyzico/IAP, match-day boosts, TR midnight cron worker, push delivery worker.
+Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico/IAP, match-day boosts, TR midnight cron worker, push delivery worker.
 
 Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `docker compose` in `apps/api`, or Neon/Fly MPG + Upstash). See [postgres-migration.md](postgres-migration.md) and [redis-realtime-ops.md](redis-realtime-ops.md).
 
