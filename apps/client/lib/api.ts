@@ -99,9 +99,13 @@ async function request<T>(
 
 export const api = {
   meta: () =>
-    request<{ actionCost: number; freeDailyGrant: number; auth: AuthMeta; shop: unknown }>(
-      "/v1/meta",
-    ),
+    request<{
+      actionCost: number;
+      actionCostBand: { min: number; max: number; default: number };
+      freeDailyGrant: number;
+      auth: AuthMeta;
+      shop: unknown;
+    }>("/v1/meta"),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
   scoreboard: () =>
     request<{ teams: { teamId: string; alias: string; color: string; citiesOwned: number }[] }>(

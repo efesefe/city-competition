@@ -27,6 +27,7 @@
 - City sheet combat panel (CC-26): owner, lead, real-handle contributors, Attack/Defend + confirm — see [city-sheet-combat-panel.md](city-sheet-combat-panel.md)  
 
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
+- Action cost from `tunables.action_cost` (band **10–20**, default **15**) — admin `PUT /v1/admin/tunables/action-cost` (see [action-cost-tunable.md](action-cost-tunable.md))  
 - Daily 100 energy via claim / `grant-sim`  
 - Seeds from `docs/city-seed-matrix.md` logic (2–3 teams)
 

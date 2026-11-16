@@ -350,8 +350,17 @@ async function spendEnergyOnce(
   }
   if (!user.tribe_id) return { ok: false as const, status: 403, error: "tribe_required" };
 
-  const cost = opts.amount ?? (await getActionCost(db));
-  if (cost < 10 || cost > 20) return { ok: false as const, status: 400, error: "cost_out_of_band" };
+  // Admin-tunable cost is authoritative (band 10–20, default mid 15).
+  const actionCost = await getActionCost(db);
+  if (opts.amount !== undefined && opts.amount !== actionCost) {
+    return {
+      ok: false as const,
+      status: 400,
+      error: "action_cost_mismatch",
+      actionCost,
+    };
+  }
+  const cost = actionCost;
 
   // Cheap existence check outside the tx; owner is re-read under FOR UPDATE inside.
   const cityExists = await one<{ plate: string }>(

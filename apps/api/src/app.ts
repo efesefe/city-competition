@@ -22,7 +22,12 @@ import {
     subscribeChannel,
   unsubscribeChannel,
 } from "./lib/bus.js";
-import { closeDb, getActionCost, getFreeGrant, one, type Db } from "./lib/db.js";
+import {
+  ACTION_COST_BAND,
+  adminApiKeyConfigured,
+  adminKeyAuthorized,
+} from "./lib/actionCost.js";
+import { closeDb, getActionCost, getFreeGrant, one, setActionCost, type Db } from "./lib/db.js";
 import {
   citySheet,
   loadOwnershipDigest,
@@ -108,6 +113,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
 
   app.get("/v1/meta", async () => ({
     actionCost: await getActionCost(db),
+    actionCostBand: ACTION_COST_BAND,
     freeDailyGrant: await getFreeGrant(db),
     timezone: TR_TIMEZONE,
     trDate: trDateString(),
@@ -127,6 +133,69 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       ],
     },
   }));
+
+
+  /**
+   * Admin read of economy tunables (action cost + free grant).
+   * Auth unchanged — gated by `x-admin-key` / `ADMIN_API_KEY` (phone OTP console = later Admin leaf).
+   */
+  app.get("/v1/admin/tunables", async (req, reply) => {
+    if (!adminApiKeyConfigured()) {
+      return reply.code(503).send({ error: "admin_api_key_not_configured" });
+    }
+    if (!adminKeyAuthorized(req.headers["x-admin-key"])) {
+      return reply.code(401).send({ error: "admin_unauthorized" });
+    }
+    return {
+      actionCost: await getActionCost(db),
+      actionCostBand: ACTION_COST_BAND,
+      freeDailyGrant: await getFreeGrant(db),
+    };
+  });
+
+  /**
+   * Admin set attack/support cost within locked band 10–20 (default mid 15).
+   * Body: `{ "actionCost": 12 }`
+   */
+  app.put("/v1/admin/tunables/action-cost", async (req, reply) => {
+    if (!adminApiKeyConfigured()) {
+      return reply.code(503).send({ error: "admin_api_key_not_configured" });
+    }
+    if (!adminKeyAuthorized(req.headers["x-admin-key"])) {
+      return reply.code(401).send({ error: "admin_unauthorized" });
+    }
+    const body = z.object({ actionCost: z.number().int() }).safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({
+        error: "invalid_body",
+        actionCostBand: ACTION_COST_BAND,
+        details: body.error.flatten(),
+      });
+    }
+    const result = await setActionCost(db, body.data.actionCost);
+    if (!result.ok) {
+      return reply.code(400).send({
+        error: result.error,
+        actionCostBand: ACTION_COST_BAND,
+        min: result.min,
+        max: result.max,
+      });
+    }
+    req.log.info(
+      {
+        tunable: "action_cost",
+        previous: result.previous,
+        actionCost: result.actionCost,
+      },
+      "admin action_cost updated",
+    );
+    return {
+      ok: true,
+      previous: result.previous,
+      actionCost: result.actionCost,
+      actionCostBand: ACTION_COST_BAND,
+    };
+  });
 
   /** Kabile picker roster — `public_alias` only; Big 4 first (CC-63). */
   app.get("/v1/teams", async () => {
@@ -481,11 +550,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       .object({
         confirmed: z.literal(true),
         idempotencyKey: z.string().min(8),
-        amount: z.number().int().min(10).max(20).optional(),
+        /** Optional confirm of current admin-tuned cost; must match `GET /v1/meta.actionCost`. */
+        amount: z.number().int().min(ACTION_COST_BAND.min).max(ACTION_COST_BAND.max).optional(),
       })
       .safeParse(req.body);
     if (!body.success) {
-      return reply.code(400).send({ error: "confirm_required_or_invalid", details: body.error.flatten() });
+      return reply.code(400).send({
+        error: "confirm_required_or_invalid",
+        actionCostBand: ACTION_COST_BAND,
+        details: body.error.flatten(),
+      });
     }
     const plate = (req.params as { plate: string }).plate;
     const idempotencyKey = body.data.idempotencyKey;
@@ -515,7 +589,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         if (result.error === "phone_unverified") {
           return { status: 403 as const, body: phoneUnverifiedPayload("spend") };
         }
-        return { status: result.status, body: { error: result.error } };
+        return {
+          status: result.status,
+          body: {
+            error: result.error,
+            ...("actionCost" in result ? { actionCost: result.actionCost } : {}),
+          },
+        };
       }
 
       const refreshed = (await getUserById(db, user.id))!;

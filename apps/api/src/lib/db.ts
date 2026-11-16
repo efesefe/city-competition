@@ -4,6 +4,11 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { CITY_SEEDS } from "../data/city-seeds.js";
 import { TEAM_BY_ALIAS, TEAMS } from "../data/teams.js";
+import {
+  ACTION_COST_DEFAULT,
+  coerceActionCost,
+  parseActionCost,
+} from "./actionCost.js";
 
 const { Pool } = pg;
 
@@ -135,7 +140,7 @@ async function ensureSeedAndTunables(database: Db) {
   if (!actionCost) {
     await database.query(`INSERT INTO tunables (key, value) VALUES ($1, $2)`, [
       "action_cost",
-      "15",
+      String(ACTION_COST_DEFAULT),
     ]);
     await database.query(`INSERT INTO tunables (key, value) VALUES ($1, $2)`, [
       "free_daily_grant",
@@ -191,7 +196,31 @@ export async function getActionCost(database: Queryable): Promise<number> {
     `SELECT value FROM tunables WHERE key = $1`,
     ["action_cost"],
   );
-  return Number(row?.value ?? 15);
+  return coerceActionCost(row?.value ?? ACTION_COST_DEFAULT);
+}
+
+/**
+ * Persist admin-tuned attack/support cost. Rejects values outside the 10–20 band.
+ * Returns the previous (coerced) value and the new value.
+ */
+export async function setActionCost(
+  database: Queryable,
+  raw: unknown,
+): Promise<
+  | { ok: true; previous: number; actionCost: number }
+  | { ok: false; error: "not_integer" | "out_of_band"; min: number; max: number }
+> {
+  const parsed = parseActionCost(raw);
+  if (!parsed.ok) {
+    return { ok: false, error: parsed.error, min: parsed.min, max: parsed.max };
+  }
+  const previous = await getActionCost(database);
+  await database.query(
+    `INSERT INTO tunables (key, value) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+    ["action_cost", String(parsed.value)],
+  );
+  return { ok: true, previous, actionCost: parsed.value };
 }
 
 export async function getFreeGrant(database: Queryable): Promise<number> {
