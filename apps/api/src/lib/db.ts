@@ -147,6 +147,18 @@ async function ensureSeedAndTunables(database: Db) {
       "100",
     ]);
   }
+
+  const subBonus = await one<{ value: string }>(
+    database,
+    `SELECT value FROM tunables WHERE key = $1`,
+    ["sub_daily_bonus"],
+  );
+  if (!subBonus) {
+    await database.query(`INSERT INTO tunables (key, value) VALUES ($1, $2)`, [
+      "sub_daily_bonus",
+      "50",
+    ]);
+  }
 }
 
 async function seed(database: Db) {
@@ -230,4 +242,13 @@ export async function getFreeGrant(database: Queryable): Promise<number> {
     ["free_daily_grant"],
   );
   return Number(row?.value ?? 100);
+}
+
+export async function getSubDailyBonus(database: Queryable): Promise<number> {
+  const row = await one<{ value: string }>(
+    database,
+    `SELECT value FROM tunables WHERE key = $1`,
+    ["sub_daily_bonus"],
+  );
+  return Number(row?.value ?? 50);
 }

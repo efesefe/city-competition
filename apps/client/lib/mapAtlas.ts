@@ -66,10 +66,21 @@ export function provinceStyle(
   colorByPlate: Map<string, string>,
   selectedPlate?: string | null,
   pulsePlates?: Set<string>,
+  spotlightPlates?: Set<string>,
 ): ProvincePaint {
   const fill = colorByPlate.get(plate) || "#2a3f36";
   const selected = selectedPlate === plate;
   const pulse = pulsePlates?.has(plate) ?? false;
+  const spotlight = spotlightPlates?.has(plate) ?? false;
+  // Match-day spotlight: full-intensity fill + amber urgency stroke (wireframes §5).
+  if (spotlight && !selected) {
+    return {
+      fill,
+      fillOpacity: pulse ? 1 : 0.96,
+      stroke: "#e8b84a",
+      strokeWidth: 2.4,
+    };
+  }
   return {
     fill,
     fillOpacity: selected ? 1 : pulse ? 0.95 : 0.88,

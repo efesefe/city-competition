@@ -28,12 +28,14 @@ import {
   adminApiKeyConfigured,
   adminKeyAuthorized,
 } from "./lib/actionCost.js";
-import { closeDb, getActionCost, getFreeGrant, one, setActionCost, type Db } from "./lib/db.js";
+import { closeDb, getActionCost, getFreeGrant, getSubDailyBonus, one, setActionCost, type Db } from "./lib/db.js";
 import {
+  activateMatchDayFixtureStub,
   activatePersonalBoostStub,
   activateTeamBoostSim,
   boostSnapshotForUser,
   citySheet,
+  listActiveMatchDayEvents,
   loadOwnershipDigest,
   pickTribe,
   playerScoreboard,
@@ -46,6 +48,7 @@ import {
   energyGrantTriggersEnabled,
   forceGrantDaily,
   maybeGrantDailyEnergy,
+  setSubEntitlement,
 } from "./lib/energy.js";
 import { kickEnergyGrantJob, startEnergyGrantScheduler } from "./lib/energyGrantScheduler.js";
 import { TR_TIMEZONE, trDateString } from "./lib/trTime.js";
@@ -166,36 +169,42 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   app.get("/health", healthHandler);
   app.get("/healthz", healthHandler);
 
-  app.get("/v1/meta", async () => ({
-    actionCost: await getActionCost(db),
-    actionCostBand: ACTION_COST_BAND,
-    freeDailyGrant: await getFreeGrant(db),
-    timezone: TR_TIMEZONE,
-    trDate: trDateString(),
-    auth: authMode(),
-    support: {
-      lostSimRebind: true,
-      opsKeyConfigured: supportOpsConfigured(),
-      lookupPath: "/v1/support/users/lookup",
-      rebindPath: "/v1/support/phone/rebind",
-    },
-    shop: {
-      stub: true,
-      packs: [
-        { sku: "small", energy: 200, tryPlaceholder: 49.99 },
-        { sku: "medium", energy: 600, tryPlaceholder: 129.99 },
-        { sku: "large", energy: 1500, tryPlaceholder: 249.99 },
-      ],
-      /** Payments not ready — client shows SKU; activate via stub endpoint. */
-      personalBoost: {
-        sku: "personal_boost_1h",
-        effect: "+50% support",
-        durationMinutes: 60,
-        tryPlaceholder: null,
-        purchase: "stub",
+  app.get("/v1/meta", async () => {
+    const freeDailyGrant = await getFreeGrant(db);
+    const subDailyBonus = await getSubDailyBonus(db);
+    return {
+      actionCost: await getActionCost(db),
+      actionCostBand: ACTION_COST_BAND,
+      freeDailyGrant,
+      subDailyBonus,
+      timezone: TR_TIMEZONE,
+      trDate: trDateString(),
+      auth: authMode(),
+      support: {
+        lostSimRebind: true,
+        opsKeyConfigured: supportOpsConfigured(),
+        lookupPath: "/v1/support/users/lookup",
+        rebindPath: "/v1/support/phone/rebind",
       },
-    },
-  }));
+      shop: {
+        stub: true,
+        packs: [
+          { sku: "small", energy: 200, tryPlaceholder: 49.99 },
+          { sku: "medium", energy: 600, tryPlaceholder: 129.99 },
+          { sku: "large", energy: 1500, tryPlaceholder: 249.99 },
+        ],
+        subDailyBonus,
+        /** Payments not ready — client shows SKU; activate via stub endpoint. */
+        personalBoost: {
+          sku: "personal_boost_1h",
+          effect: "+50% support",
+          durationMinutes: 60,
+          tryPlaceholder: null,
+          purchase: "stub",
+        },
+      },
+    };
+  });
 
 
   /**
@@ -638,6 +647,35 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     return { ok: true, job: result };
   });
 
+  /**
+   * Dev/ops: set `sub_active` entitlement without payments (Season 0 stub).
+   * Body `{ "active": true }` for the Bearer user, or `{ "active": true, "userId": "…" }` for ops.
+   */
+  app.post("/v1/energy/sub-entitle", async (req, reply) => {
+    if (!energyGrantTriggersEnabled()) {
+      return reply.code(403).send({ error: "grant_triggers_disabled" });
+    }
+    const body = z
+      .object({ active: z.boolean(), userId: z.string().min(1).optional() })
+      .safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+    let targetId = body.data.userId;
+    if (!targetId) {
+      const user = await userFromRequest(db, req);
+      if (!user) return reply.code(401).send({ error: "unauthorized" });
+      targetId = user.id;
+    }
+
+    const result = await setSubEntitlement(db, targetId, body.data.active);
+    if (!result.ok) return reply.code(404).send({ error: result.reason });
+    const refreshed = await getUserById(db, targetId);
+    return {
+      ...result,
+      user: refreshed ? await publicUserWithBoost(db, refreshed) : null,
+    };
+  });
+
 
   /** Payments stub: grant personal +50% / 1h without charging (display path real). */
   app.post("/v1/boosts/personal/stub", async (req, reply) => {
@@ -668,6 +706,41 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       boost: result.boost,
       windowId: result.windowId,
       user: await publicUserWithBoost(db, refreshed),
+    };
+  });
+
+  /** Guest-readable active match-day windows for map banner + spotlight chrome. */
+  app.get("/v1/match-day/active", async () => ({
+    events: await listActiveMatchDayEvents(db),
+  }));
+
+  /**
+   * Fixture stub until Admin MatchDay ops: team +25% + spotlight city (default İstanbul).
+   * Prefer this over team-boost-only sims when verifying locked banner+spotlight chrome.
+   */
+  app.post("/v1/match-day/fixture-stub", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        spotlightPlate: z.string().min(1).max(3).optional(),
+        label: z.string().max(80).nullable().optional(),
+        durationMs: z.number().int().min(60_000).max(8 * 60 * 60 * 1000).optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await activateMatchDayFixtureStub(db, user.id, body.data);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    const refreshed = (await getUserById(db, user.id))!;
+    return {
+      ok: true,
+      stub: true,
+      event: result.event,
+      boost: result.boost,
+      user: await publicUserWithBoost(db, refreshed),
+      note: "Fixture stub — Admin MatchDay scheduling leaf replaces this",
     };
   });
 

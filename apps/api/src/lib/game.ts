@@ -179,6 +179,128 @@ export async function activateTeamBoostSim(
   return { ok: true, boost, simulated: true, windowId: id };
 }
 
+/** Public chrome payload for an active match-day window. */
+export type MatchDayEvent = {
+  id: string;
+  teamId: string;
+  teamAlias: string;
+  teamColor: string | null;
+  boostPct: number;
+  spotlightPlate: string | null;
+  cityNameTr: string | null;
+  label: string | null;
+  startsAt: string;
+  endsAt: string;
+};
+
+const DEFAULT_SPOTLIGHT_PLATE = "34"; // İstanbul — classic derby war city
+
+/** Active windows (boost and/or spotlight) for map chrome. Guests may poll. */
+export async function listActiveMatchDayEvents(db: Queryable): Promise<MatchDayEvent[]> {
+  const rows = await many<{
+    id: string;
+    team_id: string;
+    boost_pct: number;
+    spotlight_plate: string | null;
+    label: string | null;
+    starts_at: string | Date;
+    ends_at: string | Date;
+    team_alias: string | null;
+    team_color: string | null;
+    city_name: string | null;
+  }>(
+    db,
+    `SELECT w.id, w.team_id, w.boost_pct, w.spotlight_plate, w.label,
+            w.starts_at, w.ends_at,
+            t.public_alias AS team_alias, t.primary_color AS team_color,
+            c.name_tr AS city_name
+     FROM team_boost_windows w
+     JOIN teams t ON t.internal_id = w.team_id
+     LEFT JOIN cities c ON c.plate = w.spotlight_plate
+     WHERE w.starts_at <= NOW() AND w.ends_at > NOW()
+     ORDER BY w.ends_at DESC`,
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    teamId: r.team_id,
+    teamAlias: r.team_alias || r.team_id,
+    teamColor: r.team_color,
+    boostPct: Number(r.boost_pct) || TEAM_BOOST_MULT,
+    spotlightPlate: r.spotlight_plate,
+    cityNameTr: r.city_name,
+    label: r.label,
+    startsAt: toIso(r.starts_at) || new Date().toISOString(),
+    endsAt: toIso(r.ends_at) || new Date().toISOString(),
+  }));
+}
+
+/**
+ * Fixture stub until admin MatchDay ops: opens team +25% window with map spotlight.
+ * Wired for banner + spotlight chrome (locked UX — both together).
+ */
+export async function activateMatchDayFixtureStub(
+  db: Queryable,
+  userId: string,
+  opts: {
+    durationMs?: number;
+    spotlightPlate?: string;
+    label?: string | null;
+  } = {},
+): Promise<
+  | { ok: true; stub: true; event: MatchDayEvent; boost: BoostSnapshot }
+  | { ok: false; status: number; error: string }
+> {
+  const user = await one<{ phone_verified: boolean; tribe_id: string | null }>(
+    db,
+    `SELECT phone_verified, tribe_id FROM users WHERE id = $1`,
+    [userId],
+  );
+  if (!user) return { ok: false, status: 404, error: "user_not_found" };
+  if (!user.phone_verified) return { ok: false, status: 403, error: "phone_unverified" };
+  if (!user.tribe_id) return { ok: false, status: 403, error: "tribe_required" };
+
+  const plate = (opts.spotlightPlate || DEFAULT_SPOTLIGHT_PLATE).trim();
+  const city = await one<{ plate: string; name_tr: string }>(
+    db,
+    `SELECT plate, name_tr FROM cities WHERE plate = $1`,
+    [plate],
+  );
+  if (!city) return { ok: false, status: 400, error: "invalid_spotlight_plate" };
+
+  const id = nanoid();
+  const durationMs = opts.durationMs ?? 2 * 60 * 60 * 1000;
+  const starts = new Date().toISOString();
+  const ends = new Date(Date.now() + durationMs).toISOString();
+  const team = TEAM_BY_ID.get(user.tribe_id);
+  const label =
+    opts.label !== undefined
+      ? opts.label
+      : `${team?.publicAlias ?? "Kabile"} maç günü`;
+
+  await db.query(
+    `INSERT INTO team_boost_windows
+       (id, team_id, boost_pct, starts_at, ends_at, spotlight_plate, label)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, user.tribe_id, TEAM_BOOST_MULT, starts, ends, city.plate, label],
+  );
+
+  const boost = await boostSnapshotForUser(db, { userId, tribeId: user.tribe_id });
+  const event: MatchDayEvent = {
+    id,
+    teamId: user.tribe_id,
+    teamAlias: team?.publicAlias ?? user.tribe_id,
+    teamColor: team?.primary ?? null,
+    boostPct: TEAM_BOOST_MULT,
+    spotlightPlate: city.plate,
+    cityNameTr: city.name_tr,
+    label,
+    startsAt: starts,
+    endsAt: ends,
+  };
+  return { ok: true, stub: true, event, boost };
+}
+
+
 export function creditedSupport(energySpent: number, boost: BoostSnapshot): number {
   // Round to 3 dp so ledger stays stable across languages.
   return Math.round(energySpent * boost.personalBoostPct * boost.teamBoostPct * 1000) / 1000;

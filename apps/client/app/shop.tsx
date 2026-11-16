@@ -119,6 +119,27 @@ export default function ShopScreen() {
     }
   };
 
+  const activateMatchDayFixture = async () => {
+    if (!token) {
+      router.push("/auth");
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    try {
+      const res = await api.matchDayFixtureStub(token, { spotlightPlate: "34" });
+      updateUser(res.user);
+      const city = res.event.cityNameTr ?? res.event.spotlightPlate;
+      setNote(
+        `Maç günü chrome: +25% + spotlight ${city}. Haritaya dön — banner ve spotlight birlikte.`,
+      );
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "match_day_stub_failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const boost = boostFromUser(user);
   const boosted = boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
 
@@ -166,6 +187,14 @@ export default function ShopScreen() {
         <Text style={styles.secondaryText}>Simüle takım +25% (dev)</Text>
       </Pressable>
 
+      <Pressable
+        style={styles.secondary}
+        onPress={activateMatchDayFixture}
+        disabled={busy}
+        accessibilityRole="button"
+      >
+        <Text style={styles.secondaryText}>Maç günü fixture stub (+25% + İstanbul spotlight)</Text>
+      </Pressable>
       <Pressable style={styles.cta} onPress={simGrant}>
         <Text style={styles.ctaText}>Günlük 100 enerjiyi simüle et</Text>
       </Pressable>
@@ -211,6 +240,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   disabledText: { color: "#9bb0a3" },
+  secondary: {
+    borderWidth: 1,
+    borderColor: "#3d5a4c",
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+  },
+  secondaryText: { color: "#c8a96b", fontWeight: "600" },
   cta: {
     backgroundColor: "#c8a96b",
     padding: 12,
@@ -220,14 +257,6 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { opacity: 0.45 },
   ctaText: { color: "#0b1f17", fontWeight: "700" },
-  secondary: {
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    borderRadius: 10,
-    padding: 12,
-    alignItems: "center",
-  },
-  secondaryText: { color: "#d8c9a3", fontWeight: "600" },
   meta: { color: "#9bb0a3" },
   boostNote: { color: "#8fd4a0", fontWeight: "600" },
   note: { color: "#8fd4a0" },
