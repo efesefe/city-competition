@@ -31,7 +31,8 @@ export DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition
 npm install && npm run dev
 ```
 
-Managed: set `DATABASE_URL` to Neon (EU) or Fly MPG; add `DATABASE_SSL=true` when required.
+Managed: set `DATABASE_URL` to Neon (EU) or Fly MPG; add `DATABASE_SSL=true` when required.  
+Prod secrets + health + match-day scale: [fly-secrets-health-scale.md](fly-secrets-health-scale.md).
 
 ## Realtime handoff — Persist ledger and live flips
 

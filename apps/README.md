@@ -41,7 +41,7 @@ npm run dev
 # On boot: applies migrations/ + seeds teams/cities if empty; subscribes to Redis ownership channel
 ```
 
-Health: `curl http://localhost:8787/health` → `"db":"postgres"`, `"redis":"PONG"`
+Health: `curl http://localhost:8787/health` → `200` with `"db":"postgres"`, `"redis":"PONG"` (or `503` + `errors` if either is down). Alias: `/healthz`.
 
 Optional one-shot migrate without serving:
 
@@ -95,14 +95,18 @@ Process groups in `apps/api/fly.toml`:
 | `web` | `npm run start` | HTTPS API + `GET /v1/ws` |
 | `worker` | `npm run start:worker` | TR free-energy sweep + `notif_queue` stub drain |
 
-Required Fly secrets: `DATABASE_URL`, `REDIS_URL`, and usually `DATABASE_SSL=true`.  
-Full create / secrets / deploy / scale / verify recipe: [`docs/fly-deploy.md`](../docs/fly-deploy.md).
+| Doc | Use |
+|-----|-----|
+| [`docs/fly-deploy.md`](../docs/fly-deploy.md) | **CC-41** — create app, deploy, process groups |
+| [`docs/fly-secrets-health-scale.md`](../docs/fly-secrets-health-scale.md) | **CC-42** — secrets checklist, `/health` 503, match-day scale |
 
 ```bash
 cd apps/api
-fly secrets set DATABASE_URL='…' REDIS_URL='…' DATABASE_SSL=true
-fly deploy
-fly scale count web=1 worker=1
+fly secrets set DATABASE_URL='…' REDIS_URL='…' DATABASE_SSL=true -a city-competition-api
+fly deploy -a city-competition-api
+fly scale count web=1 worker=1 -a city-competition-api
+curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
+# Match window: fly scale count web=2 worker=1 -a city-competition-api
 ```
 
 ## Schema (migrations)

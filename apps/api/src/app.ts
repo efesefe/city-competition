@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
 import { z } from "zod";
@@ -110,26 +110,60 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     });
   }
 
-  app.get("/health", async () => {
-    await db.query("SELECT 1");
-    const redis = await pingRedis();
+  /** Liveness for Fly / ops: 200 only when Postgres + Redis both answer. Never silent 200s. */
+  async function healthHandler(_req: FastifyRequest, reply: FastifyReply) {
+    const errors: string[] = [];
+    let dbStatus: string | null = null;
+    let redisStatus: string | null = null;
+
+    try {
+      await db.query("SELECT 1");
+      dbStatus = "postgres";
+    } catch {
+      errors.push("db_unreachable");
+    }
+
+    try {
+      redisStatus = await pingRedis();
+    } catch {
+      errors.push("redis_unreachable");
+    }
+
+    const energy = {
+      timezone: TR_TIMEZONE,
+      trDate: trDateString(),
+      scheduler: process.env.ENERGY_GRANT_SCHEDULER === "true",
+      grantTriggers: energyGrantTriggersEnabled(),
+    };
+
+    if (errors.length > 0) {
+      return reply.code(503).send({
+        ok: false,
+        service: "city-competition-api",
+        slice: "map-auth-spend",
+        db: dbStatus,
+        redis: redisStatus,
+        reason: errors.join(","),
+        errors,
+        energy,
+      });
+    }
+
     return {
       ok: true,
       service: "city-competition-api",
       slice: "map-auth-spend",
-      db: "postgres",
-      redis,
+      db: dbStatus,
+      redis: redisStatus,
       wsClients: clientCount(),
       digestSubscribers: digestSubscriberCount(),
       auth: authMode(),
-      energy: {
-        timezone: TR_TIMEZONE,
-        trDate: trDateString(),
-        scheduler: process.env.ENERGY_GRANT_SCHEDULER === "true",
-        grantTriggers: energyGrantTriggersEnabled(),
-      },
+      energy,
     };
-  });
+  }
+
+  app.get("/health", healthHandler);
+  app.get("/healthz", healthHandler);
 
   app.get("/v1/meta", async () => ({
     actionCost: await getActionCost(db),
