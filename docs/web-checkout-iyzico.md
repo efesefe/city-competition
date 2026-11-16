@@ -58,6 +58,10 @@ Manual (mock):
 
 Sandbox: set keys, `IYZICO_MOCK=false`, test card `5526080000000006` (docs.iyzico.com test cards). Ensure `PUBLIC_API_BASE` is reachable for the CF callback (tunnel if local).
 
+## Client note (CC-74)
+
+`apps/client/app/shop.tsx` keeps a single local `newIdempotencyKey(prefix)` for iyzico checkout requests. A merge of iyzico + entitlements/shop PRs briefly double-declared that helper and broke Expo web bundling (`Identifier 'newIdempotencyKey' has already been declared`). No shared client util yet; map spend uses a separate `idemKey()` in `index.tsx`.
+
 ## Schema
 
 Migration `014_iyzico_web.sql`: `iyzico_checkouts`, `iyzico_grants`, `users.sub_active` (IF NOT EXISTS for CC-33/44 ordering).
