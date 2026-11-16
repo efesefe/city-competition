@@ -1,28 +1,17 @@
 # Web payments — iyzico only
 
-Web credit top-up goes through **iyzico** hosted checkout. Papara and BKM Express are not offered, not listed in `GET /v1/credit-packs`, and are rejected by `POST /v1/payments/checkout`.
+Web energy packs + monthly subscription go through **iyzico** hosted Checkout Form / **3DS**. Papara and BKM Express are not offered on web.
 
-Native App Store / Google Play IAP is unchanged (store policy).
+Native App Store / Google Play IAP is unchanged (store policy) — see CC-44 / CC-45.
 
-## Why this shape
+## Season 0 slice (`apps/`)
 
-- The checkout UI used to let the player pick iyzico, Papara, or BKM Express. Product is iyzico-only on web.
-- Frontend filtering alone is not enough: a client could still POST `provider: "papara"`. `IsWebProvider` on the main API and the payments-service registry must match.
-- Historical `web_purchases` / refunds may still reference papara or bkm_express, so CHECK constraints and pack rows stay; those packs are `active = false`.
+Authoritative path for soft launch is documented in **[web-checkout-iyzico.md](web-checkout-iyzico.md)** (CC-46):
 
-## Layers
+- `POST /v1/payments/iyzico/checkout` → hosted CF or mock 3DS page  
+- Callback + webhook → idempotent `paid_energy` / `sub_active` grants  
+- Expo web shop at `/shop`
 
-| Layer | Behavior |
-|---|---|
-| Frontend | `WEB_PROVIDERS = ["iyzico"]` in [`frontend/lib/iapBridge.ts`](../frontend/lib/iapBridge.ts). Checkout hides the provider picker when only one method remains. |
-| Main API | `IsWebProvider` is true only for `iyzico`. `ListPacks` skips papara/bkm rows even if a pack is still marked active. |
-| Payments service | Registry in `services/payments/cmd/main.go` registers only iyzico. Papara/BKM implementations remain for unit tests. |
-| DB | Migration `0039_iyzico_only_web` sets `credit_packs.active = false` for papara and bkm_express. |
+## Legacy Next.js / Go stack
 
-## How to test
-
-```bash
-cd frontend && npm test -- lib/packOffers
-```
-
-Manual: open `/profile/topup` on web, pick a pack, confirm there is no Papara/BKM choice and Pay starts iyzico checkout.
+Older `frontend/` + `backend/` + `services/payments` still enforce iyzico-only web (no Papara/BKM in the provider picker / registry). Historical `web_purchases` may reference papara or bkm_express; those packs stay `active = false`. Prefer the Season 0 `apps/` path for new work.

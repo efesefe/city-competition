@@ -28,6 +28,7 @@ export type PublicUser = {
   subActive?: boolean;
   role?: "player" | "admin";
   energy: { free: number; paid: number; sub: number; total: number };
+  subActive?: boolean;
   /** Live personal × team multipliers for boosted-support UI. */
   boost?: BoostSnapshot;
   tutorial?: TutorialState;
@@ -223,6 +224,35 @@ export type MatchDayEvent = {
   endsAt: string;
 };
 
+export type WebShopCatalog = {
+  stub: boolean;
+  platform: "web";
+  provider: "iyzico";
+  threeds: boolean;
+  packs: {
+    sku: string;
+    kind: "pack";
+    energy: number;
+    productId: string;
+    tryPlaceholder: number;
+  }[];
+  subscription: {
+    sku: "monthly";
+    kind: "subscription";
+    productId: string;
+    dailyBonus: number;
+    tryPlaceholder: number;
+    pricingPlanConfigured?: boolean;
+  };
+  personalBoost?: {
+    sku: string;
+    effect: string;
+    durationMinutes: number;
+    tryPlaceholder: number | null;
+    purchase: string;
+  };
+};
+
 async function request<T>(
   path: string,
   opts: { method?: string; body?: unknown; token?: string | null } = {},
@@ -261,6 +291,15 @@ export const api = {
         android: boolean;
         webhookConfigured: boolean;
         stubEnabled: boolean;
+      };
+      payments?: {
+        web: {
+          provider: string;
+          threeds: boolean;
+          mock: boolean;
+          configured: boolean;
+          publicApiBase: string;
+        };
       };
     }>("/v1/meta"),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
@@ -412,6 +451,37 @@ export const api = {
       stub: true;
       user: PublicUser;
     }>("/v1/iap/stub", { token, method: "POST", body }),
+
+  iyzicoCheckout: (
+    token: string,
+    body: {
+      kind: "pack" | "subscription";
+      sku: string;
+      idempotencyKey: string;
+      returnUrl: string;
+    },
+  ) =>
+    request<{
+      ok: true;
+      checkoutId: string;
+      checkoutUrl: string | null;
+      kind: "pack" | "subscription";
+      sku: string;
+      energyGrant: number;
+      amountKurus: number;
+      mock: boolean;
+      status: string;
+    }>("/v1/payments/iyzico/checkout", { token, method: "POST", body }),
+  iyzicoStatus: (token: string, checkoutId: string) =>
+    request<{
+      checkoutId: string;
+      status: string;
+      kind: string;
+      sku: string;
+      energyGrant: number;
+      providerPaymentId: string | null;
+      user: PublicUser;
+    }>(`/v1/payments/iyzico/checkout/${checkoutId}`, { token }),
 
   spend: (
     token: string,
