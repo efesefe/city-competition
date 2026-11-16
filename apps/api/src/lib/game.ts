@@ -11,7 +11,33 @@ import {
 } from "./db.js";
 import { publish, type OwnershipDigestCity } from "./bus.js";
 import { noteFlip, noteRivalAttack } from "./coalesce.js";
+import { getRedis, KEYS } from "./redis.js";
 import { TEAM_BY_ID } from "../data/teams.js";
+
+/** Personal × team boost multipliers at spend time (shop / match-day later). */
+export type BoostSnapshot = {
+  personalBoostPct: number;
+  teamBoostPct: number;
+};
+
+export function boostSnapshotForUser(_userId: string): BoostSnapshot {
+  // No personal shop boost or match-day team boost wired yet.
+  return { personalBoostPct: 1.0, teamBoostPct: 1.0 };
+}
+
+export function creditedSupport(energySpent: number, boost: BoostSnapshot): number {
+  // Round to 3 dp so ledger stays stable across languages.
+  return Math.round(energySpent * boost.personalBoostPct * boost.teamBoostPct * 1000) / 1000;
+}
+
+async function cacheDigest(cities: OwnershipDigestCity[]): Promise<void> {
+  try {
+    const r = await getRedis();
+    await r.set(KEYS.digestCache, JSON.stringify(cities), { EX: 30 });
+  } catch (err) {
+    console.warn("[digest] redis cache warm failed", err);
+  }
+}
 
 export async function ownershipDigest(db: Queryable): Promise<OwnershipDigestCity[]> {
   return many<OwnershipDigestCity>(
@@ -109,7 +135,7 @@ function totalEnergy(user: {
   return Number(user.free_energy) + Number(user.paid_energy) + Number(user.sub_energy);
 }
 
-/** Debit free → sub → paid (free expires daily so spend it first). */
+/** Debit free → sub → paid (free expires daily so spend it first). Locks the user row. */
 async function debitEnergy(
   db: Queryable,
   userId: string,
@@ -119,7 +145,11 @@ async function debitEnergy(
     free_energy: number;
     paid_energy: number;
     sub_energy: number;
-  }>(db, `SELECT free_energy, paid_energy, sub_energy FROM users WHERE id = $1`, [userId]);
+  }>(
+    db,
+    `SELECT free_energy, paid_energy, sub_energy FROM users WHERE id = $1 FOR UPDATE`,
+    [userId],
+  );
   if (!user) return { ok: false, reason: "user_not_found" };
   if (totalEnergy(user) < amount) return { ok: false, reason: "insufficient_energy" };
 
@@ -215,25 +245,49 @@ export async function spendEnergy(
   const cost = opts.amount ?? (await getActionCost(db));
   if (cost < 10 || cost > 20) return { ok: false as const, status: 400, error: "cost_out_of_band" };
 
-  const city = await one<{ plate: string; owner_team_id: string | null }>(
+  // Cheap existence check outside the tx; owner is re-read under FOR UPDATE inside.
+  const cityExists = await one<{ plate: string }>(
     db,
-    `SELECT plate, owner_team_id FROM cities WHERE plate = $1`,
+    `SELECT plate FROM cities WHERE plate = $1`,
     [opts.plate],
   );
-  if (!city) return { ok: false as const, status: 404, error: "city_not_found" };
+  if (!cityExists) return { ok: false as const, status: 404, error: "city_not_found" };
 
-  const fromOwner = city.owner_team_id;
   const tribeId = user.tribe_id;
+  const boost = boostSnapshotForUser(opts.userId);
+  const supportCredited = creditedSupport(cost, boost);
 
   type TxResult =
     | { ok: false; status: number; error: string }
     | { ok: true; idempotentReplay: true }
-    | { ok: true; flipped: boolean; toTeamId: string; fromOwner: string | null };
+    | {
+        ok: true;
+        flipped: boolean;
+        toTeamId: string;
+        fromOwner: string | null;
+        supportCredited: number;
+      };
 
   let result: TxResult;
   try {
     result = await withTransaction(db, async (client) => {
-      // Re-check idempotency inside the transaction (race-safe).
+      // Serialize per-city apply under derby load.
+      const lockedCity = await one<{ plate: string; owner_team_id: string | null }>(
+        client,
+        `SELECT plate, owner_team_id FROM cities WHERE plate = $1 FOR UPDATE`,
+        [opts.plate],
+      );
+      if (!lockedCity) return { ok: false as const, status: 404, error: "city_not_found" };
+      const fromOwner = lockedCity.owner_team_id;
+
+      // Lock all support rows for this city (incumbent + rivals) before tally update.
+      await many<{ team_id: string }>(
+        client,
+        `SELECT team_id FROM city_support WHERE city_plate = $1 FOR UPDATE`,
+        [opts.plate],
+      );
+
+      // Re-check idempotency inside the transaction (race-safe with UNIQUE + 23505).
       const raced = await one<{ id: string }>(
         client,
         `SELECT id FROM support_ledger WHERE idempotency_key = $1`,
@@ -244,37 +298,43 @@ export async function spendEnergy(
       const debit = await debitEnergy(client, opts.userId, cost);
       if (!debit.ok) return { ok: false as const, status: 400, error: debit.reason };
 
-      // Boost snapshot: personal × team = 1.0 for slice (no shop/events yet)
-      const supportCredited = cost;
-
-      const supportRow = await one<{ support: number }>(
-        client,
-        `SELECT support FROM city_support WHERE city_plate = $1 AND team_id = $2`,
-        [opts.plate, tribeId],
+      await client.query(
+        `INSERT INTO city_support (city_plate, team_id, support)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (city_plate, team_id)
+         DO UPDATE SET support = city_support.support + EXCLUDED.support`,
+        [opts.plate, tribeId, supportCredited],
       );
-      if (supportRow) {
-        await client.query(
-          `UPDATE city_support SET support = support + $1 WHERE city_plate = $2 AND team_id = $3`,
-          [supportCredited, opts.plate, tribeId],
-        );
-      } else {
-        await client.query(
-          `INSERT INTO city_support (city_plate, team_id, support) VALUES ($1, $2, $3)`,
-          [opts.plate, tribeId, supportCredited],
-        );
-      }
 
-      const leaders = await one<{ team_id: string; support: number }>(
+      const rankings = await many<{ team_id: string; support: number }>(
         client,
-        `SELECT team_id, support FROM city_support WHERE city_plate = $1 ORDER BY support DESC LIMIT 1`,
+        `SELECT team_id, support FROM city_support
+         WHERE city_plate = $1
+         ORDER BY support DESC, team_id ASC`,
         [opts.plate],
       );
-      if (!leaders) return { ok: false as const, status: 500, error: "support_missing" };
+      if (!rankings.length) return { ok: false as const, status: 500, error: "support_missing" };
 
+      const lead = rankings[0]!;
+      const leadSupport = Number(lead.support);
+      const incumbentSupport = fromOwner
+        ? Number(rankings.find((r) => r.team_id === fromOwner)?.support ?? 0)
+        : 0;
+
+      // Flip only on strict lead. Ties keep the incumbent owner.
       let flipped = false;
-      if (leaders.team_id !== fromOwner) {
+      let toTeamId = fromOwner ?? lead.team_id;
+      if (!fromOwner) {
+        toTeamId = lead.team_id;
         await client.query(`UPDATE cities SET owner_team_id = $1 WHERE plate = $2`, [
-          leaders.team_id,
+          lead.team_id,
+          opts.plate,
+        ]);
+        flipped = true;
+      } else if (lead.team_id !== fromOwner && leadSupport > incumbentSupport) {
+        toTeamId = lead.team_id;
+        await client.query(`UPDATE cities SET owner_team_id = $1 WHERE plate = $2`, [
+          lead.team_id,
           opts.plate,
         ]);
         flipped = true;
@@ -283,8 +343,9 @@ export async function spendEnergy(
       const ledgerId = nanoid();
       await client.query(
         `INSERT INTO support_ledger
-          (id, user_id, city_plate, team_id, energy_spent, support_credited, idempotency_key, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          (id, user_id, city_plate, team_id, energy_spent, support_credited,
+           personal_boost_pct, team_boost_pct, idempotency_key, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           ledgerId,
           opts.userId,
@@ -292,12 +353,20 @@ export async function spendEnergy(
           tribeId,
           cost,
           supportCredited,
+          boost.personalBoostPct,
+          boost.teamBoostPct,
           opts.idempotencyKey,
           new Date().toISOString(),
         ],
       );
 
-      return { ok: true as const, flipped, toTeamId: leaders.team_id, fromOwner };
+      return {
+        ok: true as const,
+        flipped,
+        toTeamId,
+        fromOwner,
+        supportCredited,
+      };
     });
   } catch (err: unknown) {
     // Unique violation on idempotency_key → treat as replay.
@@ -357,6 +426,7 @@ export async function spendEnergy(
 
   const digest = await ownershipDigest(db);
   await publish({ type: "digest", cities: digest });
+  await cacheDigest(digest);
 
   const refreshed = await one(db, `SELECT * FROM users WHERE id = $1`, [opts.userId]);
 
@@ -364,7 +434,8 @@ export async function spendEnergy(
     ok: true as const,
     flipped: applied.flipped,
     energySpent: cost,
-    supportCredited: cost,
+    supportCredited: applied.supportCredited,
+    boost,
     sheet: await citySheet(db, opts.plate),
     digest,
     user: refreshed,

@@ -93,7 +93,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 - `support_ledger` (append-only, unique `idempotency_key`)  
 - `tunables` (`action_cost`, `free_daily_grant`)
 
-**Realtime:** ledger + `city_support` + owner flip commit in one Postgres transaction; digest/flips fan out on Redis `cc:ownership`. Boost snapshot columns + `FOR UPDATE` hardening = CC-35.
+`002_ledger_boost_snapshot.sql` adds `personal_boost_pct` / `team_boost_pct` on the ledger (defaults `1.0`).
+
+**Realtime:** ledger + `city_support` + owner flip commit in one Postgres transaction under `FOR UPDATE`; digest/flips fan out on Redis `cc:ownership`. See `docs/persist-ledger-live-flips.md`.
 
 ## Real vs stubbed
 
@@ -104,7 +106,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Guest browse / scoreboard | Yes | Guest share = blocked by product (no UI) |
 | Phone OTP session | Yes (local) | SMS = mock without Netgsm; not live Supabase project |
 | Google / Apple | Buttons | Always stub login → still need phone |
-| Spend + confirm + flip | Yes | Boosts = 1.0 (no match-day / personal boost shop) |
+| Spend + confirm + flip | Yes (Postgres `FOR UPDATE`, idempotent ledger, Redis live flip) | Boost multipliers still `1.0` until shop / match-day |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | UI stub | No payments |
 | Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | Push delivery worker still stub |

@@ -19,7 +19,7 @@
 - 81-province SVG map colored by ownership digest  
 - Guest map + city sheet + scoreboard  
 - Phone OTP (mock) + OAuth stubs; Kabile after verify (Big 4 first)  
-- Always-confirm spend; idempotent ledger; live flip over WS  
+- Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Daily 100 energy via claim / `grant-sim`  
 - Seeds from `docs/city-seed-matrix.md` logic (2–3 teams)
 
