@@ -121,7 +121,8 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 
 `002_ledger_boost_snapshot.sql` adds `personal_boost_pct` / `team_boost_pct` on the ledger (defaults `1.0`).  
 `003_supabase_auth.sql` adds `users.supabase_user_id`.  
-`004_support_phone_rebind.sql` adds `support_audit_log` for Season 0 lost-SIM rebinds.
+`004_support_phone_rebind.sql` adds `support_audit_log` for Season 0 lost-SIM rebinds.  
+`005_boost_state.sql` adds `users.personal_boost_expires_at` + `team_boost_windows` (CC-32).
 
 **Realtime:** ledger + `city_support` + owner flip commit in one Postgres transaction under `FOR UPDATE`; digest/flips fan out on Redis `cc:ownership`. See `docs/persist-ledger-live-flips.md`.
 
@@ -135,7 +136,9 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 | Phone OTP session | Yes — Supabase SDK when env set; else local mock | SMS dry-run when Netgsm keys absent |
 | Google / Apple | Supabase OAuth when env set | Stub buttons in mock mode → still need phone |
 | Send SMS Hook | Endpoint + secret + Netgsm OTP (when env live) | Dry-run log without keys / dry-run flag |
-| Spend + confirm + flip | Yes (Postgres `FOR UPDATE`, idempotent ledger, Redis live flip) | Boost multipliers still `1.0` until shop / match-day |
+| Spend + confirm + flip | Yes (Postgres `FOR UPDATE`, idempotent ledger, Redis live flip) | — |
+| Personal boost +50%/1h | Timing/expiry + spend stack real | Purchase = stub (`/v1/boosts/personal/stub`) |
+| Team boost +25% | Applies when a window row is active | Schedule = sim / later admin |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | UI stub | No payments |
 | Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | Push delivery worker still stub |
@@ -157,6 +160,8 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 - `POST /v1/tribe/pick`  
 - `POST /v1/cities/:plate/spend` — `{ confirmed: true, idempotencyKey }`  
 - `POST /v1/energy/grant-sim` — simulate 00:00 TR  
+- `POST /v1/boosts/personal/stub` — activate +50%/1h (no charge)  
+- `POST /v1/boosts/team/sim` — open +25% tribe window (dev)  
 - `GET /v1/ws` — subscribe `digest` → 81-city ownership/support snapshot + live `support`/`flip`/`digest` (see `docs/websocket-city-digest.md`)
 
 ## Idempotent spend load test (CC-37)

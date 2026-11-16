@@ -1,5 +1,5 @@
--- CC-27: personal boost expiry on users + match-day team boost windows.
--- Display path is real; personal purchase stays Payments-stub until IAP/iyzico.
+-- CC-27/CC-32: personal boost expiry on users + match-day team boost windows.
+-- Personal +50%/1h applies at spend with real timing; purchase stays Payments-stub.
 
 ALTER TABLE users
   ADD COLUMN IF NOT EXISTS personal_boost_expires_at TIMESTAMPTZ;

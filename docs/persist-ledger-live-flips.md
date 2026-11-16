@@ -24,7 +24,7 @@
 
 ## Still stub / later
 
-- Personal shop boost and match-day team boost values (snapshot helpers return `1.0`)
+- Personal shop boost and match-day team boost values — **wired in CC-32** (`personal-boost-logic.md`); purchase remains Payments-stub; admin match-day schedule later
 - Push delivery worker (coalesce queue from CC-40)
 - Client map work (avoid `apps/client` — parallel map PR)
 
