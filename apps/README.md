@@ -14,7 +14,8 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
  
 6. Daily free energy **100** @ 00:00 TR — simulate via `POST /v1/energy/grant-sim`  
 7. Cities seeded from **city-seed-matrix** (2–3 teams each)  
-8. **iOS IAP** (RevenueCat): shop packs 200/600/1500 + monthly sub; restore; webhook → server entitlements (see `docs/ios-iap-revenuecat.md`)
+8. **iOS/Android IAP** (RevenueCat): shop packs 200/600/1500 + monthly sub; restore; webhook → server entitlements (see `docs/ios-iap-revenuecat.md`)
+9. **Web iyzico** (CC-46): shop packs 200/600/1500 + monthly sub via Checkout Form / 3DS (mock by default); callback grants `paid_energy` / `sub_active` (see `docs/web-checkout-iyzico.md`)
 
 ## Run locally (web)
 
@@ -91,6 +92,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `REVENUECAT_WEBHOOK_AUTHORIZATION` | — | API webhook auth (server-only) |
 | `RC_IOS_PRODUCT_*` / `RC_ENTITLEMENT_SUB` | defaults in `iapCatalog.ts` | App Store / RC product ids |
 | `ALLOW_IAP_STUB` | unset | `true` → `POST /v1/iap/stub` without StoreKit |
+| `PUBLIC_API_BASE` | `http://127.0.0.1:$PORT` | Absolute base for iyzico CF callback + mock checkout |
+| `IYZICO_MOCK` / `IYZICO_API_KEY` / `IYZICO_SECRET_KEY` | mock when keys absent | Web Checkout Form / 3DS (see `.env.example`) |
+| `IYZICO_PRICING_PLAN_REF` | — | Required for live subscription CF |
 
 ## Fly (`fra`) — API + WS + workers
 
@@ -131,6 +135,8 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 `005_boost_state.sql` adds `users.personal_boost_expires_at` + `team_boost_windows` (CC-32).  
 `011_admin_match_day.sql` adds admin `users.role` + window ops fields / derby spotlight cols (CC-50/51).
 
+`016_iyzico_web.sql` adds `iyzico_checkouts` / `iyzico_grants` and `users.sub_active` (IF NOT EXISTS).
+
 **Realtime:** ledger + `city_support` + owner flip commit in one Postgres transaction under `FOR UPDATE`; digest/flips fan out on Redis `cc:ownership`. See `docs/persist-ledger-live-flips.md`.
 
 ## Real vs stubbed
@@ -149,7 +155,8 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 | Team boost +25% | Applies when a window row is active | Admin schedule (`/v1/admin/match-day/team-boosts`) + `/v1/boosts/team/sim` |
 | Derby timed war | Spotlight plate on window row | Admin schedule (`/v1/admin/match-day/derby-wars`) |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
-| Shop / iyzico / IAP | RevenueCat native packs+sub (iOS+Android); stub via `ALLOW_IAP_STUB` | Web iyzico still separate leaf |
+| Shop / IAP | RevenueCat native packs+sub (iOS+Android); stub via `ALLOW_IAP_STUB` | — |
+| Shop / iyzico (web) | Checkout Form / 3DS + grants | Mock CF when keys absent; live needs sandbox keys + plan ref for sub |
 | Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | — |
 | Attack alerts (owned + 24h spend, 5-min coalesce) | Yes — inbox + `notif_queue` worker | FCM/APNs provider credentials |
 | Postgres | Yes (`DATABASE_URL`) | — |
@@ -174,6 +181,10 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 - `POST /v1/boosts/team/sim` — open +25% tribe window (dev)  
 - `POST /v1/admin/promote-sim` — bootstrap admin role  
 - `GET/POST /v1/admin/match-day…` — schedule / list / cancel team boosts + derby wars  
+- `POST /v1/payments/iyzico/checkout` — start web CF / 3DS (pack or sub)  
+- `GET /v1/payments/iyzico/checkout/:id` — status + refreshed user  
+- `POST /v1/payments/iyzico/callback` — CF return (token → grant)  
+- `POST /v1/webhooks/iyzico` — signed webhook  
 - `GET /v1/ws` — subscribe `digest` → 81-city ownership/support snapshot + live `support`/`flip`/`digest` (see `docs/websocket-city-digest.md`)
 
 ## Idempotent spend load test (CC-37)

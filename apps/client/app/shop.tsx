@@ -1,6 +1,14 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { GuestLoginWall } from "../components/GuestLoginWall";
 import { PhoneVerifyWall } from "../components/PhoneVerifyWall";
 import { api, boostFromUser, type ShopCatalog } from "../lib/api";
@@ -23,11 +31,21 @@ function productIdForSurface(
   return pack.productId;
 }
 
+function newIdempotencyKey(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function ShopScreen() {
   const router = useRouter();
-  const { token, user, updateUser } = useSession();
+  const { token, user, updateUser, refresh } = useSession();
+  const params = useLocalSearchParams<{
+    iyzico?: string;
+    checkoutId?: string;
+    kind?: string;
+  }>();
   const [shop, setShop] = useState<ShopCatalog | null>(null);
   const [stubEnabled, setStubEnabled] = useState(false);
+  const [paymentsMock, setPaymentsMock] = useState(true);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rcReady, setRcReady] = useState(false);
@@ -40,6 +58,7 @@ export default function ShopScreen() {
     void api.meta().then((m) => {
       setShop(m.shop);
       setStubEnabled(Boolean(m.iap?.stubEnabled));
+      setPaymentsMock(Boolean(m.payments?.web?.mock ?? true));
     });
   }, []);
 
@@ -59,6 +78,33 @@ export default function ShopScreen() {
     })();
   }, [user?.id, platform, token, user]);
 
+  // After iyzico CF / mock redirect back to /shop?iyzico=success&checkoutId=…
+  useEffect(() => {
+    if (!token || !params.checkoutId || params.iyzico !== "success") return;
+    void (async () => {
+      try {
+        const res = await api.iyzicoStatus(token, String(params.checkoutId));
+        updateUser(res.user);
+        setNote(
+          res.kind === "subscription"
+            ? "Abonelik aktif (+50/gün gece yarısı TR)"
+            : res.status === "succeeded"
+              ? `+${res.energyGrant} enerji yüklendi`
+              : `Ödeme durumu: ${res.status}`,
+        );
+        await refresh();
+      } catch (e) {
+        setNote((e as Error).message || "Ödeme durumu alınamadı");
+      }
+    })();
+  }, [token, params.checkoutId, params.iyzico, updateUser, refresh]);
+
+  useEffect(() => {
+    if (params.iyzico === "failed") {
+      setNote("Ödeme başarısız veya iptal edildi.");
+    }
+  }, [params.iyzico]);
+
   const goAuth = () => router.replace("/auth");
 
   const afterGrant = useCallback(
@@ -69,9 +115,56 @@ export default function ShopScreen() {
     [updateUser],
   );
 
-  const buy = async (productId: string, label: string) => {
+  const buyWeb = async (kind: "pack" | "subscription", sku: string, label: string) => {
     if (!token) {
       setNote("Giriş gerekli");
+      return;
+    }
+    if (Platform.OS !== "web") {
+      setNote("Web ödemeleri iyzico ile. Native için App Store / Play (RevenueCat).");
+      return;
+    }
+    setBusy(sku);
+    setNote(null);
+    try {
+      const returnUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/shop`
+          : "http://localhost:8081/shop";
+      const res = await api.iyzicoCheckout(token, {
+        kind,
+        sku,
+        idempotencyKey: newIdempotencyKey(sku),
+        returnUrl,
+      });
+      setNote(
+        res.mock
+          ? `Mock iyzico 3DS açılıyor (${label})…`
+          : `iyzico Checkout Form açılıyor (${label})…`,
+      );
+      if (res.checkoutUrl) {
+        if (typeof window !== "undefined") {
+          window.location.assign(res.checkoutUrl);
+        } else {
+          await Linking.openURL(res.checkoutUrl);
+        }
+      }
+    } catch (e) {
+      const err = e as Error & { code?: string };
+      setNote(err.message || "Ödeme başlatılamadı");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const buy = async (productId: string, label: string, sku: string) => {
+    if (!token) {
+      setNote("Giriş gerekli");
+      return;
+    }
+    if (Platform.OS === "web") {
+      const kind = sku === "monthly" ? "subscription" : "pack";
+      await buyWeb(kind, sku === "monthly" ? "monthly" : sku, label);
       return;
     }
     setBusy(productId);
@@ -205,6 +298,25 @@ export default function ShopScreen() {
     }
   };
 
+  if (isGuest(user, token)) {
+    return (
+      <View style={styles.root}>
+        <Text style={styles.title}>Dükkan</Text>
+        <GuestLoginWall variant="action" onLogin={goAuth} />
+      </View>
+    );
+  }
+
+  if (needsPhoneVerify(user)) {
+    return (
+      <View style={styles.root}>
+        <Text style={styles.title}>Dükkan</Text>
+        <Text style={styles.sub}>Satın alma ve enerji grant için telefon doğrula.</Text>
+        <PhoneVerifyWall kind="play" onVerify={goAuth} />
+      </View>
+    );
+  }
+
   const boost = boostFromUser(user);
   const boosted = boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
 
@@ -212,10 +324,13 @@ export default function ShopScreen() {
     <View style={styles.root}>
       <Text style={styles.title}>Dükkan</Text>
       <Text style={styles.sub}>
-        Native IAP · RevenueCat (Play Billing + App Store). Paketler 200 / 600 / 1500 + aylık abonelik
-        (+50/gün).
+        {Platform.OS === "web"
+          ? "Web · iyzico Checkout Form (3DS). Paketler 200 / 600 / 1500 + aylık abonelik (+50/gün)."
+          : "Native IAP · RevenueCat (Play Billing + App Store). Paketler 200 / 600 / 1500 + aylık abonelik (+50/gün)."}
       </Text>
-      {!platform ? (
+      {Platform.OS === "web" ? (
+        <Text style={styles.warn}>Native dijital mallar mağaza IAP / Play Billing.</Text>
+      ) : !platform ? (
         <Text style={styles.warn}>Web önizleme — gerçek Play Billing Android derlemesinde.</Text>
       ) : null}
       {!shop ? (
@@ -225,7 +340,7 @@ export default function ShopScreen() {
           {shop.packs.map((p) => {
             const pid = productIdForSurface(p);
             return (
-              <View key={pid} style={styles.card}>
+              <View key={p.sku} style={styles.card}>
                 <Text style={styles.pack}>
                   {p.sku.toUpperCase()} — {p.energy} enerji
                 </Text>
@@ -234,9 +349,15 @@ export default function ShopScreen() {
                 <Pressable
                   style={[styles.cta, busy && styles.ctaDisabled]}
                   disabled={Boolean(busy)}
-                  onPress={() => void buy(pid, p.sku)}
+                  onPress={() => void buy(pid, p.sku, p.sku)}
                 >
-                  <Text style={styles.ctaText}>{busy === pid ? "…" : "Satın al"}</Text>
+                  <Text style={styles.ctaText}>
+                    {busy === pid || busy === p.sku
+                      ? "…"
+                      : Platform.OS === "web"
+                        ? "iyzico ile al"
+                        : "Satın al"}
+                  </Text>
                 </Pressable>
               </View>
             );
@@ -249,21 +370,27 @@ export default function ShopScreen() {
               style={[styles.cta, busy && styles.ctaDisabled]}
               disabled={Boolean(busy)}
               onPress={() =>
-                void buy(productIdForSurface(shop.subscription), "monthly")
+                void buy(productIdForSurface(shop.subscription), "monthly", "monthly")
               }
             >
               <Text style={styles.ctaText}>
-                {busy === productIdForSurface(shop.subscription) ? "…" : "Abone ol"}
+                {busy === productIdForSurface(shop.subscription) || busy === "monthly"
+                  ? "…"
+                  : Platform.OS === "web"
+                    ? "Abone ol (iyzico)"
+                    : "Abone ol"}
               </Text>
             </Pressable>
           </View>
         </>
       )}
-      <Pressable style={styles.secondary} disabled={Boolean(busy)} onPress={() => void restore()}>
-        <Text style={styles.secondaryText}>
-          {busy === "restore" ? "Geri yükleniyor…" : "Satın almaları geri yükle"}
-        </Text>
-      </Pressable>
+      {Platform.OS !== "web" ? (
+        <Pressable style={styles.secondary} disabled={Boolean(busy)} onPress={() => void restore()}>
+          <Text style={styles.secondaryText}>
+            {busy === "restore" ? "Geri yükleniyor…" : "Satın almaları geri yükle"}
+          </Text>
+        </Pressable>
+      ) : null}
       <Pressable
         style={[styles.cta, Boolean(busy) && styles.ctaDisabled]}
         disabled={Boolean(busy)}
@@ -297,6 +424,11 @@ export default function ShopScreen() {
         <Text style={styles.meta}>
           Enerji: {user.energy.total}
           {user.subActive ? " · Abonelik aktif" : ""}
+          {Platform.OS === "web"
+            ? paymentsMock
+              ? " · iyzico mock"
+              : " · iyzico live/sandbox"
+            : ""}
           {rcReady ? " · RC hazır" : ""}
           {stubEnabled ? " · stub açık" : ""}
           {platform ? ` · ${platform}` : ""}
