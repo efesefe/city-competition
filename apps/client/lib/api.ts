@@ -51,6 +51,35 @@ export type MatchDayWindow = {
   createdAt: string;
 };
 
+export type ShopCatalog = {
+  stub: boolean;
+  platform: "ios";
+  provider: "revenuecat";
+  packs: {
+    sku: string;
+    kind: "pack";
+    energy: number;
+    productId: string;
+    tryPlaceholder: number;
+  }[];
+  subscription: {
+    sku: string;
+    kind: "subscription";
+    productId: string;
+    entitlementId: string;
+    dailyBonus: number;
+    tryPlaceholder: number;
+  };
+
+  personalBoost?: {
+    sku: string;
+    effect: string;
+    durationMinutes: number;
+    tryPlaceholder: number | null;
+    purchase: string;
+  };
+};
+
 export type DigestCity = {
   plate: string;
   ownerTeamId: string | null;
@@ -222,7 +251,14 @@ export const api = {
       freeDailyGrant: number;
       subDailyBonus: number;
       auth: AuthMeta;
-      shop: unknown;
+      shop: ShopCatalog & { subDailyBonus?: number };
+      iap?: {
+        provider: string;
+        ios: boolean;
+        android: boolean;
+        webhookConfigured: boolean;
+        stubEnabled: boolean;
+      };
     }>("/v1/meta"),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
   /** Combined Season 0 boards — no auth required (guest browse). */
@@ -339,6 +375,33 @@ export const api = {
       boost: BoostSnapshot;
       user: PublicUser;
     }>("/v1/match-day/fixture-stub", { token, method: "POST", body }),
+
+  iapSync: (
+    token: string,
+    body: { productId: string; transactionId: string; platform: "ios"; environment?: string },
+  ) =>
+    request<{
+      ok: true;
+      alreadyGranted: boolean;
+      kind: string;
+      energyGranted: number;
+      subActive: boolean;
+      grantId: string;
+      user: PublicUser;
+    }>("/v1/iap/sync", { token, method: "POST", body }),
+
+  iapStub: (token: string, body: { productId: string; transactionId?: string }) =>
+    request<{
+      ok: true;
+      alreadyGranted: boolean;
+      kind: string;
+      energyGranted: number;
+      subActive: boolean;
+      grantId: string;
+      stub: true;
+      user: PublicUser;
+    }>("/v1/iap/stub", { token, method: "POST", body }),
+
   spend: (
     token: string,
     plate: string,

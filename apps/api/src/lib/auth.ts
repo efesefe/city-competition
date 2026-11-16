@@ -22,7 +22,7 @@ export type UserRow = {
   paid_energy: number;
   sub_energy: number;
   free_grant_date: string | null;
-  /** Server entitlement for TR midnight +50; set by payments / ops, not client. */
+  /** Server entitlement for TR midnight +50; flipped by IAP / ops. */
   sub_active?: boolean;
   sub_grant_date?: string | null;
   created_at: string;

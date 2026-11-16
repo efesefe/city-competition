@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { api, type PublicUser } from "./api";
+import { identifyRevenueCatUser, logoutRevenueCat } from "./revenuecat";
 
 type SessionState = {
   token: string | null;
@@ -49,6 +50,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(TOKEN_KEY, t);
     setToken(t);
     setUser(u);
+    void identifyRevenueCatUser(u.id);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -62,6 +64,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    void logoutRevenueCat();
   }, []);
 
   const updateUser = useCallback((u: PublicUser) => setUser(u), []);

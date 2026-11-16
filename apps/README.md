@@ -13,7 +13,8 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 5. Spend energy with **always-confirm**; live ownership flip over WebSocket — spend/claim require `phone_verified`  
  
 6. Daily free energy **100** @ 00:00 TR — simulate via `POST /v1/energy/grant-sim`  
-7. Cities seeded from **city-seed-matrix** (2–3 teams each)
+7. Cities seeded from **city-seed-matrix** (2–3 teams each)  
+8. **iOS IAP** (RevenueCat): shop packs 200/600/1500 + monthly sub; restore; webhook → server entitlements (see `docs/ios-iap-revenuecat.md`)
 
 ## Run locally (web)
 
@@ -85,6 +86,11 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `SUPABASE_SERVICE_ROLE_KEY` | — | Optional Admin API phone sync on rebind |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8787` | Client → API |
 | `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | — | Client Supabase SDK (match API project) |
+| `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` | — | Public `appl_…` key; configures Purchases on iOS |
+| `EXPO_PUBLIC_RC_IOS_PRODUCT_*` / `EXPO_PUBLIC_RC_ENTITLEMENT_SUB` | defaults in `lib/iapCatalog.ts` | Must match API `RC_IOS_*` |
+| `REVENUECAT_WEBHOOK_AUTHORIZATION` | — | API webhook auth (server-only) |
+| `RC_IOS_PRODUCT_*` / `RC_ENTITLEMENT_SUB` | defaults in `iapCatalog.ts` | App Store / RC product ids |
+| `ALLOW_IAP_STUB` | unset | `true` → `POST /v1/iap/stub` without StoreKit |
 
 ## Fly (`fra`) — API + WS + workers
 

@@ -106,6 +106,17 @@ import {
   skipTutorial,
 } from "./lib/tutorial.js";
 
+import {
+  iapStubEnabled,
+  revenuecatConfigured,
+  shopCatalog,
+} from "./lib/iapCatalog.js";
+import { applyIapGrant } from "./lib/iapEntitlements.js";
+import {
+  parseRevenueCatWebhook,
+  verifyRevenueCatAuthorization,
+} from "./lib/revenuecatWebhook.js";
+
 export type BuildAppOptions = {
   db: Db;
   logger?: boolean;
@@ -237,18 +248,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         rebindPath: "/v1/support/phone/rebind",
       },
       shop: {
-        stub: true,
-        packs: [
-          { sku: "small", energy: 200, tryPlaceholder: prices.smallTry },
-          { sku: "medium", energy: 600, tryPlaceholder: prices.mediumTry },
-          { sku: "large", energy: 1500, tryPlaceholder: prices.largeTry },
-        ],
+        ...shopCatalog(),
         subDailyBonus,
-        subscription: {
-          sku: "monthly_sub",
-          dailyBonus: 50,
-          tryPlaceholder: prices.subTry,
-        },
         /** Payments not ready — client shows SKU; activate via stub endpoint. */
         personalBoost: {
           sku: "personal_boost_1h",
@@ -257,6 +258,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
           tryPlaceholder: prices.personalBoostTry,
           purchase: "stub",
         },
+      },
+      iap: {
+        provider: "revenuecat",
+        ios: true,
+        android: false,
+        webhookConfigured: revenuecatConfigured(),
+        stubEnabled: iapStubEnabled(),
       },
     };
   });
@@ -1141,6 +1149,102 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       amountTry: body.data.amountTry,
     });
     return { simulated: true, ...result };
+  });
+
+  /**
+   * RevenueCat → server entitlement webhook (App Store packs + monthly sub).
+   * Auth: Authorization header must match REVENUECAT_WEBHOOK_AUTHORIZATION.
+   */
+  app.post("/v1/webhooks/revenuecat", async (req, reply) => {
+    if (!verifyRevenueCatAuthorization(req.headers.authorization)) {
+      return reply.code(401).send({ error: "unauthorized" });
+    }
+    const parsed = parseRevenueCatWebhook(req.body);
+    if (parsed.action === "ignore") {
+      return { ok: true, ignored: true, reason: parsed.reason, type: parsed.type ?? null };
+    }
+
+    const result = await applyIapGrant(db, {
+      userId: parsed.userId,
+      productId: parsed.productId,
+      transactionId: parsed.transactionId,
+      eventId: parsed.eventId,
+      store: parsed.store,
+      environment: parsed.environment,
+      deactivateSub: parsed.action === "deactivate_sub",
+    });
+    if (!result.ok) {
+      const status = result.reason === "user_not_found" ? 404 : 400;
+      return reply.code(status).send({ error: result.reason });
+    }
+    return {
+      ok: true as const,
+      alreadyGranted: result.alreadyGranted,
+      kind: result.kind,
+      energyGranted: result.energyGranted,
+      subActive: result.subActive,
+      grantId: result.grantId,
+    };
+  });
+
+  /**
+   * Client sync after iOS purchase / restore (RevenueCat customerInfo).
+   * Idempotent on transactionId. Prefer webhook in production; this speeds UX.
+   */
+  app.post("/v1/iap/sync", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        productId: z.string().min(1),
+        transactionId: z.string().min(1),
+        platform: z.literal("ios").default("ios"),
+        environment: z.string().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+    const result = await applyIapGrant(db, {
+      userId: user.id,
+      productId: body.data.productId,
+      transactionId: body.data.transactionId,
+      store: "app_store",
+      environment: body.data.environment ?? null,
+    });
+    if (!result.ok) return reply.code(400).send({ error: result.reason });
+
+    const refreshed = (await getUserById(db, user.id))!;
+    return { ...result, user: await publicUserWithBoost(db, refreshed) };
+  });
+
+  /**
+   * Dev stub: simulate an iOS pack/sub grant without StoreKit / RevenueCat.
+   * Gated by ALLOW_IAP_STUB=true.
+   */
+  app.post("/v1/iap/stub", async (req, reply) => {
+    if (!iapStubEnabled()) return reply.code(403).send({ error: "iap_stub_disabled" });
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        productId: z.string().min(1),
+        transactionId: z.string().min(8).optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+
+    const txn = body.data.transactionId ?? `stub_${user.id}_${body.data.productId}_${Date.now()}`;
+    const result = await applyIapGrant(db, {
+      userId: user.id,
+      productId: body.data.productId,
+      transactionId: txn,
+      store: "app_store",
+      environment: "STUB",
+    });
+    if (!result.ok) return reply.code(400).send({ error: result.reason });
+
+    const refreshed = (await getUserById(db, user.id))!;
+    return { ...result, stub: true, user: await publicUserWithBoost(db, refreshed) };
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {
