@@ -105,6 +105,8 @@ import {
   maybeAutoMarkClaimFromGrant,
   skipTutorial,
 } from "./lib/tutorial.js";
+import { listInbox, markRead, unreadCount, upsertPushToken } from "./lib/inbox.js";
+import { startPushWorker } from "./lib/pushWorker.js";
 
 import {
   iapStubEnabled,
@@ -160,16 +162,19 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(websocket);
 
   const stopGrantScheduler = startEnergyGrantScheduler(db, app.log);
+  const pushAbort = startPushWorker(db);
 
   if (opts.closeSharedResources !== false) {
     app.addHook("onClose", async () => {
       stopGrantScheduler();
+      pushAbort.abort();
       await closeDb();
       await closeRedis();
     });
   } else {
     app.addHook("onClose", async () => {
       stopGrantScheduler();
+      pushAbort.abort();
     });
   }
 
@@ -1247,6 +1252,61 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
 
     const refreshed = (await getUserById(db, user.id))!;
     return { ...result, stub: true, user: await publicUserWithBoost(db, refreshed) };
+  });
+
+  /** In-app notification feed (attack alerts + later flip/share). */
+  app.get("/v1/notifications", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const limitRaw = Number((req.query as { limit?: string }).limit ?? 50);
+    const items = await listInbox(db, user.id, Number.isFinite(limitRaw) ? limitRaw : 50);
+    const unread = await unreadCount(db, user.id);
+    return { items, unread };
+  });
+
+  app.get("/v1/notifications/unread-count", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    return { unread: await unreadCount(db, user.id) };
+  });
+
+  app.post("/v1/notifications/read", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        ids: z.array(z.string()).optional(),
+        all: z.boolean().optional(),
+      })
+      .safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    if (!body.data.all && !(body.data.ids && body.data.ids.length)) {
+      return reply.code(400).send({ error: "ids_or_all_required" });
+    }
+    const updated = await markRead(db, user.id, {
+      ids: body.data.ids,
+      all: body.data.all,
+    });
+    return { updated, unread: await unreadCount(db, user.id) };
+  });
+
+  /** Register Expo / FCM / APNs device token for push delivery. */
+  app.post("/v1/notifications/push-token", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        token: z.string().min(8).max(512),
+        platform: z.enum(["ios", "android", "web", "unknown"]).default("unknown"),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    await upsertPushToken(db, {
+      userId: user.id,
+      token: body.data.token,
+      platform: body.data.platform,
+    });
+    return { ok: true };
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {

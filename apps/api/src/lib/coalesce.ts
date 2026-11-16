@@ -8,7 +8,7 @@ export type CoalesceKind = "attack" | "flip_gain" | "flip_loss";
 export type CoalesceEvent = {
   kind: CoalesceKind;
   plate: string;
-  /** Audience key — e.g. defending tribe id or interested user id. */
+  /** Audience key — user id for attack alerts; tribe id for flip hooks. */
   audienceKey: string;
   rivalAlias?: string;
   at: string;
@@ -22,9 +22,7 @@ export type NoteResult =
 /**
  * Record an interest event into a 5-minute coalesce window.
  * First event opens the window (SET NX EX). Subsequent events increment the buffer
- * without emitting a new alert. Callers / workers can flushReady() for closed windows.
- *
- * Push delivery itself remains a later leaf — this is the Redis hook surface.
+ * without emitting a new alert.
  */
 export async function noteEvent(input: {
   kind: CoalesceKind;
@@ -71,43 +69,13 @@ export async function noteEvent(input: {
   return { coalesced: true, windowOpen: true, count };
 }
 
-/** Enqueue a coalesced notification payload for a future push worker (LPUSH notif_queue). */
+/** Enqueue a notification payload for the push worker (LPUSH notif_queue). */
 export async function enqueueNotif(payload: Record<string, unknown>): Promise<void> {
   const r = await getRedis();
   await r.lPush(KEYS.notifQueue, JSON.stringify({ ...payload, enqueuedAt: new Date().toISOString() }));
 }
 
-/**
- * After a spend that threatens a rival-owned city, note coalesce for the defending tribe.
- * Returns whether a new alert should fire now (window was closed).
- */
-export async function noteRivalAttack(opts: {
-  plate: string;
-  defendingTribeId: string | null;
-  spenderTribeId: string;
-  spenderAlias: string;
-}): Promise<NoteResult | null> {
-  if (!opts.defendingTribeId) return null;
-  if (opts.defendingTribeId === opts.spenderTribeId) return null;
-
-  const result = await noteEvent({
-    kind: "attack",
-    plate: opts.plate,
-    audienceKey: opts.defendingTribeId,
-    rivalAlias: opts.spenderAlias,
-  });
-
-  if (!result.coalesced && result.flush) {
-    await enqueueNotif({
-      type: "attack_coalesced",
-      ...result.flush,
-    });
-  }
-
-  return result;
-}
-
-/** Note flip gain/loss coalesce hooks for the tribes involved. */
+/** Note flip gain/loss coalesce hooks for the tribes involved (CC-58 expands delivery). */
 export async function noteFlip(opts: {
   plate: string;
   fromTeamId: string | null;

@@ -16,7 +16,8 @@ import {
   type BoostSnapshot,
 } from "./boost.js";
 import { recordOwnershipFlip } from "./admin-ops.js";
-import { noteFlip, noteRivalAttack } from "./coalesce.js";
+import { dispatchAttackAlerts } from "./alerts.js";
+import { noteFlip } from "./coalesce.js";
 import { singleFlight } from "./idempotency.js";
 import { getRedis, KEYS } from "./redis.js";
 import { TEAM_BY_ID } from "../data/teams.js";
@@ -807,14 +808,24 @@ async function spendEnergyOnce(
   const toAlias = team?.publicAlias ?? applied.toTeamId;
   const toColor = team?.primary ?? "#888888";
 
-  // Alert coalesce hooks (5-min window) — push delivery is a later leaf.
-  if (applied.fromOwner && applied.fromOwner !== tribeId) {
-    await noteRivalAttack({
+  // Attack alerts: owned tribe + last-24h spenders, 5-min coalesce, push + in-app.
+  // Best-effort — spend already committed.
+  try {
+    const cityMeta = await one<{ name_tr: string }>(
+      db,
+      `SELECT name_tr FROM cities WHERE plate = $1`,
+      [opts.plate],
+    );
+    await dispatchAttackAlerts(db, {
       plate: opts.plate,
-      defendingTribeId: applied.fromOwner,
+      cityName: cityMeta?.name_tr ?? opts.plate,
+      spenderUserId: opts.userId,
       spenderTribeId: tribeId,
       spenderAlias: TEAM_BY_ID.get(tribeId)?.publicAlias ?? tribeId,
+      ownerTribeId: applied.fromOwner,
     });
+  } catch (err) {
+    console.warn("[alerts] attack dispatch failed", err);
   }
 
   if (applied.flipped) {

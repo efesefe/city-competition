@@ -24,8 +24,8 @@
 
 ## Still stub / later
 
-- Personal shop boost and match-day team boost values — **wired in CC-32** (`personal-boost-logic.md`); purchase remains Payments-stub; admin match-day schedule later
-- Push delivery worker (coalesce queue from CC-40)
+- Personal shop boost and match-day team boost values — **wired in CC-32** (`personal-boost-logic.md`); purchase remains Payments-stub; admin match-day schedule is in
+- Flip gain/loss alert delivery (CC-58; attack path shipped in CC-57 via `dispatchAttackAlerts` + push worker)
 - Client map work (avoid `apps/client` — parallel map PR)
 
 ## Run
