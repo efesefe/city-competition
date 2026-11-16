@@ -1,130 +1,157 @@
-import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
 import { CITY_SEEDS } from "../data/city-seeds.js";
 import { TEAM_BY_ALIAS, TEAMS } from "../data/teams.js";
 
+const { Pool } = pg;
+
+export type Queryable = Pick<pg.Pool | pg.PoolClient, "query">;
+export type Db = pg.Pool;
+
+let pool: Db | null = null;
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const defaultDbPath = path.resolve(__dirname, "../../data/slice.sqlite");
+const migrationsDir = path.resolve(__dirname, "../../migrations");
 
-export type Db = Database.Database;
+/** Neon / Fly MPG / local Postgres — required. */
+export function databaseUrl(): string {
+  const url = process.env.DATABASE_URL?.trim();
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is required (Postgres). Example: postgres://city:city@127.0.0.1:5432/city_competition",
+    );
+  }
+  return url;
+}
 
-let db: Db | null = null;
+export function getPool(): Db {
+  if (pool) return pool;
+  pool = new Pool({
+    connectionString: databaseUrl(),
+    // Neon / Fly often need SSL in prod; local docker does not.
+    ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+    max: Number(process.env.PG_POOL_MAX || 10),
+  });
+  return pool;
+}
 
-export function getDb(): Db {
-  if (db) return db;
-  const dbPath = process.env.SQLITE_PATH || defaultDbPath;
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-  db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  migrate(db);
+export async function initDb(): Promise<Db> {
+  const db = getPool();
+  await migrate(db);
+  await ensureSeedAndTunables(db);
   return db;
 }
 
-function migrate(database: Db) {
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS teams (
-      internal_id TEXT PRIMARY KEY,
-      public_alias TEXT NOT NULL UNIQUE,
-      primary_color TEXT NOT NULL,
-      secondary_color TEXT NOT NULL,
-      big4 INTEGER NOT NULL DEFAULT 0
-    );
+export async function closeDb(): Promise<void> {
+  if (!pool) return;
+  await pool.end();
+  pool = null;
+}
 
-    CREATE TABLE IF NOT EXISTS cities (
-      plate TEXT PRIMARY KEY,
-      name_tr TEXT NOT NULL,
-      owner_team_id TEXT REFERENCES teams(internal_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS city_support (
-      city_plate TEXT NOT NULL,
-      team_id TEXT NOT NULL,
-      support REAL NOT NULL DEFAULT 0,
-      PRIMARY KEY (city_plate, team_id),
-      FOREIGN KEY (city_plate) REFERENCES cities(plate),
-      FOREIGN KEY (team_id) REFERENCES teams(internal_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      handle TEXT NOT NULL UNIQUE,
-      phone_e164 TEXT UNIQUE,
-      phone_verified INTEGER NOT NULL DEFAULT 0,
-      tribe_id TEXT REFERENCES teams(internal_id),
-      tribe_switched_at TEXT,
-      free_energy REAL NOT NULL DEFAULT 0,
-      paid_energy REAL NOT NULL DEFAULT 0,
-      sub_energy REAL NOT NULL DEFAULT 0,
-      free_grant_date TEXT,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS otp_codes (
-      phone_e164 TEXT PRIMARY KEY,
-      code TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      attempts INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id),
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS support_ledger (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      city_plate TEXT NOT NULL,
-      team_id TEXT NOT NULL,
-      energy_spent REAL NOT NULL,
-      support_credited REAL NOT NULL,
-      idempotency_key TEXT NOT NULL UNIQUE,
-      created_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS tunables (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
-
-  const teamCount = database.prepare("SELECT COUNT(*) AS c FROM teams").get() as { c: number };
-  if (teamCount.c === 0) {
-    seed(database);
-  }
-
-  const actionCost = database.prepare("SELECT value FROM tunables WHERE key = ?").get("action_cost");
-  if (!actionCost) {
-    database.prepare("INSERT INTO tunables (key, value) VALUES (?, ?)").run("action_cost", "15");
-    database.prepare("INSERT INTO tunables (key, value) VALUES (?, ?)").run("free_daily_grant", "100");
+export async function withTransaction<T>(
+  db: Db,
+  fn: (client: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // ignore rollback errors
+    }
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
-function seed(database: Db) {
-  const insertTeam = database.prepare(
-    `INSERT INTO teams (internal_id, public_alias, primary_color, secondary_color, big4)
-     VALUES (@internalId, @publicAlias, @primary, @secondary, @big4)`,
-  );
-  const insertCity = database.prepare(
-    `INSERT INTO cities (plate, name_tr, owner_team_id) VALUES (?, ?, ?)`,
-  );
-  const insertSupport = database.prepare(
-    `INSERT INTO city_support (city_plate, team_id, support) VALUES (?, ?, ?)`,
-  );
+export async function one<T extends pg.QueryResultRow>(
+  q: Queryable,
+  text: string,
+  params?: unknown[],
+): Promise<T | undefined> {
+  const res = await q.query<T>(text, params);
+  return res.rows[0];
+}
 
-  const tx = database.transaction(() => {
+export async function many<T extends pg.QueryResultRow>(
+  q: Queryable,
+  text: string,
+  params?: unknown[],
+): Promise<T[]> {
+  const res = await q.query<T>(text, params);
+  return res.rows;
+}
+
+async function migrate(database: Db) {
+  await database.query(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort();
+
+  for (const file of files) {
+    const id = file;
+    const applied = await one<{ id: string }>(
+      database,
+      `SELECT id FROM schema_migrations WHERE id = $1`,
+      [id],
+    );
+    if (applied) continue;
+
+    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8");
+    await withTransaction(database, async (client) => {
+      await client.query(sql);
+      await client.query(`INSERT INTO schema_migrations (id) VALUES ($1)`, [id]);
+    });
+    console.info(`[db] applied migration ${id}`);
+  }
+}
+
+async function ensureSeedAndTunables(database: Db) {
+  const teamCount = await one<{ c: string }>(database, `SELECT COUNT(*)::text AS c FROM teams`);
+  if (Number(teamCount?.c ?? 0) === 0) {
+    await seed(database);
+  }
+
+  const actionCost = await one<{ value: string }>(
+    database,
+    `SELECT value FROM tunables WHERE key = $1`,
+    ["action_cost"],
+  );
+  if (!actionCost) {
+    await database.query(`INSERT INTO tunables (key, value) VALUES ($1, $2)`, [
+      "action_cost",
+      "15",
+    ]);
+    await database.query(`INSERT INTO tunables (key, value) VALUES ($1, $2)`, [
+      "free_daily_grant",
+      "100",
+    ]);
+  }
+}
+
+async function seed(database: Db) {
+  await withTransaction(database, async (client) => {
     for (const t of TEAMS) {
-      insertTeam.run({
-        internalId: t.internalId,
-        publicAlias: t.publicAlias,
-        primary: t.primary,
-        secondary: t.secondary,
-        big4: t.big4 ? 1 : 0,
-      });
+      await client.query(
+        `INSERT INTO teams (internal_id, public_alias, primary_color, secondary_color, big4)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [t.internalId, t.publicAlias, t.primary, t.secondary, t.big4],
+      );
     }
 
     for (const city of CITY_SEEDS) {
@@ -138,14 +165,21 @@ function seed(database: Db) {
           ownerId = team.internalId;
         }
       }
-      insertCity.run(city.plate, city.nameTr, ownerId);
+      await client.query(`INSERT INTO cities (plate, name_tr, owner_team_id) VALUES ($1, $2, $3)`, [
+        city.plate,
+        city.nameTr,
+        ownerId,
+      ]);
       for (const s of city.seeds) {
         const team = TEAM_BY_ALIAS.get(s.alias)!;
-        insertSupport.run(city.plate, team.internalId, s.points);
+        await client.query(
+          `INSERT INTO city_support (city_plate, team_id, support) VALUES ($1, $2, $3)`,
+          [city.plate, team.internalId, s.points],
+        );
       }
     }
   });
-  tx();
+  console.info("[db] seeded teams + 81 city ownership matrix");
 }
 
 export function trDateString(d = new Date()): string {
@@ -157,16 +191,20 @@ export function trDateString(d = new Date()): string {
   }).format(d);
 }
 
-export function getActionCost(database: Db): number {
-  const row = database.prepare("SELECT value FROM tunables WHERE key = ?").get("action_cost") as
-    | { value: string }
-    | undefined;
+export async function getActionCost(database: Queryable): Promise<number> {
+  const row = await one<{ value: string }>(
+    database,
+    `SELECT value FROM tunables WHERE key = $1`,
+    ["action_cost"],
+  );
   return Number(row?.value ?? 15);
 }
 
-export function getFreeGrant(database: Db): number {
-  const row = database
-    .prepare("SELECT value FROM tunables WHERE key = ?")
-    .get("free_daily_grant") as { value: string } | undefined;
+export async function getFreeGrant(database: Queryable): Promise<number> {
+  const row = await one<{ value: string }>(
+    database,
+    `SELECT value FROM tunables WHERE key = $1`,
+    ["free_daily_grant"],
+  );
   return Number(row?.value ?? 100);
 }
