@@ -40,13 +40,13 @@ Already in this schema / spend path:
 - **`support_ledger`** — append-only; **`UNIQUE (idempotency_key)`**; city + user indexes  
 - **`city_support`** — materialized cumulative team support (persists across ownership flips)  
 - Spend writes debit + tally + optional `cities.owner_team_id` flip + ledger row in **one Postgres transaction**  
-- WS still uses in-memory bus (Redis later)
+- WS fan-out moved to Redis pub/sub — see [redis-realtime-ops.md](redis-realtime-ops.md)
 
-Next leaf should:
+Next leaf (CC-35 Persist ledger and live flips) should:
 
 1. Keep spend atomicity (do not split ledger vs flip across processes without outbox)  
 2. Add boost snapshot columns on ledger when personal/team boosts land  
-3. Publish flip/digest via Redis pub/sub; reconnect = digest fetch + WS resume  
-4. Consider `SELECT … FOR UPDATE` on city/support rows under derby load  
+3. Reconnect = digest fetch + WS resume (pub/sub already live)  
+4. Add `SELECT … FOR UPDATE` on city/support rows under derby load  
 
-Do **not** block this Postgres PR on Redis or full Fly deploy.
+Do **not** duplicate the `001_init` schema — extend with a new migration only when columns are needed.

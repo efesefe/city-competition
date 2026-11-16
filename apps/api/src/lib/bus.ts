@@ -1,6 +1,7 @@
 import type { WebSocket } from "ws";
+import { CHANNELS, getRedis, getRedisSubscriber } from "./redis.js";
 
-/** In-memory pub/sub stand-in for Redis (slice). */
+/** Redis pub/sub fan-out for ownership digest + flip deltas (multi-instance safe). */
 
 export type OwnershipDigestCity = {
   plate: string;
@@ -23,22 +24,39 @@ export type DigestEvent = {
   cities: OwnershipDigestCity[];
 };
 
-type BusEvent = FlipEvent | DigestEvent | { type: "ping" };
+export type BusEvent = FlipEvent | DigestEvent | { type: "ping" };
 
 const clients = new Set<WebSocket>();
+let subscribed = false;
+
+function fanoutLocal(payload: string) {
+  for (const ws of clients) {
+    if (ws.readyState === 1) {
+      ws.send(payload);
+    }
+  }
+}
+
+/** Subscribe this process to the ownership channel (call once at boot). */
+export async function startBus(): Promise<void> {
+  if (subscribed) return;
+  const subscriber = await getRedisSubscriber();
+  await subscriber.subscribe(CHANNELS.ownership, (message) => {
+    fanoutLocal(message);
+  });
+  subscribed = true;
+  console.info(`[bus] subscribed to Redis channel ${CHANNELS.ownership}`);
+}
 
 export function subscribe(ws: WebSocket) {
   clients.add(ws);
   ws.on("close", () => clients.delete(ws));
 }
 
-export function publish(event: BusEvent) {
+export async function publish(event: BusEvent): Promise<void> {
   const payload = JSON.stringify(event);
-  for (const ws of clients) {
-    if (ws.readyState === 1) {
-      ws.send(payload);
-    }
-  }
+  const r = await getRedis();
+  await r.publish(CHANNELS.ownership, payload);
 }
 
 export function clientCount() {

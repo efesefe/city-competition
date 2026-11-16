@@ -23,22 +23,23 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 cd apps/api
 docker compose up -d
 # → postgres://city:city@127.0.0.1:5432/city_competition
+# → redis://127.0.0.1:6379
 ```
 
-Or point `DATABASE_URL` at a Neon / Fly MPG connection string. Set `DATABASE_SSL=true` for managed TLS.
+Or point `DATABASE_URL` at a Neon / Fly MPG connection string (`DATABASE_SSL=true` when needed) and `REDIS_URL` at Upstash (`rediss://…`) or any local Redis.
 
 ### 1. API (terminal A)
 
 ```bash
 cd apps/api
-cp .env.example .env   # edit DATABASE_URL if needed
+cp .env.example .env   # edit DATABASE_URL / REDIS_URL if needed
 npm install
 npm run dev
 # → http://localhost:8787
-# On boot: applies migrations/ + seeds teams/cities if empty
+# On boot: applies migrations/ + seeds teams/cities if empty; subscribes to Redis ownership channel
 ```
 
-Health: `curl http://localhost:8787/health` → `"db":"postgres"`
+Health: `curl http://localhost:8787/health` → `"db":"postgres"`, `"redis":"PONG"`
 
 Optional one-shot migrate without serving:
 
@@ -71,6 +72,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `DATABASE_URL` | — | **Required.** Neon / Fly MPG / local `docker compose` |
 | `DATABASE_SSL` | unset | Set `true` for Neon / managed TLS |
 | `PG_POOL_MAX` | `10` | `pg` pool size |
+| `REDIS_URL` | — | **Required.** Upstash `rediss://` or local `redis://127.0.0.1:6379` |
 | `MOCK_OTP_CODE` | `123456` | Used when Netgsm keys absent |
 | `NETGSM_USERCODE` / `NETGSM_PASSWORD` | — | If set, OTP is random (SMS hook placeholder) |
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | — | Advertised in `/v1/meta` (shape only) |
@@ -79,7 +81,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 
 ## Fly-ready
 
-`apps/api/fly.toml` targets `fra`. Set Fly secret `DATABASE_URL` (Neon EU or Fly MPG). Redis / full deploy are later Wave 2 leaves — this PR only needs Postgres.
+`apps/api/fly.toml` targets `fra`. Set Fly secrets `DATABASE_URL` (Neon EU or Fly MPG) and `REDIS_URL` (Upstash EU). Full Fly scale runbook is a later Wave 2 leaf.
 
 ## Schema (migrations)
 
@@ -91,7 +93,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 - `support_ledger` (append-only, unique `idempotency_key`)  
 - `tunables` (`action_cost`, `free_daily_grant`)
 
-**Realtime handoff:** ledger + `city_support` + owner flip already commit in one Postgres transaction. Keep that atomicity; add boost snapshot columns when match-day/personal boost land; fan-out digest/flips via Redis in the next leaf.
+**Realtime:** ledger + `city_support` + owner flip commit in one Postgres transaction; digest/flips fan out on Redis `cc:ownership`. Boost snapshot columns + `FOR UPDATE` hardening = CC-35.
 
 ## Real vs stubbed
 
@@ -105,7 +107,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Spend + confirm + flip | Yes | Boosts = 1.0 (no match-day / personal boost shop) |
 | Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
 | Shop / iyzico / IAP | UI stub | No payments |
-| Redis | — | In-memory pub/sub |
+| Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | Push delivery worker still stub |
 | Postgres | Yes (`DATABASE_URL`) | — |
 
 ## API sketch

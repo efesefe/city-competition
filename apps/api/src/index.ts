@@ -14,7 +14,7 @@ import {
   userFromRequest,
   verifyOtp,
 } from "./lib/auth.js";
-import { clientCount, subscribe } from "./lib/bus.js";
+import { clientCount, startBus, subscribe } from "./lib/bus.js";
 import { closeDb, getActionCost, getFreeGrant, initDb, one } from "./lib/db.js";
 import {
   citySheet,
@@ -25,12 +25,15 @@ import {
   scoreboard,
   spendEnergy,
 } from "./lib/game.js";
+import { allow, DEFAULT_LIMITS, GROUPS } from "./lib/ratelimit.js";
+import { closeRedis, pingRedis } from "./lib/redis.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || "0.0.0.0";
 
 async function main() {
   const db = await initDb();
+  await startBus();
   const app = Fastify({ logger: true });
 
   await app.register(cors, { origin: true });
@@ -38,15 +41,18 @@ async function main() {
 
   app.addHook("onClose", async () => {
     await closeDb();
+    await closeRedis();
   });
 
   app.get("/health", async () => {
     await db.query("SELECT 1");
+    const redis = await pingRedis();
     return {
       ok: true,
       service: "city-competition-api",
       slice: "map-auth-spend",
       db: "postgres",
+      redis,
       wsClients: clientCount(),
       auth: authMode(),
     };
@@ -92,6 +98,13 @@ async function main() {
     if (!body.success) return reply.code(400).send({ error: "invalid_phone" });
     const e164 = normalizeTrPhone(body.data.phone);
     if (!e164) return reply.code(400).send({ error: "invalid_tr_phone" });
+    const rl = await allow(e164, GROUPS.otpStart, DEFAULT_LIMITS.otpStart);
+    if (!rl.allowed) {
+      return reply
+        .code(429)
+        .header("retry-after", String(rl.retryAfterSec))
+        .send({ error: "rate_limit_exceeded", retryAfterSec: rl.retryAfterSec });
+    }
     const result = await issueOtp(db, e164);
     return { ok: true, phoneE164: e164, ...result };
   });
@@ -103,6 +116,13 @@ async function main() {
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     const e164 = normalizeTrPhone(body.data.phone);
     if (!e164) return reply.code(400).send({ error: "invalid_tr_phone" });
+    const rl = await allow(e164, GROUPS.otpVerify, DEFAULT_LIMITS.otpVerify);
+    if (!rl.allowed) {
+      return reply
+        .code(429)
+        .header("retry-after", String(rl.retryAfterSec))
+        .send({ error: "rate_limit_exceeded", retryAfterSec: rl.retryAfterSec });
+    }
     if (!(await verifyOtp(db, e164, body.data.code))) {
       return reply.code(401).send({ error: "invalid_otp" });
     }
@@ -209,6 +229,13 @@ async function main() {
     if (!body.success) {
       return reply.code(400).send({ error: "confirm_required_or_invalid", details: body.error.flatten() });
     }
+    const rl = await allow(user.id, GROUPS.supportSpend, DEFAULT_LIMITS.supportSpend);
+    if (!rl.allowed) {
+      return reply
+        .code(429)
+        .header("retry-after", String(rl.retryAfterSec))
+        .send({ error: "rate_limit_exceeded", retryAfterSec: rl.retryAfterSec });
+    }
     const plate = (req.params as { plate: string }).plate;
     const result = await spendEnergy(db, {
       userId: user.id,
@@ -239,7 +266,7 @@ async function main() {
   });
 
   await app.listen({ port: PORT, host: HOST });
-  app.log.info(`City Competition API on http://${HOST}:${PORT} (Postgres)`);
+  app.log.info(`City Competition API on http://${HOST}:${PORT} (Postgres + Redis)`);
 }
 
 main().catch((err) => {

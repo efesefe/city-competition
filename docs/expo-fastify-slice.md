@@ -8,10 +8,11 @@
 
 | Path | Role |
 |------|------|
-| `apps/api` | Fastify API, **Postgres** domain DB (`DATABASE_URL`), in-memory WS bus |
+| `apps/api` | Fastify API, **Postgres** (`DATABASE_URL`) + **Redis** (`REDIS_URL`) WS bus |
 | `apps/client` | Expo Router web/mobile client |
 | `apps/README.md` | Local runbook |
 | [postgres-migration.md](postgres-migration.md) | SQLite → Postgres migration + Realtime ledger handoff |
+| [redis-realtime-ops.md](redis-realtime-ops.md) | Redis pub/sub, rate limits, coalesce hooks |
 
 ## Behavior covered
 
@@ -24,14 +25,16 @@
 
 ## Not in this slice
 
-Production Supabase project, Netgsm delivery, Redis, iyzico/IAP, match-day boosts, TR midnight cron worker.
+Production Supabase project, Netgsm delivery, iyzico/IAP, match-day boosts, TR midnight cron worker, push delivery worker.
 
-Postgres is in: set `DATABASE_URL` (local `docker compose` in `apps/api`, or Neon / Fly MPG). See [postgres-migration.md](postgres-migration.md).
+Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `docker compose` in `apps/api`, or Neon/Fly MPG + Upstash). See [postgres-migration.md](postgres-migration.md) and [redis-realtime-ops.md](redis-realtime-ops.md).
 
 ## Test
 
 ```bash
-cd apps/api && docker compose up -d && DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition npm run dev
+cd apps/api && docker compose up -d \
+  && DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition \
+     REDIS_URL=redis://127.0.0.1:6379 npm run dev
 cd apps/client && EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 ```
 
