@@ -8,6 +8,8 @@ export type PublicUser = {
   tribeId: string | null;
   tribeAlias: string | null;
   energy: { free: number; paid: number; sub: number; total: number };
+  /** Live personal × team multipliers for boosted-support UI. */
+  boost?: BoostSnapshot;
 };
 
 export type DigestCity = {
@@ -59,16 +61,30 @@ export type AuthMeta = {
   smsHook: { path: string; secretConfigured: boolean; netgsmDelivery: string };
 };
 
-/** Personal × team boost multipliers (shop / match-day). Defaults until wired. */
+/** Personal × team boost multipliers (shop / match-day). */
 export type BoostSnapshot = {
   personalBoostPct: number;
   teamBoostPct: number;
+  personalExpiresAt?: string | null;
+  teamWindowEndsAt?: string | null;
 };
 
 export const DEFAULT_BOOST: BoostSnapshot = {
   personalBoostPct: 1,
   teamBoostPct: 1,
+  personalExpiresAt: null,
+  teamWindowEndsAt: null,
 };
+
+export function boostFromUser(user: PublicUser | null | undefined): BoostSnapshot {
+  if (!user?.boost) return DEFAULT_BOOST;
+  return {
+    personalBoostPct: user.boost.personalBoostPct ?? 1,
+    teamBoostPct: user.boost.teamBoostPct ?? 1,
+    personalExpiresAt: user.boost.personalExpiresAt ?? null,
+    teamWindowEndsAt: user.boost.teamWindowEndsAt ?? null,
+  };
+}
 
 export function effectiveSupport(base: number, boost: BoostSnapshot = DEFAULT_BOOST): number {
   return Math.round(base * boost.personalBoostPct * boost.teamBoostPct * 1000) / 1000;
@@ -170,6 +186,18 @@ export const api = {
       body: { force: opts?.force ?? false },
     }),
 
+  /** Payments stub — activates personal +50% / 1h without charging. */
+  activatePersonalBoostStub: (token: string) =>
+    request<{ ok: true; stub: true; boost: BoostSnapshot; user: PublicUser }>(
+      "/v1/boosts/personal/stub",
+      { token, method: "POST", body: {} },
+    ),
+  /** Dev/sim team +25% window for display path until admin match-day leaf. */
+  simulateTeamBoost: (token: string) =>
+    request<{ ok: true; simulated: true; boost: BoostSnapshot; user: PublicUser }>(
+      "/v1/boosts/team/sim",
+      { token, method: "POST", body: {} },
+    ),
   spend: (
     token: string,
     plate: string,

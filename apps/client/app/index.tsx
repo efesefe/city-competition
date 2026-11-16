@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { CitySheetModal } from "../components/CitySheet";
 import { TurkiyeMap } from "../components/TurkiyeMap";
-import { api, type CitySheet, type DigestCity } from "../lib/api";
+import { api, boostFromUser, type CitySheet, type DigestCity } from "../lib/api";
 import { wsUrl } from "../lib/config";
 import { useSession } from "../lib/session";
 
@@ -199,6 +199,7 @@ export default function MapScreen() {
       goLogin();
       return;
     }
+    // confirmed: true only after ConfirmSpendModal — API rejects otherwise.
     const res = await api.spend(token, selected, {
       confirmed: true,
       idempotencyKey: idemKey(),
@@ -214,6 +215,23 @@ export default function MapScreen() {
     setSheet(null);
     setSheetError(null);
     setSelected(null);
+  };
+
+  const onClaim = () => {
+    closeSheet();
+    if (!token) {
+      router.push("/auth");
+      return;
+    }
+    void api
+      .claimEnergy(token)
+      .then((res) => updateUser(res.user))
+      .catch(() => undefined);
+  };
+
+  const onShop = () => {
+    closeSheet();
+    router.push("/shop");
   };
 
   return (
@@ -284,9 +302,12 @@ export default function MapScreen() {
         loadError={sheetError}
         user={user}
         actionCost={actionCost}
+        boost={boostFromUser(user)}
         onClose={closeSheet}
         onPlay={goPlay}
         onSpend={onSpend}
+        onClaim={onClaim}
+        onShop={onShop}
       />
     </View>
   );
