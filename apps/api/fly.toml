@@ -1,18 +1,48 @@
-# Fly.io Frankfurt — Season 0 primary (architecture lock)
+# City Competition — Fly.io Frankfurt (Season 0 lock: fra)
+# Process groups: web = HTTPS API + WebSocket (/v1/ws); worker = TR grant + notif_queue drain.
+# Deploy recipe + secrets: docs/fly-deploy.md
+
 app = "city-competition-api"
 primary_region = "fra"
 
 [build]
   dockerfile = "Dockerfile"
 
+[processes]
+  web = "npm run start"
+  worker = "npm run start:worker"
+
 [http_service]
   internal_port = 8787
   force_https = true
-  auto_stop_machines = "stop"
+  # Keep the WS gateway warm — avoid cold starts on match nights.
+  auto_stop_machines = "off"
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["web"]
 
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/health"
+
+# Web: API + live WS digest fan-out
 [[vm]]
   memory = "512mb"
   cpu_kind = "shared"
   cpus = 1
+  processes = ["web"]
+
+# Worker: midnight grant sweep + notif_queue stub consumer (no public ports)
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+  processes = ["worker"]
