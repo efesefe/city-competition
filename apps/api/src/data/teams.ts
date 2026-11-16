@@ -32,8 +32,15 @@ export const TEAMS: Team[] = [
 export const TEAM_BY_ALIAS = new Map(TEAMS.map((t) => [t.publicAlias, t]));
 export const TEAM_BY_ID = new Map(TEAMS.map((t) => [t.internalId, t]));
 
+/** Big 4 (Aslan / Kanarya / Kartal / Fırtına) then remaining Süper Lig aliases. */
 export function teamsForPicker(): Team[] {
-  const big4 = TEAMS.filter((t) => t.big4);
-  const rest = TEAMS.filter((t) => !t.big4);
+  const { big4, rest } = teamsGroupedForPicker();
   return [...big4, ...rest];
+}
+
+export function teamsGroupedForPicker(): { big4: Team[]; rest: Team[] } {
+  return {
+    big4: TEAMS.filter((t) => t.big4),
+    rest: TEAMS.filter((t) => !t.big4),
+  };
 }
