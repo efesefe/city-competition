@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid";
 import type { FastifyRequest } from "fastify";
 import { one, type Queryable } from "./db.js";
-import { smsHookConfigured } from "./sms-hook.js";
+import { deliverOtpSms, netgsmDeliveryMode, smsHookConfigured } from "./sms-hook.js";
 import {
   oauthProviderEnabled,
   supabaseClientConfigured,
@@ -26,7 +26,6 @@ export type UserRow = {
 };
 
 const MOCK_OTP = process.env.MOCK_OTP_CODE || "123456";
-const HAS_NETGSM = Boolean(process.env.NETGSM_USERCODE && process.env.NETGSM_PASSWORD);
 
 export type AuthMode = {
   /** Live Supabase JWT verify + user map when URL + JWT secret set. */
@@ -34,29 +33,30 @@ export type AuthMode = {
   supabaseUrl: string | null;
   supabaseAnonKeyConfigured: boolean;
   supabaseJwtConfigured: boolean;
-  phoneOtp: "supabase" | "netgsm-pending" | "mock";
+  phoneOtp: "supabase" | "netgsm" | "mock";
   mockOtpCode: string | null;
   googleEnabled: boolean;
   appleEnabled: boolean;
   /** OAuth uses live Supabase providers when configured; else local stub. */
   oauthMode: "supabase" | "stub";
-  /** Send SMS Hook endpoint ready; Netgsm delivery is CC-20. */
+  /** Send SMS Hook — Netgsm live when credentials + SMS_HOOK_DRY_RUN=false. */
   smsHook: {
     path: string;
     secretConfigured: boolean;
-    netgsmDelivery: "cc-20" | "dry-run";
+    netgsmDelivery: "live" | "dry-run";
   };
 };
 
 export function authMode(): AuthMode {
   const live = supabaseConfigured();
+  const delivery = netgsmDeliveryMode();
   return {
     mode: live ? "supabase" : "mock",
     supabaseUrl: process.env.SUPABASE_URL || null,
     supabaseAnonKeyConfigured: supabaseClientConfigured(),
     supabaseJwtConfigured: Boolean(process.env.SUPABASE_JWT_SECRET),
-    phoneOtp: live ? "supabase" : HAS_NETGSM ? "netgsm-pending" : "mock",
-    mockOtpCode: live || HAS_NETGSM ? null : MOCK_OTP,
+    phoneOtp: live ? "supabase" : delivery === "live" ? "netgsm" : "mock",
+    mockOtpCode: live || delivery === "live" ? null : MOCK_OTP,
     // Mock mode always offers stub buttons; live mode needs provider env or Supabase project.
     googleEnabled: live ? oauthProviderEnabled("google") : true,
     appleEnabled: live ? oauthProviderEnabled("apple") : true,
@@ -64,7 +64,7 @@ export function authMode(): AuthMode {
     smsHook: {
       path: "/v1/auth/hooks/send-sms",
       secretConfigured: smsHookConfigured(),
-      netgsmDelivery: HAS_NETGSM && process.env.SMS_HOOK_DRY_RUN === "false" ? "cc-20" : "dry-run",
+      netgsmDelivery: delivery,
     },
   };
 }
@@ -87,7 +87,8 @@ export async function issueOtp(
     throw Object.assign(new Error("use_supabase_phone_otp"), { statusCode: 400 });
   }
 
-  const code = HAS_NETGSM ? String(Math.floor(100000 + Math.random() * 900000)) : MOCK_OTP;
+  const liveNetgsm = netgsmDeliveryMode() === "live";
+  const code = liveNetgsm ? String(Math.floor(100000 + Math.random() * 900000)) : MOCK_OTP;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   await db.query(
     `INSERT INTO otp_codes (phone_e164, code, expires_at, attempts)
@@ -97,14 +98,17 @@ export async function issueOtp(
     [phoneE164, code, expiresAt],
   );
 
-  if (HAS_NETGSM) {
-    // Placeholder: Netgsm / İleti Merkezi via Supabase Custom Auth Hook in production (CC-20).
-    console.info(`[otp] would send via Netgsm to ${phoneE164}`);
+  if (liveNetgsm) {
+    // Local mock-auth path can also send via Netgsm when dry-run is off (dev/staging).
+    const sms = await deliverOtpSms({ phone: phoneE164, otp: code });
+    if (!sms.delivered) {
+      console.warn(`[otp] Netgsm send failed for ${phoneE164}: ${sms.error ?? sms.note}`);
+    }
   } else {
     console.info(`[otp] MOCK code for ${phoneE164}: ${code}`);
   }
 
-  return HAS_NETGSM ? { mock: false, expiresAt } : { mock: true, code, expiresAt };
+  return liveNetgsm ? { mock: false, expiresAt } : { mock: true, code, expiresAt };
 }
 
 export async function verifyOtp(db: Queryable, phoneE164: string, code: string): Promise<boolean> {

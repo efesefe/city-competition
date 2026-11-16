@@ -153,8 +153,8 @@ async function main() {
   });
 
   /**
-   * Supabase Send SMS Hook seam — CC-20 wires Netgsm. Point Supabase Auth hook here.
-   * Dry-run logs OTP server-side when Netgsm is not live.
+   * Supabase Send SMS Hook — Netgsm OTP when credentials + SMS_HOOK_DRY_RUN=false.
+   * Point Supabase Auth → Hooks → Send SMS here. Dry-run logs OTP when keys absent.
    */
   app.post("/v1/auth/hooks/send-sms", async (req, reply) => {
     if (!smsHookConfigured()) {
@@ -168,7 +168,14 @@ async function main() {
     }
     const { phone, otp } = parseSendSmsHookBody(req.body);
     const result = await deliverOtpSms({ phone, otp });
-    // Supabase expects 200 when the hook accepted the send request.
+    if (result.error === "missing_phone_or_otp") {
+      return reply.code(400).send({ success: false, ...result });
+    }
+    if (result.provider === "netgsm" && !result.delivered) {
+      // Tell Supabase the send failed so the client can surface an error / retry.
+      return reply.code(502).send({ success: false, ...result });
+    }
+    // Dry-run and successful Netgsm accepts → 200.
     return reply.code(200).send({
       success: true,
       ...result,
