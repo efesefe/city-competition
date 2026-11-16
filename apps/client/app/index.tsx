@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Pressable,
   StyleSheet,
@@ -17,23 +18,42 @@ function idemKey() {
   return `spend_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+type DigestStatus = "loading" | "ready" | "error";
+
 export default function MapScreen() {
   const router = useRouter();
   const { user, token, updateUser, refresh } = useSession();
   const [digest, setDigest] = useState<DigestCity[]>([]);
+  const [digestStatus, setDigestStatus] = useState<DigestStatus>("loading");
+  const [digestError, setDigestError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [sheet, setSheet] = useState<CitySheet | null>(null);
   const [sheetLoading, setSheetLoading] = useState(false);
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const [actionCost, setActionCost] = useState(15);
   const [pulse, setPulse] = useState<Set<string>>(new Set());
   const [flipBanner, setFlipBanner] = useState<string | null>(null);
   const fade = useRef(new Animated.Value(0)).current;
+  const selectLock = useRef(false);
+
+  const loadDigest = useCallback(async () => {
+    setDigestStatus("loading");
+    setDigestError(null);
+    try {
+      const d = await api.digest();
+      setDigest(Array.isArray(d.cities) ? d.cities : []);
+      setDigestStatus("ready");
+    } catch (e) {
+      setDigestError(e instanceof Error ? e.message : "Harita verisi alınamadı");
+      setDigestStatus("error");
+    }
+  }, []);
 
   useEffect(() => {
-    void api.meta().then((m) => setActionCost(m.actionCost));
-    void api.digest().then((d) => setDigest(d.cities));
+    void api.meta().then((m) => setActionCost(m.actionCost)).catch(() => undefined);
+    void loadDigest();
     void refresh();
-  }, [refresh]);
+  }, [loadDigest, refresh]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -45,6 +65,8 @@ export default function MapScreen() {
           const msg = JSON.parse(String(ev.data));
           if (msg.type === "digest" && Array.isArray(msg.cities)) {
             setDigest(msg.cities);
+            setDigestStatus("ready");
+            setDigestError(null);
           }
           if (msg.type === "flip") {
             setPulse((prev) => new Set(prev).add(msg.plate));
@@ -77,14 +99,23 @@ export default function MapScreen() {
   }, [fade]);
 
   const openCity = useCallback(async (plate: string) => {
+    if (!plate || selectLock.current) return;
+    selectLock.current = true;
     setSelected(plate);
     setSheetLoading(true);
     setSheet(null);
+    setSheetError(null);
     try {
       const s = await api.city(plate);
       setSheet(s);
+    } catch (e) {
+      setSheetError(e instanceof Error ? e.message : "Şehir yüklenemedi");
     } finally {
       setSheetLoading(false);
+      // Brief lock so double-tap / touch+click does not stack requests.
+      setTimeout(() => {
+        selectLock.current = false;
+      }, 280);
     }
   }, []);
 
@@ -112,7 +143,14 @@ export default function MapScreen() {
     });
     setSheet(res.sheet);
     setDigest(res.digest);
+    setDigestStatus("ready");
     updateUser(res.user);
+  };
+
+  const closeSheet = () => {
+    setSheet(null);
+    setSheetError(null);
+    setSelected(null);
   };
 
   return (
@@ -129,6 +167,28 @@ export default function MapScreen() {
           pulsePlates={pulse}
           onSelect={openCity}
         />
+        {digestStatus === "loading" ? (
+          <View style={styles.mapOverlay} pointerEvents="none">
+            <ActivityIndicator color="#c8a96b" size="large" />
+            <Text style={styles.overlayText}>Harita yükleniyor…</Text>
+          </View>
+        ) : null}
+        {digestStatus === "error" ? (
+          <View style={styles.errorBanner}>
+            <View style={styles.errorCopy}>
+              <Text style={styles.overlayTitle}>Harita verisi alınamadı</Text>
+              <Text style={styles.overlayText}>{digestError}</Text>
+            </View>
+            <Pressable style={styles.retry} onPress={() => void loadDigest()}>
+              <Text style={styles.retryText}>Yenile</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        {digestStatus === "ready" && digest.length === 0 ? (
+          <View style={styles.emptyBanner} pointerEvents="none">
+            <Text style={styles.overlayText}>Sahiplik verisi yok — iller varsayılan renkte.</Text>
+          </View>
+        ) : null}
         {flipBanner ? (
           <Animated.View style={[styles.flipBanner, { opacity: fade }]}>
             <Text style={styles.flipText}>{flipBanner}</Text>
@@ -156,12 +216,10 @@ export default function MapScreen() {
       <CitySheetModal
         sheet={sheet}
         loading={sheetLoading}
+        loadError={sheetError}
         user={user}
         actionCost={actionCost}
-        onClose={() => {
-          setSheet(null);
-          setSelected(null);
-        }}
+        onClose={closeSheet}
         onPlay={goPlay}
         onSpend={onSpend}
       />
@@ -180,6 +238,47 @@ const styles = StyleSheet.create({
   },
   tagline: { color: "#9bb0a3", fontSize: 13, marginTop: 2 },
   mapPane: { flex: 1, position: "relative" },
+  mapOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(10, 22, 32, 0.72)",
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  emptyBanner: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: "rgba(10, 22, 32, 0.85)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  errorBanner: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: "rgba(10, 22, 32, 0.92)",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  errorCopy: { flex: 1, gap: 2 },
+  overlayTitle: { color: "#f4e7c5", fontSize: 14, fontWeight: "700" },
+  overlayText: { color: "#9bb0a3", fontSize: 13, textAlign: "center" },
+  retry: {
+    backgroundColor: "#c8a96b",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  retryText: { color: "#0b1f17", fontWeight: "700" },
   flipBanner: {
     position: "absolute",
     top: 12,

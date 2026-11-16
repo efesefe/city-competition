@@ -6,6 +6,7 @@ Project context for future sessions. Update this list when adding a new module o
 | --- | --- |
 | [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
 | [turkiye-map-web-svg.md](turkiye-map-web-svg.md) | Expo web fix: Path `onPress` → WebShape unknown event handlers |
+| [turkiye-map-harden.md](turkiye-map-harden.md) | Season 0 Wave 1: 81-path memo, taps, atlas guard, digest/sheet loading-error-empty |
 | [presence.md](presence.md) | Redis TTL presence: online count (`SCARD`), per-tribe online members, map chip + chat dots |
 | [conquest-ui.md](conquest-ui.md) | Capture toast, ranked supporter badge, conquest log unread, own-flip celebration |
 | [derbi-map-urgency.md](derbi-map-urgency.md) | Derby city fill intensity, pulsing glow, countdown chip on the Türkiye map |
