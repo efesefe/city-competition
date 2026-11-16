@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { CitySheetModal } from "../components/CitySheet";
 import { MatchDayBanner } from "../components/MatchDayBanner";
+import { TutorialCoach } from "../components/TutorialCoach";
 import { TurkiyeMap } from "../components/TurkiyeMap";
 import {
   api,
@@ -17,6 +18,7 @@ import {
   type CitySheet,
   type DigestCity,
   type MatchDayEvent,
+  type TutorialState,
 } from "../lib/api";
 import { wsUrl } from "../lib/config";
 import { selectBannerEvent, selectSpotlightPlates } from "../lib/matchDayChrome";
@@ -43,6 +45,9 @@ export default function MapScreen() {
   const [pulse, setPulse] = useState<Set<string>>(new Set());
   const [flipBanner, setFlipBanner] = useState<string | null>(null);
   const [matchDayEvents, setMatchDayEvents] = useState<MatchDayEvent[]>([]);
+  const [tutorial, setTutorial] = useState<TutorialState | null>(null);
+  const [tutorialBusy, setTutorialBusy] = useState(false);
+  const [showDoneCard, setShowDoneCard] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
   const selectLock = useRef(false);
   const openedResume = useRef(false);
@@ -69,6 +74,23 @@ export default function MapScreen() {
     }
   }, []);
 
+  const loadTutorial = useCallback(async () => {
+    if (!token || !user?.phoneVerified || !user.tribeId) {
+      setTutorial(null);
+      return;
+    }
+    try {
+      const res = await api.tutorial(token);
+      updateUser(res.user);
+      setTutorial(res.tutorial);
+      if (res.tutorial.complete && !res.tutorial.skipped) {
+        setShowDoneCard(true);
+      }
+    } catch {
+      /* guest / tribe gate — ignore */
+    }
+  }, [token, user?.phoneVerified, user?.tribeId, updateUser]);
+
   useEffect(() => {
     void api.meta().then((m) => setActionCost(m.actionCost)).catch(() => undefined);
     void loadDigest();
@@ -89,6 +111,10 @@ export default function MapScreen() {
     () => selectSpotlightPlates(matchDayEvents),
     [matchDayEvents],
   );
+
+  useEffect(() => {
+    void loadTutorial();
+  }, [loadTutorial]);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -196,6 +222,17 @@ export default function MapScreen() {
     void openCity(plate);
   }, [params.openPlate, openCity]);
 
+  const spotlight = useMemo(() => {
+    const next = new Set(pulse);
+    if (tutorial?.active && tutorial.step === "capture" && tutorial.capturePlate) {
+      next.add(tutorial.capturePlate);
+    }
+    if (tutorial?.active && tutorial.step === "fight" && tutorial.fightPlate) {
+      next.add(tutorial.fightPlate);
+    }
+    return next;
+  }, [pulse, tutorial]);
+
   const goLogin = () => {
     router.push("/auth");
   };
@@ -242,6 +279,19 @@ export default function MapScreen() {
     setDigest(res.digest);
     setDigestStatus("ready");
     updateUser(res.user);
+    if (res.user.tutorial) {
+      setTutorial((prev) => ({
+        ...(prev ?? res.user.tutorial!),
+        ...res.user.tutorial!,
+        captureName: prev?.captureName ?? null,
+        fightName: prev?.fightName ?? null,
+      }));
+      if (res.user.tutorial.complete && !res.user.tutorial.skipped) {
+        setShowDoneCard(true);
+      }
+    } else {
+      void loadTutorial();
+    }
   };
 
   const closeSheet = () => {
@@ -250,16 +300,22 @@ export default function MapScreen() {
     setSelected(null);
   };
 
-  const onClaim = () => {
+  const onClaim = async () => {
     closeSheet();
     if (!token) {
-      router.push("/auth");
+      goLogin();
       return;
     }
-    void api
-      .claimEnergy(token)
-      .then((res) => updateUser(res.user))
-      .catch(() => undefined);
+    setTutorialBusy(true);
+    try {
+      const res = await api.claimEnergy(token);
+      updateUser(res.user);
+      await loadTutorial();
+    } catch {
+      goPlay();
+    } finally {
+      setTutorialBusy(false);
+    }
   };
 
   const onShop = () => {
@@ -267,6 +323,27 @@ export default function MapScreen() {
     router.push("/shop");
   };
 
+  const onSkip = async () => {
+    if (!token) return;
+    setTutorialBusy(true);
+    try {
+      const res = await api.skipTutorial(token);
+      updateUser(res.user);
+      setTutorial(res.user.tutorial ?? { ...tutorial!, skipped: true, complete: true, active: false, step: "done" });
+      setShowDoneCard(false);
+    } finally {
+      setTutorialBusy(false);
+    }
+  };
+
+  const coachTutorial =
+    tutorial && (tutorial.active || (showDoneCard && tutorial.complete && !tutorial.skipped))
+      ? tutorial.step === "done" && !showDoneCard
+        ? null
+        : tutorial.step === "done" && showDoneCard
+          ? { ...tutorial, active: false, step: "done" as const }
+          : tutorial
+      : null;
   return (
     <View style={styles.root}>
       <View style={styles.heroChrome}>
@@ -287,7 +364,7 @@ export default function MapScreen() {
         <TurkiyeMap
           digest={digest}
           selectedPlate={selected}
-          pulsePlates={pulse}
+          pulsePlates={spotlight}
           spotlightPlates={spotlightPlates}
           onSelect={openCity}
         />
@@ -318,11 +395,38 @@ export default function MapScreen() {
             <Text style={styles.flipText}>{flipBanner}</Text>
           </Animated.View>
         ) : null}
+        <TutorialCoach
+          tutorial={coachTutorial}
+          busy={tutorialBusy}
+          onClaim={onClaim}
+          onOpenCapture={() => {
+            if (tutorial?.capturePlate) void openCity(tutorial.capturePlate);
+          }}
+          onOpenFight={() => {
+            if (tutorial?.fightPlate) void openCity(tutorial.fightPlate);
+          }}
+          onSkip={onSkip}
+          onDismissDone={() => setShowDoneCard(false)}
+        />
       </View>
 
       <View style={styles.bar}>
         {user?.phoneVerified ? (
-          <Text style={styles.energy}>⚡ {user.energy.total}</Text>
+          <Pressable
+            onPress={() => {
+              if (tutorial?.active && tutorial.step === "claim") void onClaim();
+            }}
+            testID="energy-pill"
+          >
+            <Text
+              style={[
+                styles.energy,
+                tutorial?.active && tutorial.step === "claim" ? styles.energyLit : null,
+              ]}
+            >
+              ⚡ {user.energy.total}
+            </Text>
+          </Pressable>
         ) : (
           <Text style={styles.energyMuted}>Misafir</Text>
         )}
@@ -428,6 +532,11 @@ const styles = StyleSheet.create({
     borderTopColor: "#1e3329",
   },
   energy: { color: "#c8a96b", fontWeight: "700", minWidth: 56 },
+  energyLit: {
+    color: "#f4e7c5",
+    textShadowColor: "#c8a96b",
+    textShadowRadius: 6,
+  },
   energyMuted: { color: "#6b7c72", minWidth: 56 },
   link: { paddingHorizontal: 8, paddingVertical: 6 },
   linkText: { color: "#9bb0a3" },
