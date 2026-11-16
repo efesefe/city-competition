@@ -1,12 +1,21 @@
 import { nanoid } from "nanoid";
 import type { FastifyRequest } from "fastify";
 import { one, type Queryable } from "./db.js";
+import { smsHookConfigured } from "./sms-hook.js";
+import {
+  oauthProviderEnabled,
+  supabaseClientConfigured,
+  supabaseConfigured,
+  upsertUserFromSupabase,
+  verifySupabaseAccessToken,
+} from "./supabase.js";
 
 export type UserRow = {
   id: string;
   handle: string;
   phone_e164: string | null;
   phone_verified: boolean;
+  supabase_user_id: string | null;
   tribe_id: string | null;
   tribe_switched_at: string | null;
   free_energy: number;
@@ -19,14 +28,44 @@ export type UserRow = {
 const MOCK_OTP = process.env.MOCK_OTP_CODE || "123456";
 const HAS_NETGSM = Boolean(process.env.NETGSM_USERCODE && process.env.NETGSM_PASSWORD);
 
-export function authMode() {
+export type AuthMode = {
+  /** Live Supabase JWT verify + user map when URL + JWT secret set. */
+  mode: "supabase" | "mock";
+  supabaseUrl: string | null;
+  supabaseAnonKeyConfigured: boolean;
+  supabaseJwtConfigured: boolean;
+  phoneOtp: "supabase" | "netgsm-pending" | "mock";
+  mockOtpCode: string | null;
+  googleEnabled: boolean;
+  appleEnabled: boolean;
+  /** OAuth uses live Supabase providers when configured; else local stub. */
+  oauthMode: "supabase" | "stub";
+  /** Send SMS Hook endpoint ready; Netgsm delivery is CC-20. */
+  smsHook: {
+    path: string;
+    secretConfigured: boolean;
+    netgsmDelivery: "cc-20" | "dry-run";
+  };
+};
+
+export function authMode(): AuthMode {
+  const live = supabaseConfigured();
   return {
+    mode: live ? "supabase" : "mock",
     supabaseUrl: process.env.SUPABASE_URL || null,
-    supabaseAnonKeyConfigured: Boolean(process.env.SUPABASE_ANON_KEY),
-    phoneOtp: HAS_NETGSM ? "netgsm" : "mock",
-    mockOtpCode: HAS_NETGSM ? null : MOCK_OTP,
-    googleEnabled: Boolean(process.env.GOOGLE_CLIENT_ID),
-    appleEnabled: Boolean(process.env.APPLE_CLIENT_ID),
+    supabaseAnonKeyConfigured: supabaseClientConfigured(),
+    supabaseJwtConfigured: Boolean(process.env.SUPABASE_JWT_SECRET),
+    phoneOtp: live ? "supabase" : HAS_NETGSM ? "netgsm-pending" : "mock",
+    mockOtpCode: live || HAS_NETGSM ? null : MOCK_OTP,
+    // Mock mode always offers stub buttons; live mode needs provider env or Supabase project.
+    googleEnabled: live ? oauthProviderEnabled("google") : true,
+    appleEnabled: live ? oauthProviderEnabled("apple") : true,
+    oauthMode: live ? "supabase" : "stub",
+    smsHook: {
+      path: "/v1/auth/hooks/send-sms",
+      secretConfigured: smsHookConfigured(),
+      netgsmDelivery: HAS_NETGSM && process.env.SMS_HOOK_DRY_RUN === "false" ? "cc-20" : "dry-run",
+    },
   };
 }
 
@@ -43,6 +82,11 @@ export async function issueOtp(
   db: Queryable,
   phoneE164: string,
 ): Promise<{ mock: boolean; code?: string; expiresAt: string }> {
+  if (supabaseConfigured()) {
+    // Live phone OTP is owned by Supabase Auth (client SDK). Local table unused.
+    throw Object.assign(new Error("use_supabase_phone_otp"), { statusCode: 400 });
+  }
+
   const code = HAS_NETGSM ? String(Math.floor(100000 + Math.random() * 900000)) : MOCK_OTP;
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   await db.query(
@@ -54,7 +98,7 @@ export async function issueOtp(
   );
 
   if (HAS_NETGSM) {
-    // Placeholder: Netgsm / İleti Merkezi via Supabase Custom Auth Hook in production.
+    // Placeholder: Netgsm / İleti Merkezi via Supabase Custom Auth Hook in production (CC-20).
     console.info(`[otp] would send via Netgsm to ${phoneE164}`);
   } else {
     console.info(`[otp] MOCK code for ${phoneE164}: ${code}`);
@@ -107,7 +151,7 @@ export async function upsertPhoneUser(
   return { user, token };
 }
 
-/** Stub OAuth: creates/returns a session shaped like Supabase Auth would hand off. */
+/** Local mock OAuth when Supabase is not configured. */
 export async function stubOAuthLogin(
   db: Queryable,
   provider: "google" | "apple",
@@ -130,6 +174,10 @@ export async function stubOAuthLogin(
   return { user, token, needsPhone: true };
 }
 
+function looksLikeJwt(token: string): boolean {
+  return token.split(".").length === 3;
+}
+
 export async function userFromRequest(
   db: Queryable,
   req: FastifyRequest,
@@ -137,12 +185,33 @@ export async function userFromRequest(
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) return null;
   const token = header.slice(7);
+
+  if (looksLikeJwt(token) && (supabaseConfigured() || process.env.SUPABASE_URL)) {
+    const claims = await verifySupabaseAccessToken(token);
+    if (claims) return upsertUserFromSupabase(db, claims);
+  }
+
   const row = await one<UserRow>(
     db,
     `SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1`,
     [token],
   );
   return row ?? null;
+}
+
+/** Exchange a verified Supabase access token for the public game session shape. */
+export async function sessionFromSupabaseToken(
+  db: Queryable,
+  accessToken: string,
+): Promise<{ user: UserRow; accessToken: string; needsPhone: boolean } | null> {
+  const claims = await verifySupabaseAccessToken(accessToken);
+  if (!claims) return null;
+  const user = await upsertUserFromSupabase(db, claims);
+  return {
+    user,
+    accessToken,
+    needsPhone: !user.phone_verified,
+  };
 }
 
 export async function getUserById(db: Queryable, id: string): Promise<UserRow | null> {

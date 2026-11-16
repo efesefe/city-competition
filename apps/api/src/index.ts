@@ -9,6 +9,7 @@ import {
   issueOtp,
   normalizeTrPhone,
   publicUser,
+  sessionFromSupabaseToken,
   stubOAuthLogin,
   upsertPhoneUser,
   userFromRequest,
@@ -35,6 +36,13 @@ import {
 } from "./lib/game.js";
 import { allow, DEFAULT_LIMITS, GROUPS } from "./lib/ratelimit.js";
 import { closeRedis, pingRedis } from "./lib/redis.js";
+import {
+  deliverOtpSms,
+  parseSendSmsHookBody,
+  smsHookConfigured,
+  verifySmsHookSecret,
+} from "./lib/sms-hook.js";
+import { supabaseConfigured } from "./lib/supabase.js";
 
 const PORT = Number(process.env.PORT || 8787);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -106,7 +114,74 @@ async function main() {
     return { user: publicUser(refreshed, alias) };
   });
 
+  /**
+   * Sync Supabase Auth session → local User row.
+   * Client: authenticate with Supabase SDK, then POST Bearer access_token here (or use /v1/me).
+   */
+  app.post("/v1/auth/supabase/session", async (req, reply) => {
+    if (!supabaseConfigured()) {
+      return reply.code(503).send({
+        error: "supabase_not_configured",
+        note: "Set SUPABASE_URL + SUPABASE_JWT_SECRET, or use mock phone OTP",
+      });
+    }
+    const header = req.headers.authorization;
+    if (!header?.startsWith("Bearer ")) {
+      return reply.code(401).send({ error: "missing_bearer" });
+    }
+    const accessToken = header.slice(7);
+    const session = await sessionFromSupabaseToken(db, accessToken);
+    if (!session) return reply.code(401).send({ error: "invalid_supabase_token" });
+    await maybeGrantDailyEnergy(db, session.user.id);
+    const refreshed = (await getUserById(db, session.user.id))!;
+    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
+    return {
+      token: accessToken,
+      user: publicUser(refreshed, alias),
+      needsPhone: session.needsPhone,
+      mode: "supabase",
+      supabaseShaped: {
+        access_token: accessToken,
+        token_type: "bearer",
+        user: {
+          id: refreshed.supabase_user_id ?? refreshed.id,
+          phone: refreshed.phone_e164,
+          phone_confirmed_at: refreshed.phone_verified ? new Date().toISOString() : null,
+        },
+      },
+    };
+  });
+
+  /**
+   * Supabase Send SMS Hook seam — CC-20 wires Netgsm. Point Supabase Auth hook here.
+   * Dry-run logs OTP server-side when Netgsm is not live.
+   */
+  app.post("/v1/auth/hooks/send-sms", async (req, reply) => {
+    if (!smsHookConfigured()) {
+      return reply.code(503).send({
+        error: "sms_hook_secret_missing",
+        note: "Set SEND_SMS_HOOK_SECRETS to the Supabase hook secret",
+      });
+    }
+    if (!verifySmsHookSecret(req.headers as Record<string, string | string[] | undefined>)) {
+      return reply.code(401).send({ error: "invalid_hook_secret" });
+    }
+    const { phone, otp } = parseSendSmsHookBody(req.body);
+    const result = await deliverOtpSms({ phone, otp });
+    // Supabase expects 200 when the hook accepted the send request.
+    return reply.code(200).send({
+      success: true,
+      ...result,
+    });
+  });
+
   app.post("/v1/auth/phone/start", async (req, reply) => {
+    if (supabaseConfigured()) {
+      return reply.code(400).send({
+        error: "use_supabase_phone_otp",
+        note: "Call supabase.auth.signInWithOtp on the client, then POST /v1/auth/supabase/session",
+      });
+    }
     const body = z.object({ phone: z.string().min(10) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_phone" });
     const e164 = normalizeTrPhone(body.data.phone);
@@ -118,11 +193,22 @@ async function main() {
         .header("retry-after", String(rl.retryAfterSec))
         .send({ error: "rate_limit_exceeded", retryAfterSec: rl.retryAfterSec });
     }
-    const result = await issueOtp(db, e164);
-    return { ok: true, phoneE164: e164, ...result };
+    try {
+      const result = await issueOtp(db, e164);
+      return { ok: true, phoneE164: e164, ...result };
+    } catch (e) {
+      const err = e as Error & { statusCode?: number };
+      return reply.code(err.statusCode ?? 500).send({ error: err.message });
+    }
   });
 
   app.post("/v1/auth/phone/verify", async (req, reply) => {
+    if (supabaseConfigured()) {
+      return reply.code(400).send({
+        error: "use_supabase_phone_otp",
+        note: "Call supabase.auth.verifyOtp on the client, then POST /v1/auth/supabase/session",
+      });
+    }
     const body = z
       .object({ phone: z.string().min(10), code: z.string().min(4) })
       .safeParse(req.body);
@@ -146,6 +232,7 @@ async function main() {
     return {
       token,
       user: publicUser(refreshed, alias),
+      mode: "mock",
       supabaseShaped: {
         access_token: token,
         token_type: "bearer",
@@ -159,19 +246,32 @@ async function main() {
     if (provider !== "google" && provider !== "apple") {
       return reply.code(400).send({ error: "unsupported_provider" });
     }
+    if (supabaseConfigured()) {
+      return reply.code(400).send({
+        error: "use_supabase_oauth",
+        note: `Call supabase.auth.signInWithOAuth({ provider: '${provider}' }) then POST /v1/auth/supabase/session`,
+      });
+    }
     const { user, token } = await stubOAuthLogin(db, provider);
     return {
       token,
       user: publicUser(user),
       needsPhone: true,
       stub: true,
-      note: "OAuth stub — bind phone before play",
+      mode: "mock",
+      note: "OAuth stub (no Supabase) — bind phone before play",
     };
   });
 
   app.post("/v1/auth/phone/bind", async (req, reply) => {
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (supabaseConfigured()) {
+      return reply.code(400).send({
+        error: "use_supabase_phone_bind",
+        note: "Use supabase.auth.updateUser({ phone }) + verifyOtp, then refresh /v1/auth/supabase/session",
+      });
+    }
     const body = z
       .object({ phone: z.string().min(10), code: z.string().min(4) })
       .safeParse(req.body);

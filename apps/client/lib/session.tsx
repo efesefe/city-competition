@@ -52,6 +52,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    try {
+      const { getSupabase } = await import("./supabase");
+      const sb = getSupabase();
+      if (sb) await sb.auth.signOut();
+    } catch {
+      // ignore
+    }
     await AsyncStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
