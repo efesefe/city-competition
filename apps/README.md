@@ -138,4 +138,11 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 - `POST /v1/tribe/pick`  
 - `POST /v1/cities/:plate/spend` — `{ confirmed: true, idempotencyKey }`  
 - `POST /v1/energy/grant-sim` — simulate 00:00 TR  
-- `GET /v1/ws` — subscribe `digest` → 81-city ownership/support snapshot + live `support`/`flip`/`digest` (see `docs/websocket-city-digest.md`) 
+- `GET /v1/ws` — subscribe `digest` → 81-city ownership/support snapshot + live `support`/`flip`/`digest` (see `docs/websocket-city-digest.md`)
+
+## Idempotent spend load test (CC-37)
+
+```bash
+cd apps/api && npm run test:spend-load
+```
+Requires `DATABASE_URL` + `REDIS_URL`.
