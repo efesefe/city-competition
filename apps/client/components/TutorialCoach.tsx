@@ -79,13 +79,21 @@ function copyFor(tutorial: TutorialState) {
           }) =>
           h.onClaim,
       };
-    case "capture":
+    case "capture": {
+      const needed = tutorial.captureConfirmsNeeded ?? 3;
+      const confirms = tutorial.captureConfirms ?? 0;
+      const progress =
+        confirms > 0
+          ? `Onay ${confirms}/${needed} (flip şart değil) / Confirms ${confirms}/${needed} (flip not required)`
+          : tutorial.capturePlate
+            ? `Plaka ${tutorial.capturePlate} — 3 onay veya flip`
+            : null;
       return {
         title: tutorial.captureName
           ? `Ele geçir: ${tutorial.captureName}`
           : "Bir şehir ele geçir",
         body: "Spend energy. When your tribe leads, the city is yours — live. / Enerji harca. Kabilen öne geçince şehir senin olur — anında.",
-        detail: tutorial.capturePlate ? `Plaka ${tutorial.capturePlate}` : null,
+        detail: progress,
         cta: "Şehri aç / Open city",
         onPrimary:
           (h: {
@@ -96,6 +104,7 @@ function copyFor(tutorial: TutorialState) {
           }) =>
           h.onOpenCapture,
       };
+    }
     case "fight":
       return {
         title: tutorial.fightName ? `Savaşa katıl: ${tutorial.fightName}` : "Canlı savaşa katıl",

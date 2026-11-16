@@ -15,6 +15,9 @@ export type TutorialState = {
   complete: boolean;
   capturePlate: string | null;
   fightPlate: string | null;
+  /** Successful confirms on capture plate toward no-flip completion (CC-62). */
+  captureConfirms: number;
+  captureConfirmsNeeded: number;
   step: TutorialStep;
   active: boolean;
 };
@@ -32,6 +35,13 @@ export type CityMargin = {
 
 const MID_MARGIN_MIN = 15;
 const MID_MARGIN_MAX = 120;
+/** Locked (Efe, 2026-11-15): capture beat without flip completes after 3 confirms. */
+export const CAPTURE_CONFIRMS_NEEDED = 3;
+
+/** Pure helper: should the capture beat complete from confirms alone? */
+export function captureCompleteFromConfirms(confirms: number, needed = CAPTURE_CONFIRMS_NEEDED): boolean {
+  return confirms >= needed;
+}
 
 export function tutorialFromUser(user: UserRow): TutorialState {
   const claimedEnergy = Boolean(user.tutorial_claimed_energy);
@@ -39,6 +49,7 @@ export function tutorialFromUser(user: UserRow): TutorialState {
   const liveFight = Boolean(user.tutorial_live_fight);
   const skipped = Boolean(user.tutorial_skipped);
   const complete = Boolean(user.tutorial_complete) || skipped || (claimedEnergy && capture && liveFight);
+  const captureConfirms = Number(user.tutorial_capture_confirms ?? 0);
 
   let step: TutorialStep = "idle";
   const ready = Boolean(user.phone_verified && user.tribe_id);
@@ -59,6 +70,8 @@ export function tutorialFromUser(user: UserRow): TutorialState {
     complete,
     capturePlate: user.tutorial_capture_plate ?? null,
     fightPlate: user.tutorial_fight_plate ?? null,
+    captureConfirms,
+    captureConfirmsNeeded: CAPTURE_CONFIRMS_NEEDED,
     step,
     active: ready && !complete && !skipped && step !== "done" && step !== "idle",
   };
@@ -301,10 +314,9 @@ export async function getTutorialPayload(db: Queryable, user: UserRow) {
 }
 
 /**
- * After a successful confirmed spend, advance tutorial beats (CC-61).
- * Capture: flip to player tribe on locked capture plate.
+ * After a successful confirmed spend, advance tutorial beats.
+ * Capture: flip to player tribe **or** 3 confirms on locked capture plate (CC-62).
  * Live fight: any successful spend on locked fight plate.
- * (CC-62 adds capture completion after 3 confirms without flip.)
  */
 export async function applyTutorialSpendProgress(
   db: Queryable,
@@ -321,11 +333,34 @@ export async function applyTutorialSpendProgress(
 
   if (!user.tutorial_capture && user.tutorial_capture_plate && opts.plate === user.tutorial_capture_plate) {
     const flippedToUs = opts.flipped && opts.toTeamId === opts.tribeId;
-    if (flippedToUs) await markTutorialCapture(db, opts.userId);
+    if (flippedToUs) {
+      await markTutorialCapture(db, opts.userId);
+    } else {
+      await incrementCaptureConfirmsAndMaybeComplete(db, opts.userId);
+    }
   }
 
   if (!user.tutorial_live_fight && user.tutorial_fight_plate && opts.plate === user.tutorial_fight_plate) {
     await markTutorialLiveFight(db, opts.userId);
+  }
+}
+
+async function incrementCaptureConfirmsAndMaybeComplete(db: Queryable, userId: string): Promise<void> {
+  await db.query(
+    `UPDATE users
+     SET tutorial_capture_confirms = COALESCE(tutorial_capture_confirms, 0) + 1
+     WHERE id = $1
+       AND tutorial_capture = FALSE
+       AND tutorial_skipped = FALSE`,
+    [userId],
+  );
+  const row = await one<{ tutorial_capture_confirms: number }>(
+    db,
+    `SELECT tutorial_capture_confirms FROM users WHERE id = $1`,
+    [userId],
+  );
+  if (row && captureCompleteFromConfirms(Number(row.tutorial_capture_confirms))) {
+    await markTutorialCapture(db, userId);
   }
 }
 

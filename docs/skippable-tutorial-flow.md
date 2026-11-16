@@ -50,7 +50,7 @@ Picker: `apps/api/src/lib/tutorial.ts` — mid-seed margins (~1–3× action cos
 
 ## Explicit non-goals (this leaf)
 
-- Capture complete after **3 confirms without flip** → **CC-62** (stacked)  
+- Capture complete after **3 confirms without flip** → **CC-62** ([tutorial-capture-no-flip.md](tutorial-capture-no-flip.md))  
 - Kabile picker UX → #55 / CC-63  
 
 ## Test

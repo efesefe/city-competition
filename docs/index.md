@@ -15,6 +15,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [confirm-spend-boost-ui.md](confirm-spend-boost-ui.md) | CC-27: always-confirm spend + boosted support UI (personal/team display; purchase stub) |
 | [match-day-map-chrome.md](match-day-map-chrome.md) | CC-28: match-day thin banner + map city spotlight (fixture stub until Admin ops) |
 | [skippable-tutorial-flow.md](skippable-tutorial-flow.md) | CC-61: Skippable claim → mid-seed capture → live fight coach |
+| [tutorial-capture-no-flip.md](tutorial-capture-no-flip.md) | CC-62: Capture beat completes after 3 confirms without flip |
 | [city-sheet-combat-panel.md](city-sheet-combat-panel.md) | CC-26: City sheet owner / lead / real-handle contributors / Attack·Defend |
 | [postgres-migration.md](postgres-migration.md) | API SQLite → Postgres (`DATABASE_URL`, migrations, Realtime ledger handoff) |
 | [redis-realtime-ops.md](redis-realtime-ops.md) | Redis/`REDIS_URL` for ownership pub/sub, rate limits, alert coalesce hooks |
