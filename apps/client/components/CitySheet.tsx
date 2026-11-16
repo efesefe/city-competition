@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import type { CitySheet as CitySheetData, PublicUser } from "../lib/api";
 import { isPhoneUnverifiedError, needsPhoneVerify, phoneGateMessage } from "../lib/play-gates";
+import { GuestLoginWall } from "./GuestLoginWall";
 import { PhoneVerifyWall } from "./PhoneVerifyWall";
 
 type Props = {
@@ -152,11 +153,11 @@ export function CitySheetModal({
                 </View>
               ) : unverified ? (
                 <PhoneVerifyWall kind="spend" onVerify={onPlay} compact />
+              ) : !user ? (
+                <GuestLoginWall variant="support" onLogin={onPlay} />
               ) : (
                 <Pressable style={styles.cta} onPress={onPlay}>
-                  <Text style={styles.ctaText}>
-                    {user ? "Kabile seç" : "Katıl / Play"}
-                  </Text>
+                  <Text style={styles.ctaText}>Kabile seç</Text>
                 </Pressable>
               )}
               {error ? <Text style={styles.error}>{error}</Text> : null}

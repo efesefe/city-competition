@@ -43,7 +43,7 @@ Kinds: `play` | `spend` | `kabile` via `apps/api/src/lib/play-gates.ts`.
 ## Explicit non-goals
 
 - Lost-SIM rebind (CC-22)  
-- Guest action redirects beyond verify wall polish (CC-23)  
+- Guest action redirects (CC-23 — see [gate-guest-actions.md](gate-guest-actions.md))  
 - Netgsm / Supabase rewrites  
 
 ## Test

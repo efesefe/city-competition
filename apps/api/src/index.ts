@@ -34,7 +34,7 @@ import {
   spendEnergy,
   warmDigestCache,
 } from "./lib/game.js";
-import { phoneUnverifiedPayload } from "./lib/play-gates.js";
+import { guestLoginPayload, phoneUnverifiedPayload } from "./lib/play-gates.js";
 import { allow, DEFAULT_LIMITS, GROUPS } from "./lib/ratelimit.js";
 import { closeRedis, pingRedis } from "./lib/redis.js";
 import {
@@ -307,7 +307,7 @@ async function main() {
 
   app.post("/v1/tribe/pick", async (req, reply) => {
     const user = await userFromRequest(db, req);
-    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user) return reply.code(401).send(guestLoginPayload());
     const body = z.object({ tribeId: z.string() }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     const result = await pickTribe(db, user.id, body.data.tribeId);
@@ -324,7 +324,7 @@ async function main() {
 
   app.post("/v1/energy/claim", async (req, reply) => {
     const user = await userFromRequest(db, req);
-    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user) return reply.code(401).send(guestLoginPayload());
     if (!user.phone_verified) {
       return reply.code(403).send(phoneUnverifiedPayload("play"));
     }
@@ -337,7 +337,7 @@ async function main() {
   /** Dev/sim: force TR daily grant without waiting for midnight. */
   app.post("/v1/energy/grant-sim", async (req, reply) => {
     const user = await userFromRequest(db, req);
-    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user) return reply.code(401).send(guestLoginPayload());
     if (!user.phone_verified) {
       return reply.code(403).send(phoneUnverifiedPayload("play"));
     }
@@ -349,7 +349,7 @@ async function main() {
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {
     const user = await userFromRequest(db, req);
-    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user) return reply.code(401).send(guestLoginPayload());
     const body = z
       .object({
         confirmed: z.literal(true),

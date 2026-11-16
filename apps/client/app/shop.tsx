@@ -1,9 +1,14 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { GuestLoginWall } from "../components/GuestLoginWall";
+import { PhoneVerifyWall } from "../components/PhoneVerifyWall";
 import { api } from "../lib/api";
+import { isGuest, needsPhoneVerify } from "../lib/play-gates";
 import { useSession } from "../lib/session";
 
 export default function ShopScreen() {
+  const router = useRouter();
   const { token, user, updateUser } = useSession();
   const [packs, setPacks] = useState<{ sku: string; energy: number; tryPlaceholder: number }[]>([]);
   const [note, setNote] = useState<string | null>(null);
@@ -12,14 +17,46 @@ export default function ShopScreen() {
     void api.meta().then((m) => setPacks((m.shop as { packs: typeof packs }).packs));
   }, []);
 
+  // Guests may not enter shop — redirect to login/signup (CC-23).
+  useEffect(() => {
+    if (isGuest(user, token)) {
+      router.replace("/auth");
+    }
+  }, [token, user, router]);
+
+  const goAuth = () => router.replace("/auth");
+
+  if (isGuest(user, token)) {
+    return (
+      <View style={styles.root}>
+        <Text style={styles.title}>Dükkan</Text>
+        <GuestLoginWall variant="action" onLogin={goAuth} />
+      </View>
+    );
+  }
+
+  if (needsPhoneVerify(user)) {
+    return (
+      <View style={styles.root}>
+        <Text style={styles.title}>Dükkan</Text>
+        <Text style={styles.sub}>Satın alma ve enerji grant için telefon doğrula.</Text>
+        <PhoneVerifyWall kind="play" onVerify={goAuth} />
+      </View>
+    );
+  }
+
   const simGrant = async () => {
     if (!token) {
-      setNote("Giriş gerekli");
+      goAuth();
       return;
     }
-    const res = await api.grantSim(token);
-    updateUser(res.user);
-    setNote(`Simüle günlük grant: +${res.amount} (00:00 TR yerine)`);
+    try {
+      const res = await api.grantSim(token);
+      updateUser(res.user);
+      setNote(`Simüle günlük grant: +${res.amount} (00:00 TR yerine)`);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "grant_failed");
+    }
   };
 
   return (
@@ -30,7 +67,9 @@ export default function ShopScreen() {
       </Text>
       {packs.map((p) => (
         <View key={p.sku} style={styles.card}>
-          <Text style={styles.pack}>{p.sku.toUpperCase()} — {p.energy} enerji</Text>
+          <Text style={styles.pack}>
+            {p.sku.toUpperCase()} — {p.energy} enerji
+          </Text>
           <Text style={styles.price}>₺{p.tryPlaceholder} (placeholder)</Text>
           <Pressable style={styles.disabled} disabled>
             <Text style={styles.disabledText}>Satın al (yakında)</Text>
