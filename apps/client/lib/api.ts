@@ -1,5 +1,23 @@
 import { API_URL } from "./config";
 
+export type TutorialStep = "claim" | "capture" | "fight" | "done" | "idle";
+
+export type TutorialState = {
+  claimedEnergy: boolean;
+  capture: boolean;
+  liveFight: boolean;
+  skipped: boolean;
+  complete: boolean;
+  capturePlate: string | null;
+  fightPlate: string | null;
+  captureName?: string | null;
+  fightName?: string | null;
+  captureConfirms?: number;
+  captureConfirmsNeeded?: number;
+  step: TutorialStep;
+  active: boolean;
+};
+
 export type PublicUser = {
   id: string;
   handle: string;
@@ -11,6 +29,7 @@ export type PublicUser = {
   energy: { free: number; paid: number; sub: number; total: number };
   /** Live personal × team multipliers for boosted-support UI. */
   boost?: BoostSnapshot;
+  tutorial?: TutorialState;
 };
 
 export type DigestCity = {
@@ -315,4 +334,12 @@ export const api = {
       supportCredited?: number;
       energySpent?: number;
     }>(`/v1/cities/${plate}/spend`, { token, body: opts }),
+  tutorial: (token: string) =>
+    request<{ tutorial: TutorialState; user: PublicUser }>("/v1/tutorial", { token }),
+  skipTutorial: (token: string) =>
+    request<{ skipped: true; user: PublicUser }>("/v1/tutorial/skip", {
+      token,
+      method: "POST",
+      body: {},
+    }),
 };

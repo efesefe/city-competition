@@ -28,6 +28,16 @@ export type UserRow = {
   created_at: string;
   /** ISO timestamptz when personal boost is active; null when inactive. */
   personal_boost_expires_at?: string | Date | null;
+  /** CC-61 tutorial flags (migration 008). */
+  tutorial_claimed_energy?: boolean;
+  tutorial_capture?: boolean;
+  tutorial_live_fight?: boolean;
+  tutorial_skipped?: boolean;
+  tutorial_complete?: boolean;
+  tutorial_capture_plate?: string | null;
+  tutorial_fight_plate?: string | null;
+  /** CC-62: confirms on capture city without flip (migration 009). */
+  tutorial_capture_confirms?: number;
 };
 
 const MOCK_OTP = process.env.MOCK_OTP_CODE || "123456";
@@ -239,6 +249,23 @@ export function publicUser(
   teamAlias?: string | null,
   boost?: PublicBoost | null,
 ) {
+  const claimedEnergy = Boolean(user.tutorial_claimed_energy);
+  const capture = Boolean(user.tutorial_capture);
+  const liveFight = Boolean(user.tutorial_live_fight);
+  const skipped = Boolean(user.tutorial_skipped);
+  const complete =
+    Boolean(user.tutorial_complete) || skipped || (claimedEnergy && capture && liveFight);
+  let tutorialStep: "claim" | "capture" | "fight" | "done" | "idle" = "idle";
+  const ready = Boolean(user.phone_verified && user.tribe_id);
+  if (ready && !complete && !skipped) {
+    if (!claimedEnergy) tutorialStep = "claim";
+    else if (!capture) tutorialStep = "capture";
+    else if (!liveFight) tutorialStep = "fight";
+    else tutorialStep = "done";
+  } else if (complete || skipped) {
+    tutorialStep = "done";
+  }
+
   return {
     id: user.id,
     handle: user.handle,
@@ -258,6 +285,18 @@ export function publicUser(
       teamBoostPct: 1,
       personalExpiresAt: null,
       teamWindowEndsAt: null,
+    },
+    tutorial: {
+      claimedEnergy,
+      capture,
+      liveFight,
+      skipped,
+      complete,
+      capturePlate: user.tutorial_capture_plate ?? null,
+      fightPlate: user.tutorial_fight_plate ?? null,
+      captureConfirms: Number(user.tutorial_capture_confirms ?? 0),
+      step: tutorialStep,
+      active: ready && !complete && !skipped && tutorialStep !== "done" && tutorialStep !== "idle",
     },
   };
 }

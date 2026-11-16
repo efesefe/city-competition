@@ -69,6 +69,12 @@ import {
   supportOpsConfigured,
 } from "./lib/support-rebind.js";
 import { supabaseConfigured } from "./lib/supabase.js";
+import {
+  applyTutorialSpendProgress,
+  getTutorialPayload,
+  maybeAutoMarkClaimFromGrant,
+  skipTutorial,
+} from "./lib/tutorial.js";
 
 export type BuildAppOptions = {
   db: Db;
@@ -613,6 +619,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       return reply.code(403).send(phoneUnverifiedPayload("play"));
     }
     const result = await maybeGrantDailyEnergy(db, user.id);
+    await maybeAutoMarkClaimFromGrant(
+      db,
+      user.id,
+      "reason" in result ? result.reason : undefined,
+      Boolean(result.granted),
+    );
     const refreshed = (await getUserById(db, user.id))!;
     return { ...result, user: await publicUserWithBoost(db, refreshed) };
   });
@@ -628,6 +640,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       return reply.code(403).send(phoneUnverifiedPayload("play"));
     }
     const result = await forceGrantDaily(db, user.id);
+    await maybeAutoMarkClaimFromGrant(db, user.id, undefined, Boolean(result.granted));
     const refreshed = (await getUserById(db, user.id))!;
     return { ...result, simulated: true, timezone: TR_TIMEZONE, user: await publicUserWithBoost(db, refreshed) };
   });
@@ -799,6 +812,23 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         };
       }
 
+      if (
+        !("idempotentReplay" in result && result.idempotentReplay) &&
+        "flipped" in result &&
+        user.tribe_id
+      ) {
+        await applyTutorialSpendProgress(db, {
+          userId: user.id,
+          plate,
+          flipped: Boolean(result.flipped),
+          toTeamId:
+            result.flipped && result.sheet?.ownerTeamId
+              ? result.sheet.ownerTeamId
+              : user.tribe_id,
+          tribeId: user.tribe_id,
+        });
+      }
+
       const refreshed = (await getUserById(db, user.id))!;
       return {
         status: 200 as const,
@@ -816,6 +846,34 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         .send(payload.body);
     }
     return reply.code(payload.status).send(payload.body);
+  });
+
+  /** First-session tutorial state + locked dynamic cities (CC-61). */
+  app.get("/v1/tutorial", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send(guestLoginPayload());
+    if (!user.phone_verified) {
+      return reply.code(403).send(phoneUnverifiedPayload("play"));
+    }
+    if (!user.tribe_id) {
+      return reply.code(403).send({ error: "tribe_required", gate: "kabile" });
+    }
+    const tutorial = await getTutorialPayload(db, user);
+    const refreshed = (await getUserById(db, user.id))!;
+    const alias = TEAM_BY_ID.get(refreshed.tribe_id!)?.publicAlias ?? null;
+    return { tutorial, user: publicUser(refreshed, alias) };
+  });
+
+  /** Skip remaining coach marks after verify / first session (locked). */
+  app.post("/v1/tutorial/skip", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send(guestLoginPayload());
+    if (!user.phone_verified) {
+      return reply.code(403).send(phoneUnverifiedPayload("play"));
+    }
+    await skipTutorial(db, user.id);
+    const refreshed = (await getUserById(db, user.id))!;
+    return { skipped: true, user: await publicUserWithBoost(db, refreshed) };
   });
 
   /**
