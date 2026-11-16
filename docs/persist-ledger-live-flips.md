@@ -46,4 +46,6 @@ npm install && npm run dev
 1. Spend with new `idempotencyKey` → ledger row + optional flip WS/Redis event  
 2. Replay same key → `idempotentReplay: true`, no second debit  
 3. Concurrent rivalry: owner only changes on strict lead  
-4. `\d support_ledger` shows boost columns after migrate  
+4. `\d support_ledger` shows boost columns after migrate
+
+See also [idempotent-spend.md](idempotent-spend.md) (CC-37 concurrent load/single-flight).

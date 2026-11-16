@@ -11,8 +11,46 @@ import {
 } from "./db.js";
 import { publish, type OwnershipDigestCity } from "./bus.js";
 import { noteFlip, noteRivalAttack } from "./coalesce.js";
+import { singleFlight } from "./idempotency.js";
 import { getRedis, KEYS } from "./redis.js";
 import { TEAM_BY_ID } from "../data/teams.js";
+
+export type LedgerIdempotencyRow = {
+  id: string;
+  energy_spent: number;
+  support_credited: number;
+  personal_boost_pct: number;
+  team_boost_pct: number;
+  city_plate: string;
+};
+
+/** Cheap committed-key lookup (HTTP uses this to skip rate limit on retries). */
+export async function findLedgerByIdempotencyKey(
+  db: Queryable,
+  idempotencyKey: string,
+): Promise<LedgerIdempotencyRow | undefined> {
+  return one<LedgerIdempotencyRow>(
+    db,
+    `SELECT id, energy_spent, support_credited, personal_boost_pct, team_boost_pct, city_plate
+     FROM support_ledger WHERE idempotency_key = $1`,
+    [idempotencyKey],
+  );
+}
+
+async function idempotentReplayResult(db: Queryable, plate: string, row: LedgerIdempotencyRow) {
+  return {
+    ok: true as const,
+    idempotentReplay: true as const,
+    energySpent: Number(row.energy_spent),
+    supportCredited: Number(row.support_credited),
+    boost: {
+      personalBoostPct: Number(row.personal_boost_pct),
+      teamBoostPct: Number(row.team_boost_pct),
+    },
+    sheet: await citySheet(db, plate),
+    digest: await ownershipDigest(db),
+  };
+}
 
 /** Personal × team boost multipliers at spend time (shop / match-day later). */
 export type BoostSnapshot = {
@@ -296,24 +334,37 @@ export async function spendEnergy(
     amount?: number;
     idempotencyKey: string;
     confirmed: boolean;
+    /**
+     * Test-only: skip process-local single-flight so UNIQUE/23505 races are exercised.
+     * Production callers must omit this — multi-instance safety still comes from the ledger UNIQUE.
+     */
+    bypassSingleFlight?: boolean;
   },
 ) {
   if (!opts.confirmed) {
     return { ok: false as const, status: 400, error: "confirm_required" };
   }
 
-  const existing = await one<{ id: string }>(
-    db,
-    `SELECT id FROM support_ledger WHERE idempotency_key = $1`,
-    [opts.idempotencyKey],
-  );
+  const run = () => spendEnergyOnce(db, opts);
+  if (opts.bypassSingleFlight) return run();
+
+  // Coalesce concurrent retries of the same key in this process; DB UNIQUE covers multi-instance.
+  return singleFlight(`spend:${opts.idempotencyKey}`, run);
+}
+
+async function spendEnergyOnce(
+  db: Db,
+  opts: {
+    userId: string;
+    plate: string;
+    amount?: number;
+    idempotencyKey: string;
+    confirmed: boolean;
+  },
+) {
+  const existing = await findLedgerByIdempotencyKey(db, opts.idempotencyKey);
   if (existing) {
-    return {
-      ok: true as const,
-      idempotentReplay: true,
-      sheet: await citySheet(db, opts.plate),
-      digest: await ownershipDigest(db),
-    };
+    return idempotentReplayResult(db, opts.plate, existing);
   }
 
   const user = await one<{
@@ -373,11 +424,7 @@ export async function spendEnergy(
       );
 
       // Re-check idempotency inside the transaction (race-safe with UNIQUE + 23505).
-      const raced = await one<{ id: string }>(
-        client,
-        `SELECT id FROM support_ledger WHERE idempotency_key = $1`,
-        [opts.idempotencyKey],
-      );
+      const raced = await findLedgerByIdempotencyKey(client, opts.idempotencyKey);
       if (raced) return { ok: true as const, idempotentReplay: true as const };
 
       const debit = await debitEnergy(client, opts.userId, cost);
@@ -457,9 +504,11 @@ export async function spendEnergy(
     // Unique violation on idempotency_key → treat as replay.
     const code = (err as { code?: string })?.code;
     if (code === "23505") {
+      const row = await findLedgerByIdempotencyKey(db, opts.idempotencyKey);
+      if (row) return idempotentReplayResult(db, opts.plate, row);
       return {
         ok: true as const,
-        idempotentReplay: true,
+        idempotentReplay: true as const,
         sheet: await citySheet(db, opts.plate),
         digest: await ownershipDigest(db),
       };
@@ -469,9 +518,11 @@ export async function spendEnergy(
 
   if (!result.ok) return result;
   if ("idempotentReplay" in result) {
+    const row = await findLedgerByIdempotencyKey(db, opts.idempotencyKey);
+    if (row) return idempotentReplayResult(db, opts.plate, row);
     return {
       ok: true as const,
-      idempotentReplay: true,
+      idempotentReplay: true as const,
       sheet: await citySheet(db, opts.plate),
       digest: await ownershipDigest(db),
     };
