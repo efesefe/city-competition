@@ -81,6 +81,8 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `SMS_HOOK_DRY_RUN` | `true` (implicit) | Set `false` for live Netgsm |
 | `NETGSM_USERCODE` / `NETGSM_PASSWORD` / `NETGSM_MSGHEADER` | — | Live OTP via Netgsm v3 (`docs/netgsm-otp-sms-hook.md`) |
 | `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | — | Optional `/v1/meta` flags when live |
+| `SUPPORT_OPS_KEY` | — | CC-22 lost-SIM rebind ops Bearer (min 16 chars); see `docs/lost-sim-phone-rebind.md` |
+| `SUPABASE_SERVICE_ROLE_KEY` | — | Optional Admin API phone sync on rebind |
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8787` | Client → API |
 | `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | — | Client Supabase SDK (match API project) |
 
@@ -98,7 +100,9 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 - `support_ledger` (append-only, unique `idempotency_key`)  
 - `tunables` (`action_cost`, `free_daily_grant`)
 
-`002_ledger_boost_snapshot.sql` adds `personal_boost_pct` / `team_boost_pct` on the ledger (defaults `1.0`).
+`002_ledger_boost_snapshot.sql` adds `personal_boost_pct` / `team_boost_pct` on the ledger (defaults `1.0`).  
+`003_supabase_auth.sql` adds `users.supabase_user_id`.  
+`004_support_phone_rebind.sql` adds `support_audit_log` for Season 0 lost-SIM rebinds.
 
 **Realtime:** ledger + `city_support` + owner flip commit in one Postgres transaction under `FOR UPDATE`; digest/flips fan out on Redis `cc:ownership`. See `docs/persist-ledger-live-flips.md`.
 
@@ -117,6 +121,7 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | Shop / iyzico / IAP | UI stub | No payments |
 | Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | Push delivery worker still stub |
 | Postgres | Yes (`DATABASE_URL`) | — |
+| Lost-SIM phone rebind | Support API + audit (`SUPPORT_OPS_KEY`) | No self-serve UI |
 
 ## API sketch
 
@@ -128,6 +133,8 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 - `POST /v1/auth/supabase/session` — exchange Supabase access_token → User  
 - `POST /v1/auth/hooks/send-sms` — Supabase Send SMS Hook seam (CC-20)  
 - `POST /v1/auth/oauth/:provider` — mock stub only  
+- `GET /v1/support/users/lookup` — ops identity check (CC-22)  
+- `POST /v1/support/phone/rebind` — lost-SIM rebind; progress preserved (CC-22)  
 - `POST /v1/tribe/pick`  
 - `POST /v1/cities/:plate/spend` — `{ confirmed: true, idempotencyKey }`  
 - `POST /v1/energy/grant-sim` — simulate 00:00 TR  

@@ -43,6 +43,12 @@ import {
   smsHookConfigured,
   verifySmsHookSecret,
 } from "./lib/sms-hook.js";
+import {
+  lookupSupportUser,
+  rebindPhone,
+  requireSupportOps,
+  supportOpsConfigured,
+} from "./lib/support-rebind.js";
 import { supabaseConfigured } from "./lib/supabase.js";
 
 const PORT = Number(process.env.PORT || 8787);
@@ -82,6 +88,12 @@ async function main() {
     actionCost: await getActionCost(db),
     freeDailyGrant: await getFreeGrant(db),
     auth: authMode(),
+    support: {
+      lostSimRebind: true,
+      opsKeyConfigured: supportOpsConfigured(),
+      lookupPath: "/v1/support/users/lookup",
+      rebindPath: "/v1/support/phone/rebind",
+    },
     shop: {
       stub: true,
       packs: [
@@ -303,6 +315,70 @@ async function main() {
     const refreshed = (await getUserById(db, user.id))!;
     const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
     return { user: publicUser(refreshed, alias) };
+  });
+
+  /**
+   * Season 0 support ops — lost-SIM phone rebind (CC-22).
+   * Auth: Bearer SUPPORT_OPS_KEY (Fly secret). Never wipes tribe/energy/ledger.
+   */
+  app.get("/v1/support/users/lookup", async (req, reply) => {
+    if (!supportOpsConfigured()) {
+      return reply.code(503).send({
+        error: "support_ops_not_configured",
+        note: "Set SUPPORT_OPS_KEY (min 16 chars) on the API",
+      });
+    }
+    if (!requireSupportOps(req)) {
+      return reply.code(401).send({ error: "unauthorized_support" });
+    }
+    const q = z
+      .object({
+        userId: z.string().min(1).optional(),
+        phone: z.string().min(10).optional(),
+        handle: z.string().min(1).optional(),
+      })
+      .safeParse(req.query);
+    if (!q.success || (!q.data.userId && !q.data.phone && !q.data.handle)) {
+      return reply.code(400).send({
+        error: "lookup_requires_userId_phone_or_handle",
+      });
+    }
+    const found = await lookupSupportUser(db, q.data);
+    if (!found) return reply.code(404).send({ error: "user_not_found" });
+    return { user: found };
+  });
+
+  app.post("/v1/support/phone/rebind", async (req, reply) => {
+    if (!supportOpsConfigured()) {
+      return reply.code(503).send({
+        error: "support_ops_not_configured",
+        note: "Set SUPPORT_OPS_KEY (min 16 chars) on the API",
+      });
+    }
+    if (!requireSupportOps(req)) {
+      return reply.code(401).send({ error: "unauthorized_support" });
+    }
+    const body = z
+      .object({
+        userId: z.string().min(1),
+        newPhone: z.string().min(10),
+        reason: z.string().min(3).max(500),
+        actor: z.string().min(2).max(200),
+        ticketId: z.string().max(120).optional(),
+        syncSupabase: z.boolean().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.code(400).send({ error: "invalid_body", details: body.error.flatten() });
+    }
+    const result = await rebindPhone(db, body.data);
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        note: result.note,
+      });
+    }
+    return result;
   });
 
   app.post("/v1/tribe/pick", async (req, reply) => {
