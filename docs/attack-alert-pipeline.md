@@ -53,4 +53,4 @@ Manual: two verified users on rival tribes; user A owns (or recently spent on) a
 
 ## Flip alerts
 
-`noteFlip` coalesce hooks remain for **CC-58** (gain/loss push + in-app). Attack vs flip dedupe across the same burst is handled there.
+Shipped in **CC-58** — see `docs/flip-gain-loss-alerts.md`. Flip audience is gain/loss tribe members only (no spillover to 24h-only fight interest).

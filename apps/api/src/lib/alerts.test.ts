@@ -3,7 +3,10 @@ import { describe, it } from "node:test";
 import {
   attackDeepLink,
   renderAttackCopy,
+  renderFlipCopy,
   NotifTypeAttack,
+  NotifTypeFlipGain,
+  NotifTypeFlipLoss,
   SPEND_INTEREST_HOURS,
 } from "./alerts.js";
 import { COALESCE_WINDOW_SEC } from "./coalesce.js";
@@ -44,6 +47,37 @@ describe("attack alert copy", () => {
     assert.equal(SPEND_INTEREST_HOURS, 24);
     assert.equal(COALESCE_WINDOW_SEC, 300);
     assert.equal(NotifTypeAttack, "attack_alert");
+  });
+});
+
+describe("flip alert copy", () => {
+  it("renders flip-loss copy (TR/EN)", () => {
+    const copy = renderFlipCopy({
+      kind: "loss",
+      cityName: "Ankara",
+      alias: "Rüzgar Kabilesi",
+    });
+    assert.equal(copy.titleTr, "Ankara el değiştirdi");
+    assert.equal(copy.bodyTr, "Rüzgar Kabilesi öne geçti. Geri al.");
+    assert.equal(copy.titleEn, "Ankara flipped");
+    assert.equal(copy.bodyEn, "Rüzgar Kabilesi took the lead. Take it back.");
+  });
+
+  it("renders flip-gain copy (TR/EN)", () => {
+    const copy = renderFlipCopy({
+      kind: "gain",
+      cityName: "Ankara",
+      alias: "Kartal Kabilesi",
+    });
+    assert.equal(copy.titleTr, "Ankara sizin");
+    assert.equal(copy.bodyTr, "Kartal Kabilesi öne geçti. Koru.");
+    assert.equal(copy.titleEn, "Ankara is yours");
+    assert.equal(copy.bodyEn, "Kartal Kabilesi took the lead. Hold it.");
+  });
+
+  it("locks flip notif types", () => {
+    assert.equal(NotifTypeFlipGain, "flip_gain");
+    assert.equal(NotifTypeFlipLoss, "flip_loss");
   });
 });
 

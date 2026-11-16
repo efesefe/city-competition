@@ -7,6 +7,8 @@ import { insertInbox } from "./inbox.js";
 export const SPEND_INTEREST_HOURS = 24;
 
 export const NotifTypeAttack = "attack_alert";
+export const NotifTypeFlipGain = "flip_gain";
+export const NotifTypeFlipLoss = "flip_loss";
 
 export type AttackScope = "owned" | "spent_24h";
 
@@ -126,6 +128,62 @@ export function attackDeepLink(plate: string): string {
   return `/map?il=${plate}`;
 }
 
+export type FlipKind = "gain" | "loss";
+
+export type FlipAlertInput = {
+  plate: string;
+  cityName: string;
+  fromTeamId: string | null;
+  toTeamId: string;
+  toAlias: string;
+};
+
+export type DispatchFlipResult = {
+  gainInterested: number;
+  lossInterested: number;
+  notified: number;
+  coalesced: number;
+};
+
+/** Locked flip copy from notifications-and-share.md (public_alias only). */
+export function renderFlipCopy(opts: {
+  kind: FlipKind;
+  cityName: string;
+  /** New owner alias (for loss body) or your alias (for gain body). */
+  alias: string;
+}): AttackCopy {
+  const city = opts.cityName.trim() || "Şehir";
+  if (opts.kind === "loss") {
+    return {
+      titleTr: `${city} el değiştirdi`,
+      bodyTr: `${opts.alias} öne geçti. Geri al.`,
+      titleEn: `${city} flipped`,
+      bodyEn: `${opts.alias} took the lead. Take it back.`,
+    };
+  }
+  return {
+    titleTr: `${city} sizin`,
+    bodyTr: `${opts.alias} öne geçti. Koru.`,
+    titleEn: `${city} is yours`,
+    bodyEn: `${opts.alias} took the lead. Hold it.`,
+  };
+}
+
+/** Verified members of a tribe (flip gain/loss audience). */
+export async function resolveTribeMembers(
+  db: Queryable,
+  tribeId: string,
+): Promise<Array<{ userId: string; tribeId: string }>> {
+  const rows = await many<{ id: string; tribe_id: string }>(
+    db,
+    `SELECT id, tribe_id FROM users
+     WHERE tribe_id = $1
+       AND phone_verified = TRUE`,
+    [tribeId],
+  );
+  return rows.map((u) => ({ userId: u.id, tribeId: u.tribe_id }));
+}
+
 /**
  * After a rival spend: resolve interests, 5-min per-user coalesce, dual-write
  * in-app inbox + notif_queue (push worker). Best-effort — never fail the spend.
@@ -200,4 +258,101 @@ export async function dispatchAttackAlerts(
   }
 
   return { interested: interests.length, notified, coalesced };
+}
+
+/**
+ * After an ownership flip: extra soft-launch push + in-app for verified members
+ * of the gaining tribe (gain) and losing tribe (loss). Audience is tribe-only —
+ * last-24h spenders who are not in those tribes stay on attack/fight alerts
+ * (no flip spillover = attack∩flip dedupe). 5-min per-user coalesce; dual-write
+ * inbox + notif_queue. Best-effort.
+ */
+export async function dispatchFlipAlerts(
+  db: Queryable,
+  input: FlipAlertInput,
+): Promise<DispatchFlipResult> {
+  let notified = 0;
+  let coalesced = 0;
+
+  const gainMembers = await resolveTribeMembers(db, input.toTeamId);
+  const lossMembers =
+    input.fromTeamId && input.fromTeamId !== input.toTeamId
+      ? await resolveTribeMembers(db, input.fromTeamId)
+      : [];
+
+  const deliver = async (
+    kind: FlipKind,
+    userId: string,
+    tribeId: string,
+  ): Promise<void> => {
+    const note = await noteEvent({
+      kind: kind === "gain" ? "flip_gain" : "flip_loss",
+      plate: input.plate,
+      audienceKey: userId,
+      rivalAlias: input.toAlias,
+    });
+
+    if (note.coalesced) {
+      coalesced++;
+      return;
+    }
+
+    const yourAlias = TEAM_BY_ID.get(tribeId)?.publicAlias ?? tribeId;
+    const copy = renderFlipCopy({
+      kind,
+      cityName: input.cityName,
+      alias: kind === "gain" ? yourAlias : input.toAlias,
+    });
+    const notifType = kind === "gain" ? NotifTypeFlipGain : NotifTypeFlipLoss;
+    const deepLink = attackDeepLink(input.plate);
+    const payload = {
+      type: notifType,
+      kind,
+      plate: input.plate,
+      city_name: input.cityName,
+      to_alias: input.toAlias,
+      your_alias: yourAlias,
+      deep_link: deepLink,
+      coalesce_window_sec: COALESCE_WINDOW_SEC,
+      title_en: copy.titleEn,
+      body_en: copy.bodyEn,
+    };
+
+    await insertInbox(db, {
+      userId,
+      type: notifType,
+      title: copy.titleTr,
+      body: copy.bodyTr,
+      payload,
+    });
+
+    await enqueueNotif({
+      ...payload,
+      user_id: userId,
+      title: copy.titleTr,
+      body: copy.bodyTr,
+      data: {
+        type: notifType,
+        plate: input.plate,
+        kind,
+        deep_link: deepLink,
+      },
+    });
+
+    notified++;
+  };
+
+  for (const m of gainMembers) {
+    await deliver("gain", m.userId, m.tribeId);
+  }
+  for (const m of lossMembers) {
+    await deliver("loss", m.userId, m.tribeId);
+  }
+
+  return {
+    gainInterested: gainMembers.length,
+    lossInterested: lossMembers.length,
+    notified,
+    coalesced,
+  };
 }
