@@ -22,6 +22,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [persist-ledger-live-flips.md](persist-ledger-live-flips.md) | CC-35: `FOR UPDATE` spend, boost snapshot cols, strict-lead flips + Redis fan-out |
 | [action-cost-tunable.md](action-cost-tunable.md) | CC-31: Admin-tunable action cost band 10–20 (default mid 15) |
 | [daily-free-energy.md](daily-free-energy.md) | CC-30: Daily free energy grant (Europe/Istanbul) |
+| [midnight-sub-bonus-jobs.md](midnight-sub-bonus-jobs.md) | CC-33: TR midnight free 100 + sub +50 stacked grants |
 | [idempotent-spend.md](idempotent-spend.md) | CC-37: concurrent idempotent spend load/smoke tests + HTTP retry/single-flight harden |
 | [websocket-city-digest.md](websocket-city-digest.md) | CC-36: guest/player WS subscribe, 81-city ownership+support digest, spend/flip live |
 | [turkiye-map-web-svg.md](turkiye-map-web-svg.md) | Expo web fix: Path `onPress` → WebShape unknown event handlers |
