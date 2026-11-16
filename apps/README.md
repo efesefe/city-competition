@@ -86,9 +86,24 @@ EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 | `EXPO_PUBLIC_API_URL` | `http://localhost:8787` | Client → API |
 | `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` | — | Client Supabase SDK (match API project) |
 
-## Fly-ready
+## Fly (`fra`) — API + WS + workers
 
-`apps/api/fly.toml` targets `fra`. Set Fly secrets `DATABASE_URL` (Neon EU or Fly MPG) and `REDIS_URL` (Upstash EU). Full Fly scale runbook is a later Wave 2 leaf.
+Process groups in `apps/api/fly.toml`:
+
+| Process | Command | Role |
+|---------|---------|------|
+| `web` | `npm run start` | HTTPS API + `GET /v1/ws` |
+| `worker` | `npm run start:worker` | TR free-energy sweep + `notif_queue` stub drain |
+
+Required Fly secrets: `DATABASE_URL`, `REDIS_URL`, and usually `DATABASE_SSL=true`.  
+Full create / secrets / deploy / scale / verify recipe: [`docs/fly-deploy.md`](../docs/fly-deploy.md).
+
+```bash
+cd apps/api
+fly secrets set DATABASE_URL='…' REDIS_URL='…' DATABASE_SSL=true
+fly deploy
+fly scale count web=1 worker=1
+```
 
 ## Schema (migrations)
 

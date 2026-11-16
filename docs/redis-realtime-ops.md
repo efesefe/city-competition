@@ -53,3 +53,5 @@ Upstash / managed: set `REDIS_URL` to the TLS URL (`rediss://…`).
 ## Follow-up
 
 CC-35 (`persist-ledger-live-flips.md`): Postgres `FOR UPDATE` + boost snapshot columns; keeps publishing through this bus.
+
+CC-41 (`fly-deploy.md`): Fly `worker` process drains `notif_queue` (stub log) and runs the TR free-energy sweep; push vendor delivery remains a later leaf.
