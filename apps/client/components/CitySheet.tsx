@@ -9,6 +9,8 @@ import {
   View,
 } from "react-native";
 import type { CitySheet as CitySheetData, PublicUser } from "../lib/api";
+import { isPhoneUnverifiedError, needsPhoneVerify, phoneGateMessage } from "../lib/play-gates";
+import { PhoneVerifyWall } from "./PhoneVerifyWall";
 
 type Props = {
   sheet: CitySheetData | null;
@@ -36,6 +38,7 @@ export function CitySheetModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const unverified = needsPhoneVerify(user);
   const canSpend =
     user?.phoneVerified && user.tribeId && (user.energy.total ?? 0) >= Number(amount || 0);
 
@@ -59,6 +62,11 @@ export function CitySheetModal({
       await onSpend(Number(amount));
       setConfirmOpen(false);
     } catch (e) {
+      if (isPhoneUnverifiedError(e)) {
+        setError(phoneGateMessage(e, "spend"));
+        setConfirmOpen(false);
+        return;
+      }
       setError(e instanceof Error ? e.message : "spend_failed");
     } finally {
       setBusy(false);
@@ -142,10 +150,12 @@ export function CitySheetModal({
                     <Text style={styles.ctaText}>Harca / Spend</Text>
                   </Pressable>
                 </View>
+              ) : unverified ? (
+                <PhoneVerifyWall kind="spend" onVerify={onPlay} compact />
               ) : (
                 <Pressable style={styles.cta} onPress={onPlay}>
                   <Text style={styles.ctaText}>
-                    {user ? "Kabile seç / doğrula" : "Katıl / Play"}
+                    {user ? "Kabile seç" : "Katıl / Play"}
                   </Text>
                 </Pressable>
               )}

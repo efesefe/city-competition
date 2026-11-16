@@ -242,7 +242,9 @@ export default function MapScreen() {
           <Text style={styles.linkText}>Dükkan</Text>
         </Pressable>
         <Pressable style={styles.play} onPress={goPlay}>
-          <Text style={styles.playText}>{user?.tribeId ? "Hesap" : "Katıl"}</Text>
+          <Text style={styles.playText}>
+            {!token ? "Katıl" : !user?.phoneVerified ? "Doğrula" : user?.tribeId ? "Hesap" : "Kabile"}
+          </Text>
         </Pressable>
       </View>
 

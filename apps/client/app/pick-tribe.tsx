@@ -1,7 +1,9 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { PhoneVerifyWall } from "../components/PhoneVerifyWall";
 import { api, type Team } from "../lib/api";
+import { isPhoneUnverifiedError, phoneGateMessage } from "../lib/play-gates";
 import { useSession } from "../lib/session";
 
 export default function PickTribeScreen() {
@@ -16,7 +18,7 @@ export default function PickTribeScreen() {
       return;
     }
     if (user && !user.phoneVerified) {
-      router.replace("/auth");
+      // Stay on screen with verify wall — do not allow picker until verified.
       return;
     }
     void api.teams().then((r) => setTeams(r.teams));
@@ -24,6 +26,10 @@ export default function PickTribeScreen() {
 
   const pick = async (tribeId: string) => {
     if (!token) return;
+    if (user && !user.phoneVerified) {
+      setError(phoneGateMessage(undefined, "kabile"));
+      return;
+    }
     setError(null);
     try {
       const res = await api.pickTribe(token, tribeId);
@@ -34,9 +40,23 @@ export default function PickTribeScreen() {
       updateUser(grant.user);
       router.replace("/");
     } catch (e) {
+      if (isPhoneUnverifiedError(e)) {
+        setError(phoneGateMessage(e, "kabile"));
+        return;
+      }
       setError(e instanceof Error ? e.message : "pick_failed");
     }
   };
+
+  if (token && user && !user.phoneVerified) {
+    return (
+      <View style={styles.root}>
+        <Text style={styles.title}>Kabile seçimi kilitli</Text>
+        <Text style={styles.sub}>Telefon doğrulaması olmadan Kabile seçilemez.</Text>
+        <PhoneVerifyWall kind="kabile" onVerify={() => router.replace("/auth")} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

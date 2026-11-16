@@ -34,6 +34,7 @@ import {
   spendEnergy,
   warmDigestCache,
 } from "./lib/game.js";
+import { phoneUnverifiedPayload } from "./lib/play-gates.js";
 import { allow, DEFAULT_LIMITS, GROUPS } from "./lib/ratelimit.js";
 import { closeRedis, pingRedis } from "./lib/redis.js";
 import {
@@ -310,7 +311,12 @@ async function main() {
     const body = z.object({ tribeId: z.string() }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     const result = await pickTribe(db, user.id, body.data.tribeId);
-    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    if (!result.ok) {
+      if (result.error === "phone_unverified") {
+        return reply.code(403).send(phoneUnverifiedPayload("kabile"));
+      }
+      return reply.code(result.status).send({ error: result.error });
+    }
     const refreshed = (await getUserById(db, user.id))!;
     const alias = TEAM_BY_ID.get(body.data.tribeId)?.publicAlias ?? null;
     return { user: publicUser(refreshed, alias) };
@@ -319,6 +325,9 @@ async function main() {
   app.post("/v1/energy/claim", async (req, reply) => {
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
+    if (!user.phone_verified) {
+      return reply.code(403).send(phoneUnverifiedPayload("play"));
+    }
     const result = await maybeGrantDailyEnergy(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
     const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
@@ -329,7 +338,9 @@ async function main() {
   app.post("/v1/energy/grant-sim", async (req, reply) => {
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
-    if (!user.phone_verified) return reply.code(403).send({ error: "phone_unverified" });
+    if (!user.phone_verified) {
+      return reply.code(403).send(phoneUnverifiedPayload("play"));
+    }
     const result = await forceGrantDaily(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
     const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
@@ -364,7 +375,12 @@ async function main() {
       idempotencyKey: body.data.idempotencyKey,
       confirmed: body.data.confirmed,
     });
-    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    if (!result.ok) {
+      if (result.error === "phone_unverified") {
+        return reply.code(403).send(phoneUnverifiedPayload("spend"));
+      }
+      return reply.code(result.status).send({ error: result.error });
+    }
 
     const refreshed = (await getUserById(db, user.id))!;
     const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
