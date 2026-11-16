@@ -40,6 +40,10 @@ function newIdempotencyKey(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function newIdempotencyKey(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function ShopScreen() {
   const router = useRouter();
   const { token, user, updateUser, refresh } = useSession();
