@@ -28,6 +28,7 @@
 - Confirm spend + boosted support UI (CC-27): always-confirm modal; live personal×team multipliers on sheet/confirm; personal boost purchase stub — see [confirm-spend-boost-ui.md](confirm-spend-boost-ui.md)  
 - Match-day map chrome (CC-28): thin team-boost banner + city spotlight; fixture stub until Admin ops — see [match-day-map-chrome.md](match-day-map-chrome.md)  
 - **Skippable tutorial (CC-61):** claim → dynamic mid-seed capture → live fight; Skip after verify. See [skippable-tutorial-flow.md](skippable-tutorial-flow.md).
+- **Capture without flip (CC-62):** 3 confirms on the locked tutorial city completes the capture beat. See [tutorial-capture-no-flip.md](tutorial-capture-no-flip.md).
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Action cost from `tunables.action_cost` (band **10–20**, default **15**) — admin `PUT /v1/admin/tunables/action-cost` (see [action-cost-tunable.md](action-cost-tunable.md))  
 - Daily 100 energy via claim / `grant-sim`  

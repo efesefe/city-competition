@@ -295,6 +295,7 @@ export function publicUser(
       capturePlate: user.tutorial_capture_plate ?? null,
       fightPlate: user.tutorial_fight_plate ?? null,
       captureConfirms: Number(user.tutorial_capture_confirms ?? 0),
+      captureConfirmsNeeded: 3,
       step: tutorialStep,
       active: ready && !complete && !skipped && tutorialStep !== "done" && tutorialStep !== "idle",
     },

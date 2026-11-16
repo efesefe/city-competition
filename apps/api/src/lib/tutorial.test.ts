@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { rankCaptureCandidates, rankFightCandidates, type CityMargin } from "./tutorial.js";
+import {
+  captureCompleteFromConfirms,
+  CAPTURE_CONFIRMS_NEEDED,
+  rankCaptureCandidates,
+  rankFightCandidates,
+  type CityMargin,
+} from "./tutorial.js";
 
 function city(partial: Partial<CityMargin> & Pick<CityMargin, "plate">): CityMargin {
   return {
@@ -46,5 +52,15 @@ describe("rankFightCandidates", () => {
     );
     assert.equal(ranked[0]?.plate, "34");
     assert.ok(ranked.every((c) => c.plate !== "10"));
+  });
+});
+
+describe("captureCompleteFromConfirms (CC-62)", () => {
+  it("needs exactly 3 confirms when no flip", () => {
+    assert.equal(CAPTURE_CONFIRMS_NEEDED, 3);
+    assert.equal(captureCompleteFromConfirms(0), false);
+    assert.equal(captureCompleteFromConfirms(2), false);
+    assert.equal(captureCompleteFromConfirms(3), true);
+    assert.equal(captureCompleteFromConfirms(4), true);
   });
 });
