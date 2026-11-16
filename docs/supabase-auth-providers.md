@@ -83,5 +83,5 @@ curl -s http://localhost:8787/v1/meta | jq .auth
 ## Explicit non-goals (this leaf)
 
 - İleti Merkezi failover (still later)
-- Lost-SIM support rebind UI
+- Lost-SIM support rebind — see [lost-sim-phone-rebind.md](lost-sim-phone-rebind.md) (CC-22)
 - Fighting map-only TurkiyeMap PRs

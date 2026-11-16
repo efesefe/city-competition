@@ -43,7 +43,7 @@ Play mutations without Bearer return `401` + `guestLoginPayload()`:
 
 ## Explicit non-goals
 
-- Lost-SIM (CC-22)  
+- Lost-SIM rebind — see [lost-sim-phone-rebind.md](lost-sim-phone-rebind.md) (CC-22)  
 - Full resume-intent deep links after auth (city context preserved by staying on map modal where possible)  
 
 ## Test
