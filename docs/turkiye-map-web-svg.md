@@ -25,3 +25,7 @@ cd apps/client && EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 ```
 
 Open `http://localhost:8081`: 81 province fills, no WebShape / unknown-handler toast; click a province → city sheet. Hard-reload after Metro cache clears if the pane still looks blank.
+
+## Follow-up
+
+Season 0 Wave 1 harden (taps, memoized paints, loading/error/empty): [turkiye-map-harden.md](turkiye-map-harden.md).

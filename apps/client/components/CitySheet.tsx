@@ -13,6 +13,7 @@ import type { CitySheet as CitySheetData, PublicUser } from "../lib/api";
 type Props = {
   sheet: CitySheetData | null;
   loading?: boolean;
+  loadError?: string | null;
   user: PublicUser | null;
   actionCost: number;
   onClose: () => void;
@@ -23,6 +24,7 @@ type Props = {
 export function CitySheetModal({
   sheet,
   loading,
+  loadError,
   user,
   actionCost,
   onClose,
@@ -64,11 +66,26 @@ export function CitySheetModal({
   };
 
   return (
-    <Modal visible={!!sheet || !!loading} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={!!sheet || !!loading || !!loadError}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+    >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          {loading || !sheet ? (
+          {loading ? (
             <ActivityIndicator color="#c8a96b" />
+          ) : loadError || !sheet ? (
+            <>
+              <View style={styles.header}>
+                <Text style={styles.title}>Şehir</Text>
+                <Pressable onPress={onClose} hitSlop={12}>
+                  <Text style={styles.close}>Kapat</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.error}>{loadError || "Şehir yüklenemedi"}</Text>
+            </>
           ) : (
             <>
               <View style={styles.header}>
