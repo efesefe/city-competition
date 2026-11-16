@@ -28,7 +28,6 @@ export type PublicUser = {
   subActive?: boolean;
   role?: "player" | "admin";
   energy: { free: number; paid: number; sub: number; total: number };
-  subActive?: boolean;
   /** Live personal × team multipliers for boosted-support UI. */
   boost?: BoostSnapshot;
   tutorial?: TutorialState;
@@ -724,7 +723,7 @@ tutorial: (token: string) =>
         openTeamAddTickets: number;
         note: string;
       };
-    }>("/v1/admin/metrics", { token }),,
+    }>("/v1/admin/metrics", { token }),
 
   /** Logged-in only — mints a static support / accomplishment share card. */
   createShareCard: (
@@ -755,6 +754,7 @@ export type TeamAddTicket = {
   createdTeamId: string | null;
   triagedBy: string | null;
   triagedAt: string | null;
+  createdAt: string;
 };
 
 export type ShareCard = {

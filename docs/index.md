@@ -53,3 +53,5 @@ Project context for future sessions. Update this list when adding a new module o
 | [tribe-emblems.md](tribe-emblems.md) | Original mascot silhouettes on tribe crests (slug-keyed, no official club marks) |
 | [tribe-stripes.md](tribe-stripes.md) | Vertical kit-color stripes on held Türkiye map provinces |
 | [frontend-docker-build.md](frontend-docker-build.md) | Next `npm run build` in the frontend image; LeaderboardScope typecheck |
+| [client-merge-syntax-fix.md](client-merge-syntax-fix.md) | Expo web bundling: double-comma merge artifact in `lib/api.ts` `adminMetrics` |
+
