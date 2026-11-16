@@ -12,6 +12,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [lost-sim-phone-rebind.md](lost-sim-phone-rebind.md) | CC-22: Season 0 support-assisted lost-SIM phone rebind (progress preserved) |
 | [post-verify-kabile-picker.md](post-verify-kabile-picker.md) | CC-63: Kabile pick after phone verify; Big 4 first |
 | [team-aliases.md](team-aliases.md) | Süper Lig → Kabile `public_alias` roster (picker source) |
+| [city-sheet-combat-panel.md](city-sheet-combat-panel.md) | CC-26: City sheet owner / lead / real-handle contributors / Attack·Defend |
 | [postgres-migration.md](postgres-migration.md) | API SQLite → Postgres (`DATABASE_URL`, migrations, Realtime ledger handoff) |
 | [redis-realtime-ops.md](redis-realtime-ops.md) | Redis/`REDIS_URL` for ownership pub/sub, rate limits, alert coalesce hooks |
 | [persist-ledger-live-flips.md](persist-ledger-live-flips.md) | CC-35: `FOR UPDATE` spend, boost snapshot cols, strict-lead flips + Redis fan-out |

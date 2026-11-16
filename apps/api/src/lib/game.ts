@@ -153,13 +153,19 @@ export async function citySheet(db: Queryable, plate: string) {
     [plate],
   );
 
-  const contributors = await many<{ handle: string; support: number }>(
+  // Real handles (locked UX) + current Kabile alias for the combat panel.
+  const contributors = await many<{
+    handle: string;
+    alias: string | null;
+    support: number;
+  }>(
     db,
-    `SELECT u.handle, SUM(sl.support_credited) AS support
+    `SELECT u.handle, t.public_alias AS alias, SUM(sl.support_credited) AS support
      FROM support_ledger sl
      JOIN users u ON u.id = sl.user_id
+     LEFT JOIN teams t ON t.internal_id = u.tribe_id
      WHERE sl.city_plate = $1
-     GROUP BY u.id, u.handle
+     GROUP BY u.id, u.handle, t.public_alias
      ORDER BY support DESC
      LIMIT 5`,
     [plate],
@@ -174,6 +180,7 @@ export async function citySheet(db: Queryable, plate: string) {
     leadMargin: lead - second,
     topContributors: contributors.map((c) => ({
       handle: c.handle,
+      alias: c.alias,
       support: Number(c.support),
     })),
   };
