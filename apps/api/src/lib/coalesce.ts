@@ -75,32 +75,16 @@ export async function enqueueNotif(payload: Record<string, unknown>): Promise<vo
   await r.lPush(KEYS.notifQueue, JSON.stringify({ ...payload, enqueuedAt: new Date().toISOString() }));
 }
 
-/** Note flip gain/loss coalesce hooks for the tribes involved (CC-58 expands delivery). */
-export async function noteFlip(opts: {
-  plate: string;
-  fromTeamId: string | null;
-  toTeamId: string;
-  toAlias: string;
-}): Promise<void> {
-  const gain = await noteEvent({
-    kind: "flip_gain",
-    plate: opts.plate,
-    audienceKey: opts.toTeamId,
-    rivalAlias: opts.toAlias,
-  });
-  if (!gain.coalesced && gain.flush) {
-    await enqueueNotif({ type: "flip_gain", ...gain.flush });
-  }
-
-  if (opts.fromTeamId && opts.fromTeamId !== opts.toTeamId) {
-    const loss = await noteEvent({
-      kind: "flip_loss",
-      plate: opts.plate,
-      audienceKey: opts.fromTeamId,
-      rivalAlias: opts.toAlias,
-    });
-    if (!loss.coalesced && loss.flush) {
-      await enqueueNotif({ type: "flip_loss", ...loss.flush });
-    }
-  }
+/**
+ * True when a 5-min coalesce window is already open for this kind/plate/audience.
+ * Used to dedupe flip alerts against an attack burst that already notified the user.
+ */
+export async function isWindowOpen(
+  kind: CoalesceKind,
+  plate: string,
+  audienceKey: string,
+): Promise<boolean> {
+  const r = await getRedis();
+  const exists = await r.exists(KEYS.coalesceWindow(kind, plate, audienceKey));
+  return exists === 1;
 }

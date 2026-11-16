@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveAttackInterests } from "./alerts.js";
+import { resolveAttackInterests, resolveTribeMembers } from "./alerts.js";
 import type { Queryable } from "./db.js";
 
 function mockDb(handlers: Array<{ match: RegExp; rows: unknown[] }>): Queryable {
@@ -64,6 +64,26 @@ describe("resolveAttackInterests", () => {
 
     assert.deepEqual(interests, [
       { userId: "rival-spender-friend", tribeId: "tribe_c", scope: "spent_24h" },
+    ]);
+  });
+});
+
+describe("resolveTribeMembers", () => {
+  it("returns verified members for flip gain/loss audience", async () => {
+    const db = mockDb([
+      {
+        match: /FROM users\s+WHERE tribe_id/,
+        rows: [
+          { id: "u1", tribe_id: "sl_besiktas" },
+          { id: "u2", tribe_id: "sl_besiktas" },
+        ],
+      },
+    ]);
+
+    const members = await resolveTribeMembers(db, "sl_besiktas");
+    assert.deepEqual(members, [
+      { userId: "u1", tribeId: "sl_besiktas" },
+      { userId: "u2", tribeId: "sl_besiktas" },
     ]);
   });
 });

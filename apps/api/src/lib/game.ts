@@ -16,8 +16,7 @@ import {
   type BoostSnapshot,
 } from "./boost.js";
 import { recordOwnershipFlip } from "./admin-ops.js";
-import { dispatchAttackAlerts } from "./alerts.js";
-import { noteFlip } from "./coalesce.js";
+import { dispatchAttackAlerts, dispatchFlipAlerts } from "./alerts.js";
 import { singleFlight } from "./idempotency.js";
 import { getRedis, KEYS } from "./redis.js";
 import { TEAM_BY_ID } from "../data/teams.js";
@@ -843,12 +842,23 @@ async function spendEnergyOnce(
       toAlias,
       toColor,
     });
-    await noteFlip({
-      plate: opts.plate,
-      fromTeamId: applied.fromOwner,
-      toTeamId: applied.toTeamId,
-      toAlias,
-    });
+    // Flip gain/loss: push + in-app for tribe members; dedupe vs open attack window.
+    try {
+      const cityMeta = await one<{ name_tr: string }>(
+        db,
+        `SELECT name_tr FROM cities WHERE plate = $1`,
+        [opts.plate],
+      );
+      await dispatchFlipAlerts(db, {
+        plate: opts.plate,
+        cityName: cityMeta?.name_tr ?? opts.plate,
+        fromTeamId: applied.fromOwner,
+        toTeamId: applied.toTeamId,
+        toAlias,
+      });
+    } catch (err) {
+      console.warn("[alerts] flip dispatch failed", err);
+    }
   }
 
   const digest = await ownershipDigest(db);
