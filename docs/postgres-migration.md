@@ -42,11 +42,4 @@ Already in this schema / spend path:
 - Spend writes debit + tally + optional `cities.owner_team_id` flip + ledger row in **one Postgres transaction**  
 - WS fan-out moved to Redis pub/sub — see [redis-realtime-ops.md](redis-realtime-ops.md)
 
-Next leaf (CC-35 Persist ledger and live flips) should:
-
-1. Keep spend atomicity (do not split ledger vs flip across processes without outbox)  
-2. Add boost snapshot columns on ledger when personal/team boosts land  
-3. Reconnect = digest fetch + WS resume (pub/sub already live)  
-4. Add `SELECT … FOR UPDATE` on city/support rows under derby load  
-
-Do **not** duplicate the `001_init` schema — extend with a new migration only when columns are needed.
+CC-35 (`persist-ledger-live-flips.md`) extends this schema with `002_ledger_boost_snapshot.sql` and hardens spend with `FOR UPDATE` + strict-lead flips. Do **not** duplicate `001_init`.

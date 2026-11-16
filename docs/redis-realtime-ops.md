@@ -52,4 +52,4 @@ Upstash / managed: set `REDIS_URL` to the TLS URL (`rediss://…`).
 
 ## Follow-up
 
-CC-35: harden Postgres ledger + `FOR UPDATE` flips; keep publishing through this bus.
+CC-35 (`persist-ledger-live-flips.md`): Postgres `FOR UPDATE` + boost snapshot columns; keeps publishing through this bus.
