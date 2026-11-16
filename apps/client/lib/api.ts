@@ -54,25 +54,29 @@ export type MatchDayWindow = {
 
 export type ShopCatalog = {
   stub: boolean;
-  provider: "revenuecat";
+  provider: "revenuecat" | "unified" | "iyzico";
   packs: {
     sku: string;
-    kind: "pack";
+    kind?: "pack";
     energy: number;
     productId: string;
     iosProductId?: string;
     androidProductId?: string;
+    webProductId?: string;
     tryPlaceholder: number;
+    tryListingStatus?: string;
   }[];
   subscription: {
     sku: string;
-    kind: "subscription";
+    kind?: "subscription";
     productId: string;
     iosProductId?: string;
     androidProductId?: string;
-    entitlementId: string;
+    webProductId?: string;
+    entitlementId?: string;
     dailyBonus: number;
     tryPlaceholder: number;
+    tryListingStatus?: string;
   };
 
   personalBoost?: {
@@ -301,6 +305,7 @@ export const api = {
           publicApiBase: string;
         };
       };
+      entitlements?: { ledger: string; channels: string[] };
     }>("/v1/meta"),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
   /** Combined Season 0 boards — no auth required (guest browse). */
