@@ -1,5 +1,5 @@
 /**
- * Client-side iOS SKU map — keep in sync with apps/api/src/lib/iapCatalog.ts defaults.
+ * Client-side SKU map — keep in sync with apps/api/src/lib/iapCatalog.ts defaults.
  * Override via EXPO_PUBLIC_RC_* env (EAS / .env).
  */
 
@@ -27,16 +27,43 @@ export function iosPackProductId(sku: PackSku): string {
   }
 }
 
+export function androidPackProductId(sku: PackSku): string {
+  switch (sku) {
+    case "small":
+      return envOr("EXPO_PUBLIC_RC_ANDROID_PRODUCT_PACK_SMALL", "cc_android_pack_small_200");
+    case "medium":
+      return envOr("EXPO_PUBLIC_RC_ANDROID_PRODUCT_PACK_MEDIUM", "cc_android_pack_medium_600");
+    case "large":
+      return envOr("EXPO_PUBLIC_RC_ANDROID_PRODUCT_PACK_LARGE", "cc_android_pack_large_1500");
+  }
+}
+
 export function iosSubProductId(): string {
   return envOr("EXPO_PUBLIC_RC_IOS_PRODUCT_SUB_MONTHLY", "cc_ios_sub_monthly");
+}
+
+export function androidSubProductId(): string {
+  return envOr("EXPO_PUBLIC_RC_ANDROID_PRODUCT_SUB_MONTHLY", "cc_android_sub_monthly");
 }
 
 export function iosSubEntitlementId(): string {
   return envOr("EXPO_PUBLIC_RC_ENTITLEMENT_SUB", "monthly_sub");
 }
 
+/** Shared RC entitlement id (same as iOS). */
+export function androidSubEntitlementId(): string {
+  return iosSubEntitlementId();
+}
+
 export function revenueCatIosApiKey(): string | null {
   const key = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim();
+  return key || null;
+}
+
+export function revenueCatAndroidApiKey(): string | null {
+  const key =
+    process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() ||
+    process.env.EXPO_PUBLIC_RC_ANDROID_API_KEY?.trim();
   return key || null;
 }
 
@@ -46,5 +73,14 @@ export function allIosProductIds(): string[] {
     iosPackProductId("medium"),
     iosPackProductId("large"),
     iosSubProductId(),
+  ];
+}
+
+export function allAndroidProductIds(): string[] {
+  return [
+    androidPackProductId("small"),
+    androidPackProductId("medium"),
+    androidPackProductId("large"),
+    androidSubProductId(),
   ];
 }

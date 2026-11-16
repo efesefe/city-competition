@@ -110,6 +110,7 @@ import {
   iapStubEnabled,
   revenuecatConfigured,
   shopCatalog,
+  storeForPlatform,
 } from "./lib/iapCatalog.js";
 import { applyIapGrant } from "./lib/iapEntitlements.js";
 import {
@@ -262,7 +263,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       iap: {
         provider: "revenuecat",
         ios: true,
-        android: false,
+        android: true,
         webhookConfigured: revenuecatConfigured(),
         stubEnabled: iapStubEnabled(),
       },
@@ -1152,7 +1153,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
   /**
-   * RevenueCat → server entitlement webhook (App Store packs + monthly sub).
+   * RevenueCat → server entitlement webhook (App Store + Play Billing packs/sub).
    * Auth: Authorization header must match REVENUECAT_WEBHOOK_AUTHORIZATION.
    */
   app.post("/v1/webhooks/revenuecat", async (req, reply) => {
@@ -1188,7 +1189,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
   /**
-   * Client sync after iOS purchase / restore (RevenueCat customerInfo).
+   * Client sync after iOS/Android purchase / restore (RevenueCat customerInfo).
    * Idempotent on transactionId. Prefer webhook in production; this speeds UX.
    */
   app.post("/v1/iap/sync", async (req, reply) => {
@@ -1198,7 +1199,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       .object({
         productId: z.string().min(1),
         transactionId: z.string().min(1),
-        platform: z.literal("ios").default("ios"),
+        platform: z.enum(["ios", "android"]).default("ios"),
         environment: z.string().optional(),
       })
       .safeParse(req.body);
@@ -1208,7 +1209,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       userId: user.id,
       productId: body.data.productId,
       transactionId: body.data.transactionId,
-      store: "app_store",
+      store: storeForPlatform(body.data.platform),
       environment: body.data.environment ?? null,
     });
     if (!result.ok) return reply.code(400).send({ error: result.reason });
@@ -1218,8 +1219,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
   /**
-   * Dev stub: simulate an iOS pack/sub grant without StoreKit / RevenueCat.
-   * Gated by ALLOW_IAP_STUB=true.
+   * Dev stub: simulate a pack/sub grant without StoreKit / Play Billing / RevenueCat.
+   * Gated by ALLOW_IAP_STUB=true. Optional platform selects app_store vs play_store ledger tag.
    */
   app.post("/v1/iap/stub", async (req, reply) => {
     if (!iapStubEnabled()) return reply.code(403).send({ error: "iap_stub_disabled" });
@@ -1229,6 +1230,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       .object({
         productId: z.string().min(1),
         transactionId: z.string().min(8).optional(),
+        platform: z.enum(["ios", "android"]).default("ios"),
       })
       .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
@@ -1238,7 +1240,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       userId: user.id,
       productId: body.data.productId,
       transactionId: txn,
-      store: "app_store",
+      store: storeForPlatform(body.data.platform),
       environment: "STUB",
     });
     if (!result.ok) return reply.code(400).send({ error: result.reason });

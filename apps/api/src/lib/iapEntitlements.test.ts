@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it, beforeEach, afterEach } from "node:test";
 import {
+  androidPackOffers,
+  androidSubOffer,
   iosPackOffers,
   iosSubOffer,
   lookupPackByProductId,
@@ -282,19 +284,50 @@ describe("revenuecatWebhook", () => {
     assert.equal(parsed.action, "deactivate_sub");
   });
 
-  it("ignores play store events on iOS leaf", () => {
+  it("grants play store pack purchases (CC-45)", () => {
+    const productId = androidPackOffers()[0]!.productId;
     const parsed = parseRevenueCatWebhook({
       event: {
         type: "INITIAL_PURCHASE",
         id: "evt_play",
         app_user_id: "user_abc",
-        product_id: iosPackOffers()[0]!.productId,
+        product_id: productId,
         store: "PLAY_STORE",
         transaction_id: "GPA.1",
       },
     });
-    assert.equal(parsed.action, "ignore");
-    if (parsed.action !== "ignore") return;
-    assert.equal(parsed.reason, "non_ios_store");
+    assert.equal(parsed.action, "grant");
+    if (parsed.action !== "grant") return;
+    assert.equal(parsed.store, "play_store");
+    assert.equal(parsed.productId, productId);
+  });
+
+  it("activates android monthly sub via shared entitlement id", () => {
+    const parsed = parseRevenueCatWebhook({
+      event: {
+        type: "INITIAL_PURCHASE",
+        id: "evt_play_sub",
+        app_user_id: "user_abc",
+        product_id: androidSubOffer().productId,
+        entitlement_ids: [androidSubOffer().entitlementId],
+        store: "PLAY_STORE",
+        transaction_id: "GPA.sub.1",
+      },
+    });
+    assert.equal(parsed.action, "grant");
+    if (parsed.action !== "grant") return;
+    assert.equal(parsed.store, "play_store");
+  });
+});
+
+describe("android catalog", () => {
+  it("maps android pack energies and looks up by product id", () => {
+    const packs = androidPackOffers();
+    assert.deepEqual(
+      packs.map((p) => p.energy),
+      [200, 600, 1500],
+    );
+    assert.equal(lookupPackByProductId(packs[1]!.productId)?.sku, "medium");
+    assert.equal(shopCatalog().packs[0]!.androidProductId, packs[0]!.productId);
   });
 });

@@ -1,7 +1,12 @@
 import { z } from "zod";
-import { iosSubOffer, isSubProductId, lookupPackByProductId } from "./iapCatalog.js";
+import {
+  androidSubOffer,
+  iosSubOffer,
+  isSubProductId,
+  lookupPackByProductId,
+} from "./iapCatalog.js";
 
-/** RevenueCat webhook event types we act on for Season 0 iOS packs + sub. */
+/** RevenueCat webhook event types we act on for Season 0 packs + sub. */
 export const GRANT_EVENT_TYPES = new Set([
   "INITIAL_PURCHASE",
   "NON_RENEWING_PURCHASE",
@@ -62,6 +67,20 @@ export function verifyRevenueCatAuthorization(
   return normalized === want || normalized === `Bearer ${want}` || `Bearer ${normalized}` === want;
 }
 
+function normalizeStore(store: string | undefined): "app_store" | "play_store" | "other" {
+  const s = (store || "APP_STORE").toLowerCase().replace(/-/g, "_");
+  if (s === "app_store" || s === "apple" || s === "mac_app_store") return "app_store";
+  if (s === "play_store" || s === "google" || s === "google_play" || s === "play") return "play_store";
+  // RC often sends PLAY_STORE uppercase → lowercased play_store already handled;
+  // also accept literal "play_store" from tests.
+  if (s === "play_store") return "play_store";
+  return "other";
+}
+
+function defaultSubProductId(store: "app_store" | "play_store"): string {
+  return store === "play_store" ? androidSubOffer().productId : iosSubOffer().productId;
+}
+
 export function parseRevenueCatWebhook(body: unknown): ParsedRcEvent {
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return { action: "ignore", reason: "invalid_body" };
@@ -82,15 +101,15 @@ export function parseRevenueCatWebhook(body: unknown): ParsedRcEvent {
   ).trim();
   if (!transactionId) return { action: "ignore", reason: "missing_transaction", type };
 
-  const store = (ev.store || "APP_STORE").toLowerCase();
-  // CC-44 scope: App Store only (Google is a sibling leaf).
-  if (store && store !== "app_store" && store !== "apple" && store !== "mac_app_store") {
-    return { action: "ignore", reason: "non_ios_store", type };
+  const store = normalizeStore(ev.store);
+  // CC-44 + CC-45: App Store and Play Store only (web is iyzico).
+  if (store === "other") {
+    return { action: "ignore", reason: "unsupported_store", type };
   }
 
   const eventId = (ev.id || transactionId).trim();
   const environment = ev.environment ?? null;
-  const subEntitlement = iosSubOffer().entitlementId;
+  const subEntitlement = iosSubOffer().entitlementId; // shared RC entitlement id
   const entitlements = [
     ...(ev.entitlement_ids ?? []),
     ...(ev.entitlement_id ? [ev.entitlement_id] : []),
@@ -108,10 +127,10 @@ export function parseRevenueCatWebhook(body: unknown): ParsedRcEvent {
     return {
       action: "deactivate_sub",
       userId,
-      productId: productId || iosSubOffer().productId,
+      productId: productId || defaultSubProductId(store),
       transactionId: `expire:${transactionId}`,
       eventId,
-      store: "app_store",
+      store,
       environment,
       type,
     };
@@ -125,10 +144,10 @@ export function parseRevenueCatWebhook(body: unknown): ParsedRcEvent {
     return {
       action: "grant",
       userId,
-      productId: productId || iosSubOffer().productId,
+      productId: productId || defaultSubProductId(store),
       transactionId,
       eventId,
-      store: "app_store",
+      store,
       environment,
       type,
     };
@@ -141,7 +160,7 @@ export function parseRevenueCatWebhook(body: unknown): ParsedRcEvent {
       productId,
       transactionId,
       eventId,
-      store: "app_store",
+      store,
       environment,
       type,
     };
