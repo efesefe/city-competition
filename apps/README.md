@@ -9,8 +9,9 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 2. **Guest** browse: map + city sheet + scoreboard (no guest share)  
 3. **Supabase Auth** — phone OTP + Google + Apple when `SUPABASE_*` / `EXPO_PUBLIC_SUPABASE_*` set; otherwise local mock OTP + OAuth stubs. Send SMS Hook → Netgsm when env live (dry-run otherwise)  
 
-4. After verify → **Kabile pick** (Big 4 first, then rest)  
-5. Spend energy with **always-confirm**; live ownership flip over WebSocket  
+4. After verify → **Kabile pick** (Big 4 first, then rest) — unverified users get a phone verify wall (CC-21)  
+5. Spend energy with **always-confirm**; live ownership flip over WebSocket — spend/claim require `phone_verified`  
+ 
 6. Daily free energy **100** @ 00:00 TR — simulate via `POST /v1/energy/grant-sim`  
 7. Cities seeded from **city-seed-matrix** (2–3 teams each)
 

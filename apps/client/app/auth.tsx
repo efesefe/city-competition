@@ -3,7 +3,9 @@ import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import React, { useEffect, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { PhoneVerifyWall } from "../components/PhoneVerifyWall";
 import { api, type AuthMeta } from "../lib/api";
+import { PHONE_VERIFY_WALL } from "../lib/play-gates";
 import { useSession } from "../lib/session";
 import { getSupabase, isSupabaseClientConfigured, normalizeTrPhoneClient } from "../lib/supabase";
 
@@ -205,10 +207,22 @@ export default function AuthScreen() {
   const googleLabel = useSupabase ? "Google" : "Google (stub)";
   const appleLabel = useSupabase ? "Apple" : "Apple (stub)";
 
+  const needsPhone = Boolean(token && user && !user.phoneVerified);
+
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>Oynamaya devam et</Text>
-      <Text style={styles.sub}>Tek hesap, cihazlar arası. İlerleme bu hesaba bağlı.</Text>
+      {needsPhone ? (
+        <>
+          <Text style={styles.title}>Telefon doğrula</Text>
+          <Text style={styles.sub}>{PHONE_VERIFY_WALL.en}</Text>
+          <PhoneVerifyWall kind="play" hideCta />
+        </>
+      ) : (
+        <>
+          <Text style={styles.title}>Oynamaya devam et</Text>
+          <Text style={styles.sub}>Tek hesap, cihazlar arası. İlerleme bu hesaba bağlı.</Text>
+        </>
+      )}
 
       <Text style={styles.label}>Telefon (+90)</Text>
       <TextInput

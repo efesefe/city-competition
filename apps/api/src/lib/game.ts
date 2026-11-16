@@ -255,6 +255,7 @@ export async function maybeGrantDailyEnergy(db: Queryable, userId: string) {
     [userId],
   );
   if (!user) return { granted: false, reason: "user_not_found" as const };
+  // Callers that mutate energy must treat phone_unverified as a hard gate (403).
   if (!user.phone_verified) return { granted: false, reason: "phone_unverified" as const };
   const today = trDateString();
   if (user.free_grant_date === today) return { granted: false, reason: "already_granted" as const };
@@ -314,7 +315,9 @@ export async function spendEnergy(
   }>(db, `SELECT phone_verified, tribe_id FROM users WHERE id = $1`, [opts.userId]);
 
   if (!user) return { ok: false as const, status: 404, error: "user_not_found" };
-  if (!user.phone_verified) return { ok: false as const, status: 403, error: "phone_unverified" };
+  if (!user.phone_verified) {
+    return { ok: false as const, status: 403, error: "phone_unverified", gate: "spend" as const };
+  }
   if (!user.tribe_id) return { ok: false as const, status: 403, error: "tribe_required" };
 
   const cost = opts.amount ?? (await getActionCost(db));
@@ -537,7 +540,9 @@ export async function pickTribe(db: Queryable, userId: string, tribeId: string) 
     tribe_switched_at: string | null;
   }>(db, `SELECT phone_verified, tribe_id, tribe_switched_at FROM users WHERE id = $1`, [userId]);
   if (!user) return { ok: false as const, status: 404, error: "user_not_found" };
-  if (!user.phone_verified) return { ok: false as const, status: 403, error: "phone_unverified" };
+  if (!user.phone_verified) {
+    return { ok: false as const, status: 403, error: "phone_unverified", gate: "kabile" as const };
+  }
 
   const team = await one(db, `SELECT internal_id FROM teams WHERE internal_id = $1`, [tribeId]);
   if (!team) return { ok: false as const, status: 404, error: "tribe_not_found" };

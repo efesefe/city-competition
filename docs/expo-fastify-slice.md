@@ -19,7 +19,8 @@
 
 - 81-province SVG map colored by ownership digest  
 - Guest map + city sheet + scoreboard  
-- Phone OTP + Google/Apple via **Supabase Auth** when env set; local mock OTP + OAuth stubs otherwise; Kabile after verify (Big 4 first). See [supabase-auth-providers.md](supabase-auth-providers.md). 
+- Phone OTP + Google/Apple via **Supabase Auth** when env set; local mock OTP + OAuth stubs otherwise; Kabile after verify (Big 4 first). See [supabase-auth-providers.md](supabase-auth-providers.md).  
+- **Phone verify gate (CC-21):** spend / claim / Kabile pick return `403 phone_unverified` with EN/TR wall copy; client shows `PhoneVerifyWall`. See [phone-verify-before-play.md](phone-verify-before-play.md).
 - Always-confirm spend; idempotent Postgres ledger (`FOR UPDATE`); live flip over Redis → WS  
 - Daily 100 energy via claim / `grant-sim`  
 - Seeds from `docs/city-seed-matrix.md` logic (2–3 teams)
