@@ -14,6 +14,7 @@ import {
   upsertPhoneUser,
   userFromRequest,
   verifyOtp,
+  type UserRow,
 } from "./lib/auth.js";
 import {
   attachClient,
@@ -24,12 +25,16 @@ import {
 } from "./lib/bus.js";
 import { closeDb, getActionCost, getFreeGrant, one, type Db } from "./lib/db.js";
 import {
+  activatePersonalBoostStub,
+  activateTeamBoostSim,
+  boostSnapshotForUser,
   citySheet,
   loadOwnershipDigest,
   pickTribe,
   scoreboard,
   findLedgerByIdempotencyKey,
   spendEnergy,
+  type BoostSnapshot,
 } from "./lib/game.js";
 import {
   energyGrantTriggersEnabled,
@@ -62,6 +67,21 @@ export type BuildAppOptions = {
   /** When false, skip onClose hooks that tear down shared process pools (tests). */
   closeSharedResources?: boolean;
 };
+
+
+async function publicUserWithBoost(db: Db, user: UserRow, teamAlias?: string | null) {
+  const boost: BoostSnapshot = await boostSnapshotForUser(db, {
+    userId: user.id,
+    tribeId: user.tribe_id,
+  });
+  const alias =
+    teamAlias !== undefined
+      ? teamAlias
+      : user.tribe_id
+        ? (TEAM_BY_ID.get(user.tribe_id)?.publicAlias ?? null)
+        : null;
+  return publicUser(user, alias, boost);
+}
 
 /** Build the Fastify app (shared by server boot and load/smoke tests). */
 export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> {
@@ -125,6 +145,14 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         { sku: "medium", energy: 600, tryPlaceholder: 129.99 },
         { sku: "large", energy: 1500, tryPlaceholder: 249.99 },
       ],
+      /** Payments not ready — client shows SKU; activate via stub endpoint. */
+      personalBoost: {
+        sku: "personal_boost_1h",
+        effect: "+50% support",
+        durationMinutes: 60,
+        tryPlaceholder: null,
+        purchase: "stub",
+      },
     },
   }));
 
@@ -156,8 +184,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     if (!user) return reply.code(401).send({ error: "unauthorized" });
     await maybeGrantDailyEnergy(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
-    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
-    return { user: publicUser(refreshed, alias) };
+    return { user: await publicUserWithBoost(db, refreshed) };
   });
 
   /**
@@ -180,10 +207,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     if (!session) return reply.code(401).send({ error: "invalid_supabase_token" });
     await maybeGrantDailyEnergy(db, session.user.id);
     const refreshed = (await getUserById(db, session.user.id))!;
-    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
     return {
       token: accessToken,
-      user: publicUser(refreshed, alias),
+      user: await publicUserWithBoost(db, refreshed),
       needsPhone: session.needsPhone,
       mode: "supabase",
       supabaseShaped: {
@@ -281,10 +307,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     const { user, token } = await upsertPhoneUser(db, e164);
     await maybeGrantDailyEnergy(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
-    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
     return {
       token,
-      user: publicUser(refreshed, alias),
+      user: await publicUserWithBoost(db, refreshed),
       mode: "mock",
       supabaseShaped: {
         access_token: token,
@@ -308,7 +333,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     const { user, token } = await stubOAuthLogin(db, provider);
     return {
       token,
-      user: publicUser(user),
+      user: await publicUserWithBoost(db, user),
       needsPhone: true,
       stub: true,
       mode: "mock",
@@ -346,8 +371,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     ]);
     await maybeGrantDailyEnergy(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
-    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
-    return { user: publicUser(refreshed, alias) };
+    return { user: await publicUserWithBoost(db, refreshed) };
   });
 
   /**
@@ -428,7 +452,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     }
     const refreshed = (await getUserById(db, user.id))!;
     const alias = TEAM_BY_ID.get(body.data.tribeId)?.publicAlias ?? null;
-    return { user: publicUser(refreshed, alias) };
+    return { user: await publicUserWithBoost(db, refreshed, alias) };
   });
 
   app.post("/v1/energy/claim", async (req, reply) => {
@@ -439,8 +463,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     }
     const result = await maybeGrantDailyEnergy(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
-    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
-    return { ...result, user: publicUser(refreshed, alias) };
+    return { ...result, user: await publicUserWithBoost(db, refreshed) };
   });
 
   /** Dev/sim: force TR daily grant for the caller without waiting for midnight. */
@@ -455,8 +478,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     }
     const result = await forceGrantDaily(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
-    const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
-    return { ...result, simulated: true, timezone: TR_TIMEZONE, user: publicUser(refreshed, alias) };
+    return { ...result, simulated: true, timezone: TR_TIMEZONE, user: await publicUserWithBoost(db, refreshed) };
   });
 
   /**
@@ -472,6 +494,39 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     const result = await kickEnergyGrantJob(db, { force: body.data.force });
     return { ok: true, job: result };
+  });
+
+
+  /** Payments stub: grant personal +50% / 1h without charging (display path real). */
+  app.post("/v1/boosts/personal/stub", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const result = await activatePersonalBoostStub(db, user.id);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    const refreshed = (await getUserById(db, user.id))!;
+    return {
+      ok: true,
+      stub: true,
+      boost: result.boost,
+      user: await publicUserWithBoost(db, refreshed),
+      note: "Personal boost activated without payment — Payments leaf wires real SKU later",
+    };
+  });
+
+  /** Dev/sim: open match-day +25% team window for caller's tribe (admin leaf later). */
+  app.post("/v1/boosts/team/sim", async (req, reply) => {
+    const user = await userFromRequest(db, req);
+    if (!user) return reply.code(401).send({ error: "unauthorized" });
+    const result = await activateTeamBoostSim(db, user.id);
+    if (!result.ok) return reply.code(result.status).send({ error: result.error });
+    const refreshed = (await getUserById(db, user.id))!;
+    return {
+      ok: true,
+      simulated: true,
+      boost: result.boost,
+      windowId: result.windowId,
+      user: await publicUserWithBoost(db, refreshed),
+    };
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {
@@ -519,12 +574,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       }
 
       const refreshed = (await getUserById(db, user.id))!;
-      const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
       return {
         status: 200 as const,
         body: {
           ...result,
-          user: publicUser(refreshed, alias),
+          user: await publicUserWithBoost(db, refreshed),
         },
       };
     });

@@ -22,6 +22,8 @@ export type UserRow = {
   paid_energy: number;
   sub_energy: number;
   free_grant_date: string | null;
+  /** ISO timestamptz string when personal boost is active; null/undefined when inactive. */
+  personal_boost_expires_at?: string | Date | null;
   created_at: string;
 };
 
@@ -222,7 +224,18 @@ export async function getUserById(db: Queryable, id: string): Promise<UserRow | 
   return (await one<UserRow>(db, `SELECT * FROM users WHERE id = $1`, [id])) ?? null;
 }
 
-export function publicUser(user: UserRow, teamAlias?: string | null) {
+export type PublicBoost = {
+  personalBoostPct: number;
+  teamBoostPct: number;
+  personalExpiresAt: string | null;
+  teamWindowEndsAt: string | null;
+};
+
+export function publicUser(
+  user: UserRow,
+  teamAlias?: string | null,
+  boost?: PublicBoost | null,
+) {
   return {
     id: user.id,
     handle: user.handle,
@@ -235,6 +248,12 @@ export function publicUser(user: UserRow, teamAlias?: string | null) {
       paid: Number(user.paid_energy),
       sub: Number(user.sub_energy),
       total: Number(user.free_energy) + Number(user.paid_energy) + Number(user.sub_energy),
+    },
+    boost: boost ?? {
+      personalBoostPct: 1,
+      teamBoostPct: 1,
+      personalExpiresAt: null,
+      teamWindowEndsAt: null,
     },
   };
 }

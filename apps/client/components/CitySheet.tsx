@@ -15,7 +15,8 @@ import {
   type CitySheet as CitySheetData,
   type PublicUser,
 } from "../lib/api";
-import { isPhoneUnverifiedError, needsPhoneVerify, phoneGateMessage } from "../lib/play-gates";
+import { needsPhoneVerify } from "../lib/play-gates";
+import { ConfirmSpendModal } from "./ConfirmSpendModal";
 import { GuestLoginWall } from "./GuestLoginWall";
 import { PhoneVerifyWall } from "./PhoneVerifyWall";
 
@@ -26,11 +27,13 @@ type Props = {
   loadError?: string | null;
   user: PublicUser | null;
   actionCost: number;
-  /** Optional boost snapshot; defaults to 1× / 1× until shop / match-day. */
+  /** Live boost snapshot from /v1/me (personal × team). */
   boost?: BoostSnapshot;
   onClose: () => void;
   onPlay: () => void;
   onSpend: (amount: number) => Promise<void>;
+  onClaim?: () => void;
+  onShop?: () => void;
 };
 
 function displayHandle(handle: string): string {
@@ -54,6 +57,8 @@ export function CitySheetModal({
   onClose,
   onPlay,
   onSpend,
+  onClaim,
+  onShop,
 }: Props) {
   const cost = clampCost(actionCost);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -63,6 +68,7 @@ export function CitySheetModal({
   useEffect(() => {
     setError(null);
     setConfirmOpen(false);
+    setBusy(false);
   }, [sheet?.plate]);
 
   const unverified = needsPhoneVerify(user);
@@ -77,9 +83,9 @@ export function CitySheetModal({
   const combatLabelTr = ownsCity ? "Savun" : "Saldır";
 
   const credited = useMemo(() => effectiveSupport(cost, boost), [cost, boost]);
-  const boosted =
-    boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
+  const boosted = boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
 
+  /** Sheet CTA never spends — only opens the always-confirm modal (or auth). */
   const openConfirm = () => {
     setError(null);
     if (!user) {
@@ -90,25 +96,26 @@ export function CitySheetModal({
       onPlay();
       return;
     }
-    if (energy < cost) {
-      setError("Yetersiz enerji / Not enough energy");
-      return;
-    }
+    // Always open confirm — even when underfunded (wireframes insufficient path).
     setConfirmOpen(true);
   };
 
   const doSpend = async () => {
+    if (!confirmOpen) {
+      setError("confirm_required");
+      return;
+    }
+    if (busy) return;
+    if (energy < cost) {
+      setError("Yetersiz enerji / Not enough energy");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       await onSpend(cost);
       setConfirmOpen(false);
     } catch (e) {
-      if (isPhoneUnverifiedError(e)) {
-        setError(phoneGateMessage(e, "spend"));
-        setConfirmOpen(false);
-        return;
-      }
       setError(e instanceof Error ? e.message : "spend_failed");
     } finally {
       setBusy(false);
@@ -203,7 +210,7 @@ export function CitySheetModal({
                 <View style={styles.boostBox}>
                   <Text style={styles.section}>Boosted support</Text>
                   <Text style={styles.boostLine}>
-                    Base {cost} → effective {Math.round(credited)}
+                    Base {cost} → effective {Math.round(credited * 1000) / 1000}
                   </Text>
                   <Text style={styles.meta}>
                     {boost.personalBoostPct !== 1
@@ -221,18 +228,32 @@ export function CitySheetModal({
                 <View style={styles.spendBox}>
                   <Text style={styles.energyLine}>⚡ {energy} mevcut</Text>
                   <Pressable
-                    style={[styles.cta, !canAfford && styles.ctaDisabled]}
-                    disabled={!canAfford || busy}
+                    style={[styles.cta, busy && styles.ctaDisabled]}
+                    disabled={busy}
                     onPress={openConfirm}
                     accessibilityRole="button"
-                    accessibilityLabel={`${combatLabel} ${cost} energy`}
+                    accessibilityLabel={`${combatLabel} ${cost} energy — opens confirm`}
                   >
                     <Text style={styles.ctaText}>
                       {combatLabelTr} · {combatLabel} · {cost} ⚡
                     </Text>
                   </Pressable>
                   {!canAfford ? (
-                    <Text style={styles.meta}>Yetersiz enerji — günlük al veya dükkan.</Text>
+                    <View style={styles.insuffRow}>
+                      <Text style={styles.meta}>Yetersiz enerji — günlük al veya dükkan.</Text>
+                      <View style={styles.insuffActions}>
+                        {onClaim ? (
+                          <Pressable style={styles.chip} onPress={onClaim}>
+                            <Text style={styles.chipText}>Claim</Text>
+                          </Pressable>
+                        ) : null}
+                        {onShop ? (
+                          <Pressable style={styles.chip} onPress={onShop}>
+                            <Text style={styles.chipText}>Dükkan</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    </View>
                   ) : null}
                 </View>
               ) : unverified ? (
@@ -245,45 +266,48 @@ export function CitySheetModal({
                   <Text style={styles.ctaSub}>Pick your tribe</Text>
                 </Pressable>
               )}
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+              {error && !confirmOpen ? <Text style={styles.error}>{error}</Text> : null}
             </ScrollView>
           )}
         </View>
       </View>
 
-      <Modal visible={confirmOpen} transparent animationType="fade">
-        <View style={styles.confirmBackdrop}>
-          <View style={styles.confirmCard}>
-            <Text style={styles.title}>
-              {ownsCity ? "Defend" : "Support"} {sheet?.nameTr}
-            </Text>
-            <Text style={styles.ownerTr}>{user?.tribeAlias || "—"}</Text>
-            <Text style={styles.meta}>Cost: {cost} ⚡</Text>
-            <Text style={styles.meta}>You have: {energy} ⚡</Text>
-            {boosted ? (
-              <Text style={styles.meta}>Boosted support: {Math.round(credited)}</Text>
-            ) : null}
-            <Text style={styles.meta}>Always confirm — locked UX.</Text>
-            <View style={styles.confirmRow}>
-              <Pressable
-                style={styles.secondary}
-                onPress={() => setConfirmOpen(false)}
-                disabled={busy}
-              >
-                <Text style={styles.secondaryText}>Vazgeç / Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.cta, styles.confirmCta]}
-                onPress={doSpend}
-                disabled={busy}
-              >
-                <Text style={styles.ctaText}>{busy ? "…" : "Onayla / Confirm"}</Text>
-              </Pressable>
-            </View>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
-          </View>
-        </View>
-      </Modal>
+      <ConfirmSpendModal
+        visible={confirmOpen}
+        cityName={sheet?.nameTr || ""}
+        tribeAlias={user?.tribeAlias ?? null}
+        mode={ownsCity ? "defend" : "attack"}
+        cost={cost}
+        energy={energy}
+        boost={boost}
+        busy={busy}
+        error={error}
+        onCancel={() => {
+          if (!busy) {
+            setConfirmOpen(false);
+            setError(null);
+          }
+        }}
+        onConfirm={() => {
+          void doSpend();
+        }}
+        onClaim={
+          onClaim
+            ? () => {
+                setConfirmOpen(false);
+                onClaim();
+              }
+            : undefined
+        }
+        onShop={
+          onShop
+            ? () => {
+                setConfirmOpen(false);
+                onShop();
+              }
+            : undefined
+        }
+      />
     </Modal>
   );
 }
@@ -346,6 +370,16 @@ const styles = StyleSheet.create({
   boostLine: { color: "#e8efe9", fontSize: 15 },
   spendBox: { marginTop: 10, gap: 8 },
   energyLine: { color: "#c8a96b", fontWeight: "600" },
+  insuffRow: { gap: 6 },
+  insuffActions: { flexDirection: "row", gap: 8 },
+  chip: {
+    borderWidth: 1,
+    borderColor: "#3d5a4c",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  chipText: { color: "#c8a96b", fontSize: 13, fontWeight: "600" },
   cta: {
     backgroundColor: "#c8a96b",
     paddingVertical: 12,
@@ -353,32 +387,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 6,
   },
-  confirmCta: { flex: 1, marginTop: 0 },
   ctaDisabled: { opacity: 0.4 },
   ctaText: { color: "#0b1f17", fontWeight: "700", fontSize: 16 },
   ctaSub: { color: "#3d2e12", fontSize: 12, marginTop: 2 },
   error: { color: "#e07070", marginTop: 6 },
-  confirmBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    padding: 24,
-  },
-  confirmCard: {
-    backgroundColor: "#13261d",
-    borderRadius: 14,
-    padding: 18,
-    gap: 10,
-  },
-  confirmRow: { flexDirection: "row", gap: 10, marginTop: 8 },
-  secondary: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-  },
-  secondaryText: { color: "#d8c9a3" },
 });
