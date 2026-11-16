@@ -436,6 +436,9 @@ export default function MapScreen() {
         <Pressable style={styles.link} onPress={openShop}>
           <Text style={styles.linkText}>Dükkan</Text>
         </Pressable>
+        <Pressable style={styles.link} onPress={() => router.push("/admin")}>
+          <Text style={styles.linkText}>Admin</Text>
+        </Pressable>
         <Pressable style={styles.play} onPress={goPlay}>
           <Text style={styles.playText}>
             {!token ? "Katıl" : !user?.phoneVerified ? "Doğrula" : user?.tribeId ? "Hesap" : "Kabile"}

@@ -73,7 +73,10 @@ export async function boostSnapshotForUser(
     const win = await one<{ boost_pct: number; ends_at: string | Date }>(
       db,
       `SELECT boost_pct, ends_at FROM team_boost_windows
-       WHERE team_id = $1 AND starts_at <= NOW() AND ends_at > NOW()
+       WHERE team_id = $1
+         AND canceled_at IS NULL
+         AND starts_at <= NOW() AND ends_at > NOW()
+         AND boost_pct > 1
        ORDER BY boost_pct DESC, ends_at DESC
        LIMIT 1`,
       [tribeId],

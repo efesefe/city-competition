@@ -26,10 +26,29 @@ export type PublicUser = {
   tribeId: string | null;
   tribeAlias: string | null;
   subActive?: boolean;
+  role?: "player" | "admin";
   energy: { free: number; paid: number; sub: number; total: number };
   /** Live personal × team multipliers for boosted-support UI. */
   boost?: BoostSnapshot;
   tutorial?: TutorialState;
+};
+
+export type MatchDayWindow = {
+  id: string;
+  kind: "team_boost" | "derby_war";
+  teamId: string;
+  teamAlias: string;
+  boostPct: number;
+  startsAt: string;
+  endsAt: string;
+  notes: string | null;
+  label: string | null;
+  spotlightPlate: string | null;
+  cityNameTr: string | null;
+  involvedAliases: string | null;
+  canceledAt: string | null;
+  createdBy: string | null;
+  createdAt: string;
 };
 
 export type DigestCity = {
@@ -334,10 +353,76 @@ export const api = {
       supportCredited?: number;
       energySpent?: number;
     }>(`/v1/cities/${plate}/spend`, { token, body: opts }),
-  tutorial: (token: string) =>
+tutorial: (token: string) =>
     request<{ tutorial: TutorialState; user: PublicUser }>("/v1/tutorial", { token }),
   skipTutorial: (token: string) =>
     request<{ skipped: true; user: PublicUser }>("/v1/tutorial/skip", {
+      token,
+      method: "POST",
+      body: {},
+    }),
+
+  adminPromoteSim: (token: string) =>
+    request<{ ok: true; simulated: true; user: PublicUser }>("/v1/admin/promote-sim", {
+      token,
+      method: "POST",
+      body: {},
+    }),
+
+  adminListMatchDay: (
+    token: string,
+    opts: { includeCanceled?: boolean; kind?: "team_boost" | "derby_war" } = {},
+  ) => {
+    const q = new URLSearchParams();
+    if (opts.includeCanceled) q.set("includeCanceled", "1");
+    if (opts.kind) q.set("kind", opts.kind);
+    const qs = q.toString();
+    return request<{ windows: MatchDayWindow[] }>(
+      `/v1/admin/match-day${qs ? `?${qs}` : ""}`,
+      { token },
+    );
+  },
+
+  adminScheduleTeamBoost: (
+    token: string,
+    body: {
+      teamId: string;
+      boostPct?: number;
+      startsAt?: string;
+      endsAt?: string;
+      kickoffAt?: string;
+      fullTimeAt?: string;
+      notes?: string | null;
+      label?: string | null;
+    },
+  ) =>
+    request<{ window: MatchDayWindow }>("/v1/admin/match-day/team-boosts", {
+      token,
+      body,
+    }),
+
+  adminScheduleDerbyWar: (
+    token: string,
+    body: {
+      teamId: string;
+      spotlightPlate: string;
+      boostPct?: number;
+      startsAt?: string;
+      endsAt?: string;
+      kickoffAt?: string;
+      fullTimeAt?: string;
+      notes?: string | null;
+      label?: string | null;
+      involvedAliases?: string | null;
+    },
+  ) =>
+    request<{ window: MatchDayWindow }>("/v1/admin/match-day/derby-wars", {
+      token,
+      body,
+    }),
+
+  adminCancelMatchDay: (token: string, id: string) =>
+    request<{ window: MatchDayWindow }>(`/v1/admin/match-day/${id}/cancel`, {
       token,
       method: "POST",
       body: {},

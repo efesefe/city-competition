@@ -37,7 +37,7 @@ Expiry: personal multiplier is active only while `personal_boost_expires_at > no
 ## Still stub / later
 
 - Real personal boost **purchase** (iyzico / IAP / RevenueCat entitlements) — Payments leaves
-- Admin-scheduled match-day team windows — Admin / MatchDay leaves (`/v1/boosts/team/sim` is demo-only)
+- Admin-scheduled match-day team windows — **CC-50/51** (`docs/admin-match-day-schedule.md`); `/v1/boosts/team/sim` remains a quick demo
 - Client “Boosted support” chrome — CC-27 [#48] (consumes `/v1/me.boost` + spend snapshot)
 
 ## Run
