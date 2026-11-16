@@ -43,6 +43,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [credit-flow.md](credit-flow.md) | Coin burst from the CreditHeader balance to the supported city on spend |
 | [threat-alert-ui.md](threat-alert-ui.md) | Rival-threat push deep links, in-map ThreatAlertBanner, Defend → credit input |
 | [flip-gain-loss-alerts.md](flip-gain-loss-alerts.md) | CC-58: ownership flip gain/loss push + in-app for tribe members |
+| [static-share-cards.md](static-share-cards.md) | CC-59: logged-in support/accomplishment static share cards (no guest map share) |
 | [web-payments.md](web-payments.md) | Web checkout is iyzico-only; Papara/BKM packs deactivated; native IAP unchanged |
 | [ios-iap-revenuecat.md](ios-iap-revenuecat.md) | CC-44: App Store IAP via RevenueCat; shared `iap_grants` / `/v1/iap/sync` entitlement hook |
 | [android-play-billing-revenuecat.md](android-play-billing-revenuecat.md) | CC-45: Google Play Billing via RevenueCat; same entitlement hook as iOS |

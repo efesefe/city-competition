@@ -13,6 +13,7 @@ import {
   type SeasonInfo,
   type TeamScoreboardEntry,
 } from "../lib/api";
+import { shareCardNative } from "../lib/share";
 import { useSession } from "../lib/session";
 
 type TabId = "teams" | "players";
@@ -26,6 +27,9 @@ export default function ScoreboardScreen() {
   const [you, setYou] = useState<PlayerScoreboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const canShare = !!(token && user?.phoneVerified && user.tribeId);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -50,6 +54,25 @@ export default function ScoreboardScreen() {
   const myTeamId = user?.tribeId ?? null;
   const myUserId = user?.id ?? null;
   const isGuest = !token;
+
+  const shareMyTribe = async () => {
+    if (!token || !user?.tribeId) return;
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const mine = teams.find((t) => t.teamId === user.tribeId);
+      const { card } = await api.createShareCard(token, {
+        kind: "accomplishment",
+        variant: "cities_owned",
+        citiesOwned: mine?.citiesOwned,
+      });
+      await shareCardNative(card);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : "share_failed");
+    } finally {
+      setShareBusy(false);
+    }
+  };
 
   return (
     <View style={styles.root} testID="scoreboard-screen">
@@ -84,6 +107,20 @@ export default function ScoreboardScreen() {
           Misafirler skor tablolarını serbestçe gezebilir — giriş gerekmez.
         </Text>
       ) : null}
+
+      {canShare ? (
+        <Pressable
+          style={[styles.shareBtn, shareBusy && styles.shareDisabled]}
+          disabled={shareBusy}
+          onPress={() => void shareMyTribe()}
+          accessibilityRole="button"
+        >
+          <Text style={styles.shareText}>
+            {shareBusy ? "…" : "Paylaş — kabile skoru"}
+          </Text>
+        </Pressable>
+      ) : null}
+      {shareError ? <Text style={styles.error}>{shareError}</Text> : null}
 
       {loading ? (
         <ActivityIndicator color="#c8a96b" style={{ marginTop: 24 }} />
@@ -196,6 +233,17 @@ const styles = StyleSheet.create({
   tabText: { color: "#6b7c72", fontWeight: "600" },
   tabTextActive: { color: "#f4e7c5" },
   guestNote: { color: "#9bb0a3", marginBottom: 12, fontSize: 12 },
+  shareBtn: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#3d5a4c",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  shareDisabled: { opacity: 0.5 },
+  shareText: { color: "#c8a96b", fontWeight: "700" },
   error: { color: "#e07a5f", marginTop: 16 },
   empty: { color: "#6b7c72", marginTop: 24, textAlign: "center" },
   row: {
