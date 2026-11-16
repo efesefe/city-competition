@@ -12,6 +12,7 @@ import { noteFlip, noteRivalAttack } from "./coalesce.js";
 import { singleFlight } from "./idempotency.js";
 import { getRedis, KEYS } from "./redis.js";
 import { TEAM_BY_ID } from "../data/teams.js";
+import { currentSeason, seasonWindow, type SeasonInfo } from "./season.js";
 
 /** Re-export energy grant helpers so existing imports keep working. */
 export {
@@ -461,7 +462,45 @@ export async function citySheet(db: Queryable, plate: string) {
   };
 }
 
-export async function scoreboard(db: Queryable) {
+export type TeamScoreboardEntry = {
+  rank: number;
+  teamId: string;
+  alias: string;
+  color: string;
+  citiesOwned: number;
+};
+
+export type PlayerScoreboardEntry = {
+  rank: number;
+  userId: string;
+  handle: string;
+  tribeId: string | null;
+  tribeAlias: string | null;
+  tribeColor: string | null;
+  /** Sum of energy spent on support actions inside the season window. */
+  supportSpent: number;
+};
+
+export type TeamScoreboard = {
+  season: SeasonInfo;
+  metric: "cities_owned";
+  guestBrowse: true;
+  teams: TeamScoreboardEntry[];
+};
+
+export type PlayerScoreboard = {
+  season: SeasonInfo;
+  metric: "support_spent";
+  guestBrowse: true;
+  players: PlayerScoreboardEntry[];
+};
+
+/**
+ * Team board — live cities owned (map ownership). Season meta carries reset/freeze bounds.
+ * Guests may browse without auth (CC-65 / CC-67).
+ */
+export async function teamScoreboard(db: Queryable): Promise<TeamScoreboard> {
+  const season = currentSeason();
   const rows = await many<{
     teamId: string;
     alias: string;
@@ -473,15 +512,138 @@ export async function scoreboard(db: Queryable) {
             COUNT(c.plate)::text AS "citiesOwned"
      FROM teams t
      LEFT JOIN cities c ON c.owner_team_id = t.internal_id
-     GROUP BY t.internal_id
+     GROUP BY t.internal_id, t.public_alias, t.primary_color
      ORDER BY COUNT(c.plate) DESC, t.public_alias ASC`,
   );
-  return rows.map((r) => ({
+  const teams = rows.map((r, i) => ({
+    rank: i + 1,
     teamId: r.teamId,
     alias: r.alias,
     color: r.color,
     citiesOwned: Number(r.citiesOwned),
   }));
+  return { season, metric: "cities_owned", guestBrowse: true, teams };
+}
+
+/** @deprecated Prefer teamScoreboard — kept for older clients expecting `{ teams }`. */
+export async function scoreboard(db: Queryable) {
+  const board = await teamScoreboard(db);
+  return board.teams.map(({ teamId, alias, color, citiesOwned }) => ({
+    teamId,
+    alias,
+    color,
+    citiesOwned,
+  }));
+}
+
+/**
+ * User / personal board — total energy spent on support this season (CC-66).
+ * Guests may browse without auth (CC-67). Optional viewerId highlights "you".
+ */
+export async function playerScoreboard(
+  db: Queryable,
+  opts: { limit?: number; viewerId?: string | null } = {},
+): Promise<PlayerScoreboard & { you: PlayerScoreboardEntry | null }> {
+  const season = currentSeason();
+  const { startsAt, endsAt } = seasonWindow(season);
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+
+  const rows = await many<{
+    userId: string;
+    handle: string;
+    tribeId: string | null;
+    tribeAlias: string | null;
+    tribeColor: string | null;
+    supportSpent: string;
+  }>(
+    db,
+    `SELECT u.id AS "userId", u.handle,
+            u.tribe_id AS "tribeId",
+            t.public_alias AS "tribeAlias",
+            t.primary_color AS "tribeColor",
+            COALESCE(SUM(sl.energy_spent), 0)::text AS "supportSpent"
+     FROM support_ledger sl
+     JOIN users u ON u.id = sl.user_id
+     LEFT JOIN teams t ON t.internal_id = u.tribe_id
+     WHERE sl.created_at >= $1 AND sl.created_at <= $2
+     GROUP BY u.id, u.handle, u.tribe_id, t.public_alias, t.primary_color
+     ORDER BY SUM(sl.energy_spent) DESC, u.handle ASC
+     LIMIT $3`,
+    [startsAt, endsAt, limit],
+  );
+
+  const players = rows.map((r, i) => ({
+    rank: i + 1,
+    userId: r.userId,
+    handle: r.handle,
+    tribeId: r.tribeId,
+    tribeAlias: r.tribeAlias,
+    tribeColor: r.tribeColor,
+    supportSpent: Number(r.supportSpent),
+  }));
+
+  let you: PlayerScoreboardEntry | null = null;
+  if (opts.viewerId) {
+    you = players.find((p) => p.userId === opts.viewerId) ?? null;
+    if (!you) {
+      const mine = await one<{
+        handle: string;
+        tribeId: string | null;
+        tribeAlias: string | null;
+        tribeColor: string | null;
+        supportSpent: string;
+        rank: string;
+      }>(
+        db,
+        `WITH totals AS (
+           SELECT u.id, SUM(sl.energy_spent) AS spent
+           FROM support_ledger sl
+           JOIN users u ON u.id = sl.user_id
+           WHERE sl.created_at >= $1 AND sl.created_at <= $2
+           GROUP BY u.id
+         ),
+         me AS (
+           SELECT u.id, u.handle, u.tribe_id,
+                  COALESCE(t.spent, 0) AS spent
+           FROM users u
+           LEFT JOIN totals t ON t.id = u.id
+           WHERE u.id = $3
+         )
+         SELECT m.handle,
+                m.tribe_id AS "tribeId",
+                tm.public_alias AS "tribeAlias",
+                tm.primary_color AS "tribeColor",
+                m.spent::text AS "supportSpent",
+                CASE WHEN m.spent <= 0 THEN NULL
+                     ELSE (1 + (SELECT COUNT(*)::int FROM totals o
+                                WHERE o.spent > m.spent
+                                   OR (o.spent = m.spent AND o.id < m.id)))::text
+                END AS rank
+         FROM me m
+         LEFT JOIN teams tm ON tm.internal_id = m.tribe_id`,
+        [startsAt, endsAt, opts.viewerId],
+      );
+      if (mine?.rank && Number(mine.supportSpent) > 0) {
+        you = {
+          rank: Number(mine.rank),
+          userId: opts.viewerId,
+          handle: mine.handle,
+          tribeId: mine.tribeId,
+          tribeAlias: mine.tribeAlias,
+          tribeColor: mine.tribeColor,
+          supportSpent: Number(mine.supportSpent),
+        };
+      }
+    }
+  }
+
+  return {
+    season,
+    metric: "support_spent",
+    guestBrowse: true,
+    players,
+    you,
+  };
 }
 
 function totalEnergy(user: {

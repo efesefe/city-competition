@@ -91,6 +91,54 @@ export function effectiveSupport(base: number, boost: BoostSnapshot = DEFAULT_BO
   return Math.round(base * boost.personalBoostPct * boost.teamBoostPct * 1000) / 1000;
 }
 
+export type SeasonInfo = {
+  id: string;
+  label: string;
+  startsAt: string;
+  endsAt: string;
+  endsAtLabelTr: string;
+  timezone: string;
+};
+
+export type TeamScoreboardEntry = {
+  rank: number;
+  teamId: string;
+  alias: string;
+  color: string;
+  citiesOwned: number;
+};
+
+export type PlayerScoreboardEntry = {
+  rank: number;
+  userId: string;
+  handle: string;
+  tribeId: string | null;
+  tribeAlias: string | null;
+  tribeColor: string | null;
+  supportSpent: number;
+};
+
+export type TeamScoreboard = {
+  season: SeasonInfo;
+  metric: "cities_owned";
+  guestBrowse: true;
+  teams: TeamScoreboardEntry[];
+};
+
+export type PlayerScoreboard = {
+  season: SeasonInfo;
+  metric: "support_spent";
+  guestBrowse: true;
+  players: PlayerScoreboardEntry[];
+  you: PlayerScoreboardEntry | null;
+};
+
+export type ScoreboardsPayload = {
+  teams: TeamScoreboard;
+  players: PlayerScoreboard;
+  guestBrowse: true;
+};
+
 /** Active match-day window for map banner + spotlight chrome. */
 export type MatchDayEvent = {
   id: string;
@@ -139,10 +187,22 @@ export const api = {
       shop: unknown;
     }>("/v1/meta"),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
+  /** Combined Season 0 boards — no auth required (guest browse). */
+  scoreboards: (token?: string | null) =>
+    request<ScoreboardsPayload>("/v1/scoreboards", { token: token ?? null }),
+  scoreboardTeams: () => request<TeamScoreboard>("/v1/scoreboards/teams"),
+  scoreboardPlayers: (token?: string | null, limit = 50) =>
+    request<PlayerScoreboard>(`/v1/scoreboards/players?limit=${limit}`, {
+      token: token ?? null,
+    }),
+  /** Legacy team-only shape. */
   scoreboard: () =>
-    request<{ teams: { teamId: string; alias: string; color: string; citiesOwned: number }[] }>(
-      "/v1/scoreboard",
-    ),
+    request<{
+      season: SeasonInfo;
+      metric: "cities_owned";
+      guestBrowse: true;
+      teams: TeamScoreboardEntry[];
+    }>("/v1/scoreboard"),
   city: (plate: string) => request<CitySheet>(`/v1/cities/${plate}`),
   teams: () =>
     request<{
