@@ -10,7 +10,8 @@
     "dev:worker": "tsx watch src/worker.ts",
     "migrate": "tsx src/migrate.ts",
     "typecheck": "tsc --noEmit",
-    "test:spend-load": "tsx --test src/lib/spend-idempotency.load.test.ts"
+    "test:spend-load": "tsx --test src/lib/spend-idempotency.load.test.ts",
+    "test": "tsx --test src/lib/trTime.test.ts src/lib/energy.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

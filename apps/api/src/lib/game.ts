@@ -1,10 +1,8 @@
 import { nanoid } from "nanoid";
 import {
   getActionCost,
-  getFreeGrant,
   many,
   one,
-  trDateString,
   withTransaction,
   type Db,
   type Queryable,
@@ -14,6 +12,13 @@ import { noteFlip, noteRivalAttack } from "./coalesce.js";
 import { singleFlight } from "./idempotency.js";
 import { getRedis, KEYS } from "./redis.js";
 import { TEAM_BY_ID } from "../data/teams.js";
+
+/** Re-export energy grant helpers so existing imports keep working. */
+export {
+  forceGrantDaily,
+  maybeGrantDailyEnergy,
+  runDailyFreeEnergyJob,
+} from "./energy.js";
 
 export type LedgerIdempotencyRow = {
   id: string;
@@ -291,39 +296,6 @@ async function debitEnergy(
     [free, sub, paid, userId],
   );
   return { ok: true };
-}
-
-export async function maybeGrantDailyEnergy(db: Queryable, userId: string) {
-  const user = await one<{ free_grant_date: string | null; phone_verified: boolean }>(
-    db,
-    `SELECT free_grant_date, phone_verified FROM users WHERE id = $1`,
-    [userId],
-  );
-  if (!user) return { granted: false, reason: "user_not_found" as const };
-  // Callers that mutate energy must treat phone_unverified as a hard gate (403).
-  if (!user.phone_verified) return { granted: false, reason: "phone_unverified" as const };
-  const today = trDateString();
-  if (user.free_grant_date === today) return { granted: false, reason: "already_granted" as const };
-
-  const grant = await getFreeGrant(db);
-  // Expire previous free bucket, then grant today's.
-  await db.query(`UPDATE users SET free_energy = $1, free_grant_date = $2 WHERE id = $3`, [
-    grant,
-    today,
-    userId,
-  ]);
-  return { granted: true, amount: grant, date: today };
-}
-
-export async function forceGrantDaily(db: Queryable, userId: string) {
-  const grant = await getFreeGrant(db);
-  const today = trDateString();
-  await db.query(`UPDATE users SET free_energy = $1, free_grant_date = $2 WHERE id = $3`, [
-    grant,
-    today,
-    userId,
-  ]);
-  return { granted: true, amount: grant, date: today };
 }
 
 export async function spendEnergy(

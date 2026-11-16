@@ -25,14 +25,19 @@ import {
 import { closeDb, getActionCost, getFreeGrant, one, type Db } from "./lib/db.js";
 import {
   citySheet,
-  forceGrantDaily,
   loadOwnershipDigest,
-  maybeGrantDailyEnergy,
   pickTribe,
   scoreboard,
   findLedgerByIdempotencyKey,
   spendEnergy,
 } from "./lib/game.js";
+import {
+  energyGrantTriggersEnabled,
+  forceGrantDaily,
+  maybeGrantDailyEnergy,
+} from "./lib/energy.js";
+import { kickEnergyGrantJob, startEnergyGrantScheduler } from "./lib/energyGrantScheduler.js";
+import { TR_TIMEZONE, trDateString } from "./lib/trTime.js";
 import { singleFlight } from "./lib/idempotency.js";
 import { guestLoginPayload, phoneUnverifiedPayload } from "./lib/play-gates.js";
 import { allow, DEFAULT_LIMITS, GROUPS } from "./lib/ratelimit.js";
@@ -66,10 +71,17 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   await app.register(cors, { origin: true });
   await app.register(websocket);
 
+  const stopGrantScheduler = startEnergyGrantScheduler(db, app.log);
+
   if (opts.closeSharedResources !== false) {
     app.addHook("onClose", async () => {
+      stopGrantScheduler();
       await closeDb();
       await closeRedis();
+    });
+  } else {
+    app.addHook("onClose", async () => {
+      stopGrantScheduler();
     });
   }
 
@@ -85,12 +97,20 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       wsClients: clientCount(),
       digestSubscribers: digestSubscriberCount(),
       auth: authMode(),
+      energy: {
+        timezone: TR_TIMEZONE,
+        trDate: trDateString(),
+        scheduler: process.env.ENERGY_GRANT_SCHEDULER === "true",
+        grantTriggers: energyGrantTriggersEnabled(),
+      },
     };
   });
 
   app.get("/v1/meta", async () => ({
     actionCost: await getActionCost(db),
     freeDailyGrant: await getFreeGrant(db),
+    timezone: TR_TIMEZONE,
+    trDate: trDateString(),
     auth: authMode(),
     support: {
       lostSimRebind: true,
@@ -423,8 +443,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     return { ...result, user: publicUser(refreshed, alias) };
   });
 
-  /** Dev/sim: force TR daily grant without waiting for midnight. */
+  /** Dev/sim: force TR daily grant for the caller without waiting for midnight. */
   app.post("/v1/energy/grant-sim", async (req, reply) => {
+    if (!energyGrantTriggersEnabled()) {
+      return reply.code(403).send({ error: "grant_triggers_disabled" });
+    }
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send(guestLoginPayload());
     if (!user.phone_verified) {
@@ -433,7 +456,22 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     const result = await forceGrantDaily(db, user.id);
     const refreshed = (await getUserById(db, user.id))!;
     const alias = refreshed.tribe_id ? TEAM_BY_ID.get(refreshed.tribe_id)?.publicAlias : null;
-    return { ...result, simulated: true, user: publicUser(refreshed, alias) };
+    return { ...result, simulated: true, timezone: TR_TIMEZONE, user: publicUser(refreshed, alias) };
+  });
+
+  /**
+   * Dev/ops: run the TR midnight free-energy batch now (expire unused free → grant 100).
+   * Body `{ "force": true }` re-grants even if already granted today.
+   * Gated by ALLOW_ENERGY_GRANT_TRIGGERS (defaults on outside production).
+   */
+  app.post("/v1/energy/grant-job", async (req, reply) => {
+    if (!energyGrantTriggersEnabled()) {
+      return reply.code(403).send({ error: "grant_triggers_disabled" });
+    }
+    const body = z.object({ force: z.boolean().optional() }).safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const result = await kickEnergyGrantJob(db, { force: body.data.force });
+    return { ok: true, job: result };
   });
 
   app.post("/v1/cities/:plate/spend", async (req, reply) => {

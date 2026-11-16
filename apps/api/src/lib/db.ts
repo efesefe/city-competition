@@ -182,14 +182,8 @@ async function seed(database: Db) {
   console.info("[db] seeded teams + 81 city ownership matrix");
 }
 
-export function trDateString(d = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Istanbul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(d);
-}
+/** @deprecated import from `./trTime.js` — kept for existing callers. */
+export { trDateString } from "./trTime.js";
 
 export async function getActionCost(database: Queryable): Promise<number> {
   const row = await one<{ value: string }>(
