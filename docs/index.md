@@ -44,6 +44,8 @@ Project context for future sessions. Update this list when adding a new module o
 | [threat-alert-ui.md](threat-alert-ui.md) | Rival-threat push deep links, in-map ThreatAlertBanner, Defend → credit input |
 | [flip-gain-loss-alerts.md](flip-gain-loss-alerts.md) | CC-58: ownership flip gain/loss push + in-app for tribe members |
 | [static-share-cards.md](static-share-cards.md) | CC-59: logged-in support/accomplishment static share cards (no guest map share) |
+| [entitlement-grants.md](entitlement-grants.md) | CC-47: unified `entitlement_grants` for store IAP + iyzico → paid_energy / sub_active |
+| [shop-skus.md](shop-skus.md) | CC-48: shop UI wired to real iOS/Android/web SKUs |
 | [web-payments.md](web-payments.md) | Web checkout is iyzico-only; Papara/BKM packs deactivated; native IAP unchanged |
 | [web-checkout-iyzico.md](web-checkout-iyzico.md) | CC-46: Expo web packs + sub via iyzico CF/3DS; mock + sandbox; energy grants |
 | [ios-iap-revenuecat.md](ios-iap-revenuecat.md) | CC-44: App Store IAP via RevenueCat; shared `iap_grants` / `/v1/iap/sync` entitlement hook |

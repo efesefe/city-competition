@@ -11,7 +11,7 @@
     "migrate": "tsx src/migrate.ts",
     "typecheck": "tsc --noEmit",
     "test:spend-load": "tsx --test src/lib/spend-idempotency.load.test.ts",
-    "test": "tsx --test src/lib/trTime.test.ts src/lib/energy.test.ts src/lib/actionCost.test.ts src/lib/season.test.ts src/lib/tutorial.test.ts src/lib/boost.test.ts src/lib/admin-match-day.test.ts src/lib/admin-ops.test.ts src/lib/iapEntitlements.test.ts src/lib/alerts.test.ts src/lib/alerts.interest.test.ts src/lib/share.test.ts src/lib/iyzicoEntitlements.test.ts"
+    "test": "tsx --test src/lib/trTime.test.ts src/lib/energy.test.ts src/lib/actionCost.test.ts src/lib/season.test.ts src/lib/tutorial.test.ts src/lib/boost.test.ts src/lib/admin-match-day.test.ts src/lib/admin-ops.test.ts src/lib/iapEntitlements.test.ts src/lib/alerts.test.ts src/lib/alerts.interest.test.ts src/lib/share.test.ts src/lib/iyzicoEntitlements.test.ts src/lib/entitlementGrants.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

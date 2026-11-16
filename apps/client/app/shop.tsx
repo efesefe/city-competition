@@ -24,11 +24,20 @@ import {
 import { useSession } from "../lib/session";
 
 function productIdForSurface(
-  pack: { productId: string; iosProductId?: string; androidProductId?: string },
+  pack: {
+    productId: string;
+    iosProductId?: string;
+    androidProductId?: string;
+    webProductId?: string;
+  },
 ): string {
   if (Platform.OS === "android") return pack.androidProductId || pack.productId;
   if (Platform.OS === "ios") return pack.iosProductId || pack.productId;
-  return pack.productId;
+  return pack.webProductId || pack.productId;
+}
+
+function newIdempotencyKey(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function newIdempotencyKey(prefix: string): string {
@@ -324,14 +333,16 @@ export default function ShopScreen() {
     <View style={styles.root}>
       <Text style={styles.title}>Dükkan</Text>
       <Text style={styles.sub}>
-        {Platform.OS === "web"
-          ? "Web · iyzico Checkout Form (3DS). Paketler 200 / 600 / 1500 + aylık abonelik (+50/gün)."
-          : "Native IAP · RevenueCat (Play Billing + App Store). Paketler 200 / 600 / 1500 + aylık abonelik (+50/gün)."}
+        {shop?.provider === "unified"
+          ? "Season 0 SKUs: iOS / Android / web product ids. Native = RevenueCat; web checkout = iyzico leaf. TRY listing TBD."
+          : Platform.OS === "web"
+            ? "Web · iyzico Checkout Form (3DS). Paketler 200 / 600 / 1500 + aylık abonelik (+50/gün)."
+            : "Native IAP · RevenueCat (Play Billing + App Store). Paketler 200 / 600 / 1500 + aylık abonelik (+50/gün)."}
       </Text>
       {Platform.OS === "web" ? (
         <Text style={styles.warn}>Native dijital mallar mağaza IAP / Play Billing.</Text>
       ) : !platform ? (
-        <Text style={styles.warn}>Web önizleme — gerçek Play Billing Android derlemesinde.</Text>
+        <Text style={styles.warn}>Web önizleme — gerçek Play Billing Android derlemesinde; web product ids below.</Text>
       ) : null}
       {!shop ? (
         <ActivityIndicator color="#c8a96b" />
@@ -344,8 +355,14 @@ export default function ShopScreen() {
                 <Text style={styles.pack}>
                   {p.sku.toUpperCase()} — {p.energy} enerji
                 </Text>
-                <Text style={styles.price}>₺{p.tryPlaceholder} (listing TBD)</Text>
-                <Text style={styles.sku}>{pid}</Text>
+                <Text style={styles.price}>
+                  ₺{p.tryPlaceholder} ({p.tryListingStatus === "tbd" ? "TBD" : "listing TBD"})
+                </Text>
+                <Text style={styles.sku}>
+                  iOS {p.iosProductId ?? p.productId} · Android {p.androidProductId ?? "—"} · Web{" "}
+                  {p.webProductId ?? "—"}
+                </Text>
+                <Text style={styles.sku}>surface: {pid}</Text>
                 <Pressable
                   style={[styles.cta, busy && styles.ctaDisabled]}
                   disabled={Boolean(busy)}
@@ -364,8 +381,16 @@ export default function ShopScreen() {
           })}
           <View style={styles.card}>
             <Text style={styles.pack}>Aylık abonelik — +{shop.subscription.dailyBonus}/gün</Text>
-            <Text style={styles.price}>₺{shop.subscription.tryPlaceholder} (listing TBD)</Text>
-            <Text style={styles.sku}>{productIdForSurface(shop.subscription)}</Text>
+            <Text style={styles.price}>
+              ₺{shop.subscription.tryPlaceholder} (
+              {shop.subscription.tryListingStatus === "tbd" ? "TBD" : "listing TBD"})
+            </Text>
+            <Text style={styles.sku}>
+              iOS {shop.subscription.iosProductId ?? shop.subscription.productId} · Android{" "}
+              {shop.subscription.androidProductId ?? "—"} · Web{" "}
+              {shop.subscription.webProductId ?? "—"}
+            </Text>
+            <Text style={styles.sku}>surface: {productIdForSurface(shop.subscription)}</Text>
             <Pressable
               style={[styles.cta, busy && styles.ctaDisabled]}
               disabled={Boolean(busy)}

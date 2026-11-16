@@ -112,7 +112,6 @@ import { startPushWorker } from "./lib/pushWorker.js";
 import {
   iapStubEnabled,
   revenuecatConfigured,
-  shopCatalog,
   storeForPlatform,
 } from "./lib/iapCatalog.js";
 import { applyIapGrant } from "./lib/iapEntitlements.js";
@@ -148,6 +147,7 @@ import {
   parseWebhookBody,
   verifyWebhookSignature,
 } from "./lib/iyzicoClient.js";
+import { unifiedShopCatalog } from "./lib/shopSkus.js";
 
 export type BuildAppOptions = {
   db: Db;
@@ -284,9 +284,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         rebindPath: "/v1/support/phone/rebind",
       },
       shop: {
-        ...shopCatalog(),
+        ...unifiedShopCatalog(),
         subDailyBonus,
-        /** Personal boost still stub-activate until dedicated SKU. */
+        /** Channel checkout is IAP/iyzico leaves; personal boost still stub-activate. */
         personalBoost: {
           sku: "personal_boost_1h",
           effect: "+50% support",
@@ -310,6 +310,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
           configured: iyzicoConfigured() || iyzicoMockMode(),
           publicApiBase: publicApiBase(),
         },
+      },
+      entitlements: {
+        ledger: "entitlement_grants",
+        channels: ["app_store", "play_store", "web"],
       },
     };
   });
