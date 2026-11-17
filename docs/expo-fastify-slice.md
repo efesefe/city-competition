@@ -40,7 +40,7 @@
 
 ## Not in this slice
 
-Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico web checkout, Android Play Billing (iOS IAP is in — see [ios-iap-revenuecat.md](ios-iap-revenuecat.md)), TR midnight cron worker, push delivery worker. Admin MatchDay + OTP ops are in; personal boost display + activate stub remain available. `ALLOW_IAP_STUB` for local iOS grants.
+Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico web checkout, Android Play Billing (iOS IAP is in — see [ios-iap-revenuecat.md](ios-iap-revenuecat.md)), TR midnight cron worker, push delivery worker. Admin MatchDay + OTP ops are in; personal boost display + activate stub remain available in `__DEV__` / when `ALLOW_IAP_STUB` (shop CTAs gated — see [soft-launch-chrome-hygiene.md](soft-launch-chrome-hygiene.md)).
 
 Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `apps/api/docker-compose.yml`, or Neon/Fly MPG + Upstash). Copy `apps/api/.env.example` → `.env`; boot loads it automatically. See [apps-boot-path.md](apps-boot-path.md), [postgres-migration.md](postgres-migration.md), and [redis-realtime-ops.md](redis-realtime-ops.md).
 

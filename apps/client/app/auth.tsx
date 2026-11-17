@@ -176,7 +176,11 @@ export default function AuthScreen() {
 
       const res = await api.oauthStub(provider);
       await setSession(res.token, res.user);
-      setHint("OAuth stub (mock) — telefon doğrula (zorunlu).");
+      setHint(
+        __DEV__
+          ? "OAuth stub (mock) — telefon doğrula (zorunlu)."
+          : "Telefon doğrula (zorunlu).",
+      );
       setSent(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "oauth_failed");
@@ -204,8 +208,8 @@ export default function AuthScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [useSupabase]);
 
-  const googleLabel = useSupabase ? "Google" : "Google (stub)";
-  const appleLabel = useSupabase ? "Apple" : "Apple (stub)";
+  const googleLabel = useSupabase || !__DEV__ ? "Google" : "Google (stub)";
+  const appleLabel = useSupabase || !__DEV__ ? "Apple" : "Apple (stub)";
 
   const needsPhone = Boolean(token && user && !user.phoneVerified);
 
@@ -276,11 +280,13 @@ export default function AuthScreen() {
       </Pressable>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Text style={styles.foot}>
-        {useSupabase
-          ? "Supabase Auth: phone OTP + Google + Apple. SMS hook seam ready (Netgsm = CC-20)."
-          : "Local mock: phone OTP + OAuth stub. Set EXPO_PUBLIC_SUPABASE_* + API SUPABASE_* for live Auth."}
-      </Text>
+      {__DEV__ || useSupabase ? (
+        <Text style={styles.foot}>
+          {useSupabase
+            ? "Supabase Auth: phone OTP + Google + Apple. SMS hook seam ready (Netgsm = CC-20)."
+            : "Local mock: phone OTP + OAuth stub. Set EXPO_PUBLIC_SUPABASE_* + API SUPABASE_* for live Auth."}
+        </Text>
+      ) : null}
     </View>
   );
 }

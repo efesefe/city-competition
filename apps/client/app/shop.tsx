@@ -324,6 +324,8 @@ export default function ShopScreen() {
 
   const boost = boostFromUser(user);
   const boosted = boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
+  /** Personal-boost + match-day fixture stubs — only in Expo __DEV__ or when API ALLOW_IAP_STUB is on. */
+  const showStubCtas = __DEV__ || stubEnabled;
 
   return (
     <View style={styles.root}>
@@ -412,23 +414,29 @@ export default function ShopScreen() {
           </Text>
         </Pressable>
       ) : null}
-      <Pressable
-        style={[styles.cta, Boolean(busy) && styles.ctaDisabled]}
-        disabled={Boolean(busy)}
-        onPress={() => void activatePersonalBoost()}
-      >
-        <Text style={styles.ctaText}>Kişisel boost +50% / 1s (stub)</Text>
-      </Pressable>
-      <Pressable
-        style={styles.secondary}
-        onPress={() => void activateMatchDayFixture()}
-        disabled={Boolean(busy)}
-      >
-        <Text style={styles.secondaryText}>Maç günü fixture stub (+25% + İstanbul spotlight)</Text>
-      </Pressable>
-      <Pressable style={styles.secondary} onPress={() => void simGrant()}>
-        <Text style={styles.secondaryText}>Günlük 100 enerjiyi simüle et</Text>
-      </Pressable>
+      {showStubCtas ? (
+        <>
+          <Pressable
+            style={[styles.cta, Boolean(busy) && styles.ctaDisabled]}
+            disabled={Boolean(busy)}
+            onPress={() => void activatePersonalBoost()}
+          >
+            <Text style={styles.ctaText}>Kişisel boost +50% / 1s (stub)</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondary}
+            onPress={() => void activateMatchDayFixture()}
+            disabled={Boolean(busy)}
+          >
+            <Text style={styles.secondaryText}>
+              Maç günü fixture stub (+25% + İstanbul spotlight)
+            </Text>
+          </Pressable>
+          <Pressable style={styles.secondary} onPress={() => void simGrant()}>
+            <Text style={styles.secondaryText}>Günlük 100 enerjiyi simüle et</Text>
+          </Pressable>
+        </>
+      ) : null}
       {boosted ? (
         <Text style={styles.note}>
           Aktif boost · kişisel{" "}
