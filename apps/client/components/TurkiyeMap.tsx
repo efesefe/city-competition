@@ -115,14 +115,77 @@ const ProvincePathNative = memo(
     paintEquals(prev.paint, next.paint),
 );
 
+const SPOTLIGHT_PULSE_MS = 1600;
+
+function spotlightGlowOpacity(phase: number): number {
+  return 0.35 + 0.35 * Math.sin(phase * Math.PI * 2);
+}
+
+function spotlightFeatures(spotlightPlates?: Set<string>): ProvinceFeature[] {
+  if (!spotlightPlates?.size) return [];
+  return atlas.features.filter((f) => spotlightPlates.has(f.plate));
+}
+
 /**
- * Expo web: never mount react-native-svg Path with onPress — WebShape forwards
- * RN responder props into createElement and blank the map. DOM <svg>/<path> only.
+ * Match-day amber halo pulse without re-rendering the 81-path province tree.
+ * Web: rAF writes stroke-opacity on DOM path refs (no React state).
+ * Native: local phase state — only this layer reconciles, not province fills.
  */
-function useSpotlightPulse(active: boolean) {
-  const [phase, setPhase] = useState(0);
+function SpotlightHaloWeb({ plates }: { plates?: Set<string> }) {
+  const features = useMemo(() => spotlightFeatures(plates), [plates]);
+  const pathRefs = useRef<(SVGPathElement | null)[]>([]);
+
   useEffect(() => {
-    if (!active) {
+    pathRefs.current = pathRefs.current.slice(0, features.length);
+  }, [features.length]);
+
+  useEffect(() => {
+    if (features.length === 0) return;
+    let raf = 0;
+    let start = 0;
+    const tick = (t: number) => {
+      if (!start) start = t;
+      const phase = ((t - start) % SPOTLIGHT_PULSE_MS) / SPOTLIGHT_PULSE_MS;
+      const opacity = String(spotlightGlowOpacity(phase));
+      for (const el of pathRefs.current) {
+        if (el) el.setAttribute("stroke-opacity", opacity);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [features]);
+
+  if (features.length === 0) return null;
+
+  return (
+    <>
+      {features.map((f, i) => (
+        <path
+          key={`glow-${f.plate}`}
+          ref={(el) => {
+            pathRefs.current[i] = el;
+          }}
+          d={f.path}
+          fill="none"
+          stroke="#e8b84a"
+          strokeWidth={4.5}
+          strokeOpacity={0.35}
+          pointerEvents="none"
+          vectorEffect="non-scaling-stroke"
+          data-testid={`match-day-spotlight-${f.plate}`}
+        />
+      ))}
+    </>
+  );
+}
+
+function SpotlightHaloNative({ plates }: { plates?: Set<string> }) {
+  const features = useMemo(() => spotlightFeatures(plates), [plates]);
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    if (features.length === 0) {
       setPhase(0);
       return;
     }
@@ -130,15 +193,37 @@ function useSpotlightPulse(active: boolean) {
     let start = 0;
     const tick = (t: number) => {
       if (!start) start = t;
-      setPhase(((t - start) % 1600) / 1600);
+      setPhase(((t - start) % SPOTLIGHT_PULSE_MS) / SPOTLIGHT_PULSE_MS);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [active]);
-  return phase;
+  }, [features]);
+
+  if (features.length === 0) return null;
+
+  const glowOpacity = spotlightGlowOpacity(phase);
+  return (
+    <>
+      {features.map((f) => (
+        <Path
+          key={`glow-${f.plate}`}
+          d={f.path}
+          fill="none"
+          stroke="#e8b84a"
+          strokeWidth={4.5}
+          strokeOpacity={glowOpacity}
+          pointerEvents="none"
+        />
+      ))}
+    </>
+  );
 }
 
+/**
+ * Expo web: never mount react-native-svg Path with onPress — WebShape forwards
+ * RN responder props into createElement and blank the map. DOM <svg>/<path> only.
+ */
 function TurkiyeMapWeb({
   digest,
   selectedPlate,
@@ -148,9 +233,6 @@ function TurkiyeMapWeb({
 }: TurkiyeMapProps) {
   const colorByPlate = useColorByPlate(digest);
   const vb = parseViewBox(atlas.viewBox);
-  const hasSpotlight = (spotlightPlates?.size ?? 0) > 0;
-  const phase = useSpotlightPulse(hasSpotlight);
-  const glowOpacity = hasSpotlight ? 0.35 + 0.35 * Math.sin(phase * Math.PI * 2) : 0;
 
   return (
     <View style={styles.wrap} testID="turkiye-map">
@@ -179,24 +261,8 @@ function TurkiyeMapWeb({
             onSelect={onSelect}
           />
         ))}
-        {/* Soft amber halo under spotlight cities — pulse without badge stickers. */}
-        {hasSpotlight
-          ? atlas.features
-              .filter((f) => spotlightPlates?.has(f.plate))
-              .map((f) => (
-                <path
-                  key={`glow-${f.plate}`}
-                  d={f.path}
-                  fill="none"
-                  stroke="#e8b84a"
-                  strokeWidth={4.5}
-                  strokeOpacity={glowOpacity}
-                  pointerEvents="none"
-                  vectorEffect="non-scaling-stroke"
-                  data-testid={`match-day-spotlight-${f.plate}`}
-                />
-              ))
-          : null}
+        {/* Soft amber halo — pulse via DOM attrs; province tree stays memo-stable. */}
+        <SpotlightHaloWeb plates={spotlightPlates} />
       </svg>
     </View>
   );
@@ -211,9 +277,6 @@ function TurkiyeMapNative({
 }: TurkiyeMapProps) {
   const colorByPlate = useColorByPlate(digest);
   const vb = parseViewBox(atlas.viewBox);
-  const hasSpotlight = (spotlightPlates?.size ?? 0) > 0;
-  const phase = useSpotlightPulse(hasSpotlight);
-  const glowOpacity = hasSpotlight ? 0.35 + 0.35 * Math.sin(phase * Math.PI * 2) : 0;
 
   return (
     <View style={styles.wrap} collapsable={false} testID="turkiye-map">
@@ -239,21 +302,7 @@ function TurkiyeMapNative({
             onSelect={onSelect}
           />
         ))}
-        {hasSpotlight
-          ? atlas.features
-              .filter((f) => spotlightPlates?.has(f.plate))
-              .map((f) => (
-                <Path
-                  key={`glow-${f.plate}`}
-                  d={f.path}
-                  fill="none"
-                  stroke="#e8b84a"
-                  strokeWidth={4.5}
-                  strokeOpacity={glowOpacity}
-                  pointerEvents="none"
-                />
-              ))
-          : null}
+        <SpotlightHaloNative plates={spotlightPlates} />
       </Svg>
     </View>
   );

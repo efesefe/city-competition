@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { MatchDayEvent } from "../lib/api";
 import { boostPctLabel, formatCountdown } from "../lib/matchDayChrome";
@@ -11,14 +11,35 @@ type Props = {
 /**
  * Thin match-day team-boost banner (wireframes §5). Locked with map spotlight —
  * do not ship banner-only / spotlight-only chrome.
+ *
+ * Countdown state stays local (memo) so parent map screen is not thrashing every tick.
  */
-export function MatchDayBanner({ event, onPressSpotlight }: Props) {
+export const MatchDayBanner = memo(function MatchDayBanner({
+  event,
+  onPressSpotlight,
+}: Props) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
+    let id: ReturnType<typeof setInterval> | null = null;
+    const arm = () => {
+      if (id) clearInterval(id);
+      // Coarse while plenty of time left; 1s only in the last two minutes.
+      const msLeft = new Date(event.endsAt).getTime() - Date.now();
+      const period = msLeft > 120_000 ? 5_000 : 1_000;
+      id = setInterval(() => {
+        const t = Date.now();
+        setNow(t);
+        if (period > 1_000 && new Date(event.endsAt).getTime() - t <= 120_000) {
+          arm();
+        }
+      }, period);
+    };
+    arm();
+    return () => {
+      if (id) clearInterval(id);
+    };
+  }, [event.endsAt]);
 
   const pct = boostPctLabel(event.boostPct);
   const city = event.cityNameTr;
@@ -51,7 +72,7 @@ export function MatchDayBanner({ event, onPressSpotlight }: Props) {
       ) : null}
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   banner: {
