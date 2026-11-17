@@ -6,6 +6,7 @@
  *  1. TR-midnight free-energy sweep (Europe/Istanbul calendar day)
  *  2. Drain `notif_queue` (stub delivery until Expo Push leaf lands)
  */
+import "./loadEnv.js";
 import { createClient, type RedisClientType } from "redis";
 import { closeDb, getPool, initDb, trDateString } from "./lib/db.js";
 import { maybeGrantDailyEnergy } from "./lib/game.js";

@@ -1,4 +1,5 @@
 /** Apply SQL migrations + seed if empty. Safe to re-run. */
+import "./loadEnv.js";
 import { closeDb, initDb } from "./lib/db.js";
 
 const db = await initDb();

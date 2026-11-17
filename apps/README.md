@@ -1,9 +1,9 @@
-# City Competition — vertical slice (Expo + Fastify)
+# City Competition — Expo + Fastify (sole boot path)
 
-Locked stack path for Season 0 (see product `architecture.md`).  
-Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **not** this slice.
+This is the **only** supported local/prod stack for Season 0.  
+Legacy `frontend/` (Next.js) and `backend/` (Go) remain in-tree until a delete PR — do **not** boot them.
 
-## What this slice demos
+## What this stack demos
 
 1. Türkiye **81-province** clickable ownership map (SVG)  
 2. **Guest** browse: map + city sheet + scoreboard only; shop / spend / Kabile → login (CC-23; no guest share)  
@@ -19,9 +19,11 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in the repo but are **no
 
 ## Run locally (web)
 
-### 0. Postgres
+### 0. Postgres + Redis
 
-`DATABASE_URL` is required. Use local Docker, Neon (EU), or Fly Managed Postgres.
+`DATABASE_URL` and `REDIS_URL` are **required**. Canonical local services:
+
+**`apps/api/docker-compose.yml`** (not the root Go/Next `docker-compose.yml`).
 
 ```bash
 cd apps/api
@@ -30,7 +32,7 @@ docker compose up -d
 # → redis://127.0.0.1:6379
 ```
 
-Or point `DATABASE_URL` at a Neon / Fly MPG connection string (`DATABASE_SSL=true` when needed) and `REDIS_URL` at Upstash (`rediss://…`) or any local Redis.
+Or point `DATABASE_URL` at Neon / Fly MPG (`DATABASE_SSL=true` when needed) and `REDIS_URL` at Upstash (`rediss://…`) or any Redis.
 
 ### 1. API (terminal A)
 
@@ -40,24 +42,31 @@ cp .env.example .env   # edit DATABASE_URL / REDIS_URL if needed
 npm install
 npm run dev
 # → http://localhost:8787
-# On boot: applies migrations/ + seeds teams/cities if empty; subscribes to Redis ownership channel
+# On boot: loads .env (if present; export wins), applies migrations/, seeds if empty, Redis ownership channel
 ```
+
+The API / worker / migrate entrypoints load `apps/api/.env` automatically. Already-exported shell vars are not overridden. Fly/CI can omit the file and inject secrets only.
 
 Health: `curl http://localhost:8787/health` → `200` with `"db":"postgres"`, `"redis":"PONG"` (or `503` + `errors` if either is down). Alias: `/healthz`.
 
-Optional one-shot migrate without serving:
+Optional one-shot migrate without serving (also loads `.env`):
 
 ```bash
-DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition npm run migrate
+cd apps/api && npm run migrate
+# or: DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition npm run migrate
 ```
+
+Makefile shortcuts from repo root: `make api-up`, `make api-dev`, `make client-web`.
 
 ### 2. Expo web (terminal B)
 
 ```bash
 cd apps/client
+cp .env.example .env   # optional; EXPO_PUBLIC_API_URL defaults in example
 npm install
-EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
+npm run web
 # → Expo web (default port 8081)
+# or: EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 ```
 
 ### Happy path

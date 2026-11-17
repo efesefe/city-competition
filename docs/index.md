@@ -4,6 +4,7 @@ Project context for future sessions. Update this list when adding a new module o
 
 | Doc | Topic |
 | --- | --- |
+| [apps-boot-path.md](apps-boot-path.md) | W1: `apps/` sole boot path — README/env/compose/Makefile; API `.env` load; legacy pending delete |
 | [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
 | [supabase-auth-providers.md](supabase-auth-providers.md) | CC-19: Supabase Auth phone/Google/Apple + Send SMS Hook seam |
 | [netgsm-otp-sms-hook.md](netgsm-otp-sms-hook.md) | CC-20: Netgsm OTP send from `POST /v1/auth/hooks/send-sms` |

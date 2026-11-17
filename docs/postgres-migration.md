@@ -26,13 +26,14 @@ Boot path: `initDb()` applies pending `migrations/*.sql`, then seeds teams + 81-
 
 ```bash
 cd apps/api
-docker compose up -d
-export DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition
+cp .env.example .env   # DATABASE_URL + REDIS_URL; loaded on boot
+docker compose up -d   # apps/api/docker-compose.yml (not root Go/Next compose)
 npm install && npm run dev
 ```
 
 Managed: set `DATABASE_URL` to Neon (EU) or Fly MPG; add `DATABASE_SSL=true` when required.  
-Prod secrets + health + match-day scale: [fly-secrets-health-scale.md](fly-secrets-health-scale.md).
+Prod secrets + health + match-day scale: [fly-secrets-health-scale.md](fly-secrets-health-scale.md).  
+Boot path / env DX: [apps-boot-path.md](apps-boot-path.md).
 
 ## Realtime handoff — Persist ledger and live flips
 
