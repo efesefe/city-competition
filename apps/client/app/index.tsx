@@ -140,22 +140,35 @@ export default function MapScreen() {
               setDigestError(null);
             }
             if (msg.type === "support" && msg.plate) {
-              // Patch single-city support tallies without waiting for full digest.
-              setDigest((prev) =>
-                prev.map((c) =>
-                  c.plate === msg.plate
-                    ? {
-                        ...c,
-                        ownerTeamId: msg.ownerTeamId ?? c.ownerTeamId,
-                        ownerAlias: msg.ownerAlias ?? c.ownerAlias,
-                        ownerColor: msg.ownerColor ?? c.ownerColor,
-                        leadSupport: msg.leadSupport,
-                        rivalSupport: msg.rivalSupport,
-                        leadMargin: msg.leadMargin,
-                      }
-                    : c,
-                ),
-              );
+              // Delta fan-out: support ticks patch one city (full digest only on
+              // subscribe/reconnect/flip). Avoid remapping when plate is unknown.
+              setDigest((prev) => {
+                const idx = prev.findIndex((c) => c.plate === msg.plate);
+                if (idx < 0) return prev;
+                const cur = prev[idx]!;
+                const next = {
+                  ...cur,
+                  ownerTeamId: msg.ownerTeamId ?? cur.ownerTeamId,
+                  ownerAlias: msg.ownerAlias ?? cur.ownerAlias,
+                  ownerColor: msg.ownerColor ?? cur.ownerColor,
+                  leadSupport: msg.leadSupport,
+                  rivalSupport: msg.rivalSupport,
+                  leadMargin: msg.leadMargin,
+                };
+                if (
+                  next.ownerTeamId === cur.ownerTeamId &&
+                  next.ownerAlias === cur.ownerAlias &&
+                  next.ownerColor === cur.ownerColor &&
+                  next.leadSupport === cur.leadSupport &&
+                  next.rivalSupport === cur.rivalSupport &&
+                  next.leadMargin === cur.leadMargin
+                ) {
+                  return prev;
+                }
+                const copy = prev.slice();
+                copy[idx] = next;
+                return copy;
+              });
             }
             if (msg.type === "flip") {
               setPulse((prev) => new Set(prev).add(msg.plate));

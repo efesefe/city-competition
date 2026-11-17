@@ -225,21 +225,16 @@ export async function readCachedDigest(): Promise<OwnershipDigestCity[] | null> 
   }
 }
 
-/**
- * Compact 81-city ownership + support digest (lead/rival tallies for contested heat).
- * Prefer `loadOwnershipDigest` on WS reconnect so Redis cache can serve the snapshot.
- */
-export async function ownershipDigest(db: Queryable): Promise<OwnershipDigestCity[]> {
-  const rows = await many<{
-    plate: string;
-    ownerTeamId: string | null;
-    ownerAlias: string | null;
-    ownerColor: string | null;
-    leadSupport: string | number | null;
-    rivalSupport: string | number | null;
-  }>(
-    db,
-    `SELECT c.plate,
+type DigestRow = {
+  plate: string;
+  ownerTeamId: string | null;
+  ownerAlias: string | null;
+  ownerColor: string | null;
+  leadSupport: string | number | null;
+  rivalSupport: string | number | null;
+};
+
+const DIGEST_SELECT = `SELECT c.plate,
             c.owner_team_id AS "ownerTeamId",
             t.public_alias AS "ownerAlias",
             t.primary_color AS "ownerColor",
@@ -258,22 +253,81 @@ export async function ownershipDigest(db: Queryable): Promise<OwnershipDigestCit
        WHERE city_plate = c.plate
        ORDER BY support DESC, team_id ASC
        OFFSET 1 LIMIT 1
-     ) rival ON TRUE
-     ORDER BY c.plate`,
-  );
-  return rows.map((r) => {
-    const leadSupport = Number(r.leadSupport ?? 0);
-    const rivalSupport = Number(r.rivalSupport ?? 0);
-    return {
-      plate: r.plate,
-      ownerTeamId: r.ownerTeamId,
-      ownerAlias: r.ownerAlias,
-      ownerColor: r.ownerColor,
-      leadSupport,
-      rivalSupport,
-      leadMargin: leadSupport - rivalSupport,
-    };
+     ) rival ON TRUE`;
+
+function mapDigestRow(r: DigestRow): OwnershipDigestCity {
+  const leadSupport = Number(r.leadSupport ?? 0);
+  const rivalSupport = Number(r.rivalSupport ?? 0);
+  return {
+    plate: r.plate,
+    ownerTeamId: r.ownerTeamId,
+    ownerAlias: r.ownerAlias,
+    ownerColor: r.ownerColor,
+    leadSupport,
+    rivalSupport,
+    leadMargin: leadSupport - rivalSupport,
+  };
+}
+
+/** Replace one city in an in-memory digest (HTTP response / Redis patch). */
+export function mergeDigestCity(
+  cities: OwnershipDigestCity[],
+  city: OwnershipDigestCity,
+): OwnershipDigestCity[] {
+  let found = false;
+  const next = cities.map((c) => {
+    if (c.plate !== city.plate) return c;
+    found = true;
+    return city;
   });
+  if (found) return next;
+  return [...next, city].sort((a, b) => a.plate.localeCompare(b.plate));
+}
+
+/**
+ * WS fan-out after a successful spend:
+ * - support tick always
+ * - full 81-city digest only on ownership flip (subscribe/reconnect still use loadOwnershipDigest)
+ */
+export function spendFanoutMode(flipped: boolean): "support-only" | "support+digest" {
+  return flipped ? "support+digest" : "support-only";
+}
+
+/**
+ * Compact 81-city ownership + support digest (lead/rival tallies for contested heat).
+ * Prefer `loadOwnershipDigest` on WS reconnect so Redis cache can serve the snapshot.
+ */
+export async function ownershipDigest(db: Queryable): Promise<OwnershipDigestCity[]> {
+  const rows = await many<DigestRow>(db, `${DIGEST_SELECT} ORDER BY c.plate`);
+  return rows.map(mapDigestRow);
+}
+
+/** Single-city digest row — support ticks without rebuilding all 81. */
+export async function ownershipDigestCity(
+  db: Queryable,
+  plate: string,
+): Promise<OwnershipDigestCity | null> {
+  const row = await one<DigestRow>(db, `${DIGEST_SELECT} WHERE c.plate = $1`, [plate]);
+  return row ? mapDigestRow(row) : null;
+}
+
+/**
+ * Patch Redis digest cache for one city. On miss, rebuilds full digest from Postgres.
+ * Returns the digest array used for the spend HTTP response.
+ */
+export async function upsertCachedDigestCity(
+  db: Queryable,
+  city: OwnershipDigestCity,
+): Promise<OwnershipDigestCity[]> {
+  const cached = await readCachedDigest();
+  if (cached) {
+    const next = mergeDigestCity(cached, city);
+    await cacheDigest(next);
+    return next;
+  }
+  const cities = await ownershipDigest(db);
+  await cacheDigest(cities);
+  return cities;
 }
 
 /** Cache-first digest for WS subscribe / reconnect; always refreshes TTL on hit or miss. */
@@ -861,8 +915,22 @@ async function spendEnergyOnce(
     }
   }
 
-  const digest = await ownershipDigest(db);
-  const citySnap = digest.find((c) => c.plate === opts.plate);
+  // Support tick is always published. Full digest broadcast only on flip
+  // (subscribe/reconnect still get loadOwnershipDigest snapshots).
+  const mode = spendFanoutMode(applied.flipped);
+  let digest: OwnershipDigestCity[];
+  let citySnap: OwnershipDigestCity | null | undefined;
+
+  if (mode === "support+digest") {
+    digest = await ownershipDigest(db);
+    citySnap = digest.find((c) => c.plate === opts.plate) ?? null;
+  } else {
+    citySnap = await ownershipDigestCity(db, opts.plate);
+    digest = citySnap
+      ? await upsertCachedDigestCity(db, citySnap)
+      : await ownershipDigest(db);
+  }
+
   await publish({
     type: "support",
     plate: opts.plate,
@@ -875,8 +943,11 @@ async function spendEnergyOnce(
     spentTeamId: tribeId,
     supportCredited: applied.supportCredited,
   });
-  await publish({ type: "digest", cities: digest });
-  await cacheDigest(digest);
+
+  if (mode === "support+digest") {
+    await publish({ type: "digest", cities: digest });
+    await cacheDigest(digest);
+  }
 
   const refreshed = await one(db, `SELECT * FROM users WHERE id = $1`, [opts.userId]);
 

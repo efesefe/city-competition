@@ -14,7 +14,7 @@
 | Subscribe | → server | `{ type: "subscribe", channel: "digest" }` |
 | Ack | ← server | `{ type: "subscribed", channel: "digest" }` |
 | Snapshot | ← server | `{ type: "digest", cities: […81] }` |
-| Live | ← server | `support` (every spend), `flip` (ownership change), `digest` (full resync), `ping` |
+| Live | ← server | `support` (every spend — **delta only**), `flip` + full `digest` on ownership change, `ping`. Full `digest` also on subscribe/reconnect (not after every spend). |
 | Unsubscribe | → server | `{ type: "unsubscribe", channel: "digest" }` |
 | Client ping | → / ← | `{ type: "ping" }` → `{ type: "pong" }` |
 
@@ -51,9 +51,16 @@
 }
 ```
 
-Fan-out path: spend txn → `publish(support)` + `publish(digest)` (+ `publish(flip)` when ownership changes) → Redis `cc:ownership` → every API process → local digest subscribers.
+Fan-out path (W3 delta-first):
 
-Reconnect: subscribe again; snapshot prefers Redis `cc:digest:cache` (TTL 60s, warmed at boot).
+| Spend outcome | Publishes |
+|---------------|-----------|
+| Support only (no flip) | `support` tick; Redis digest cache patched for that plate — **no** full `digest` broadcast |
+| Ownership flip | `flip` + `support` + full `digest`; Redis cache replaced |
+
+HTTP spend response still returns a full `digest` array for the spender (cache patch or rebuild) so the confirm path can refresh without waiting on WS.
+
+Reconnect: subscribe again; snapshot prefers Redis `cc:digest:cache` (TTL 60s, warmed at boot). See [ws-delta-support-fanout.md](ws-delta-support-fanout.md).
 
 ## Verify locally
 
@@ -104,7 +111,7 @@ curl -s -X POST http://127.0.0.1:8787/v1/cities/34/spend -H "authorization: Bear
   -d "{\"confirmed\":true,\"idempotencyKey\":\"ws-digest-$(date +%s)\"}"
 ```
 
-Expect on Terminal A: `support` for plate `34`, then full `digest`; `flip` if ownership changed.
+Expect on Terminal A: `support` for plate `34`. Full `digest` (and `flip`) only if ownership changed; otherwise guests stay in sync via the support tick alone.
 
 ### 3. Health
 
