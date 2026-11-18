@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SessionProvider } from "../lib/session";
+import { colors, fonts } from "../lib/theme";
 
 export default function RootLayout() {
   return (
@@ -8,10 +9,10 @@ export default function RootLayout() {
       <StatusBar style="light" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: "#0b1f17" },
-          headerTintColor: "#f4e7c5",
-          headerTitleStyle: { fontFamily: "Georgia", fontWeight: "700" },
-          contentStyle: { backgroundColor: "#0b1f17" },
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { fontFamily: fonts.display, fontWeight: "700" },
+          contentStyle: { backgroundColor: colors.bg },
         }}
       >
         <Stack.Screen name="index" options={{ title: "City Competition" }} />
