@@ -294,6 +294,8 @@ export const api = {
         android: boolean;
         webhookConfigured: boolean;
         stubEnabled: boolean;
+        /** Unpaid boost / fixture stubs — off in production unless ALLOW_IAP_STUB. */
+        unpaidBoostStubsEnabled?: boolean;
       };
       payments?: {
         web: {
@@ -305,6 +307,11 @@ export const api = {
         };
       };
       entitlements?: { ledger: string; channels: string[] };
+      notifications?: {
+        inbox: boolean;
+        pushDelivery: "log_only" | string;
+        note?: string;
+      };
     }>("/v1/meta"),
   digest: () => request<{ cities: DigestCity[] }>("/v1/map/digest"),
   /** Combined Season 0 boards — no auth required (guest browse). */

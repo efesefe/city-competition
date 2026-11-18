@@ -29,6 +29,6 @@
 
 ## Explicit non-goals
 
-- Push worker stub policy (W8)
-- Removing `/admin` route or admin sim “become admin” (ops still needs deep-link)
+- ~~Push worker stub policy (W8)~~ → see [soft-launch-stub-honesty.md](soft-launch-stub-honesty.md)
+- Removing `/admin` route (ops still needs deep-link); W8 hides “Admin ol (sim)” in release builds only
 - Visual redesign (W4–W6)

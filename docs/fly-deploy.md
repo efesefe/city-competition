@@ -139,7 +139,7 @@ docker run --rm -e DATABASE_URL -e REDIS_URL city-competition-api:local npm run 
 | Does | Does not |
 |------|----------|
 | Reuse `maybeGrantDailyEnergy` for TR calendar day | Rewrite spend / flip / ledger math |
-| Redis lock so multiple workers don’t double-grant | Deliver Expo Push / APNs / FCM (stub log only) |
+| Redis lock so multiple workers don’t double-grant | Deliver Expo Push / APNs / FCM (still log-only — soft launch uses inbox; see soft-launch-stub-honesty.md) |
 | BRPOP `notif_queue` and ack | Own HTTP ports or WS clients |
 
 ## Related

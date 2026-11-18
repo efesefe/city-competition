@@ -15,7 +15,10 @@ export type PushSender = {
   send(input: DeliveredPush): Promise<void>;
 };
 
-/** Dev / Season 0 stub — logs delivery; no FCM/APNs credentials required. */
+/**
+ * Soft-launch / Season 0 sender — logs only; no FCM/APNs credentials.
+ * In-app inbox (`user_notifications`) is the real player-facing channel.
+ */
 export class LogPushSender implements PushSender {
   readonly sent: DeliveredPush[] = [];
 
@@ -23,7 +26,7 @@ export class LogPushSender implements PushSender {
     this.sent.push(input);
     const suffix = input.token.length > 8 ? input.token.slice(-8) : input.token;
     console.info(
-      `[push] deliver user=${input.userId} platform=${input.platform} token=…${suffix} title=${input.title}`,
+      `[push] log_only user=${input.userId} platform=${input.platform} token=…${suffix} title=${input.title}`,
     );
   }
 }

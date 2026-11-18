@@ -111,8 +111,10 @@ import { startPushWorker } from "./lib/pushWorker.js";
 
 import {
   iapStubEnabled,
+  PUSH_DELIVERY_MODE,
   revenuecatConfigured,
   storeForPlatform,
+  unpaidBoostStubsEnabled,
 } from "./lib/iapCatalog.js";
 import { applyIapGrant } from "./lib/iapEntitlements.js";
 import {
@@ -286,13 +288,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       shop: {
         ...unifiedShopCatalog(),
         subDailyBonus,
-        /** Channel checkout is IAP/iyzico leaves; personal boost still stub-activate. */
+        /**
+         * Timing/expiry of personal +50%/1h is real; purchase path is stub-only.
+         * Soft launch: advertise `unavailable` when unpaid stubs are gated off.
+         */
         personalBoost: {
           sku: "personal_boost_1h",
           effect: "+50% support",
           durationMinutes: 60,
           tryPlaceholder: prices.personalBoostTry,
-          purchase: "stub",
+          purchase: unpaidBoostStubsEnabled() ? "stub" : "unavailable",
         },
       },
       iap: {
@@ -300,7 +305,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
         ios: true,
         android: true,
         webhookConfigured: revenuecatConfigured(),
+        /** Strict `ALLOW_IAP_STUB=true` — free pack/sub grants. */
         stubEnabled: iapStubEnabled(),
+        /** Unpaid boost / fixture / team-sim stubs (off in production by default). */
+        unpaidBoostStubsEnabled: unpaidBoostStubsEnabled(),
       },
       payments: {
         web: {
@@ -314,6 +322,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       entitlements: {
         ledger: "entitlement_grants",
         channels: ["app_store", "play_store", "web"],
+      },
+      /** Soft launch: in-app inbox is the real channel; push sender is log-only. */
+      notifications: {
+        inbox: true,
+        pushDelivery: PUSH_DELIVERY_MODE,
+        note: "Soft launch relies on in-app inbox; FCM/APNs not wired — tokens accepted for queue drain logs only",
       },
     };
   });
@@ -796,8 +810,14 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   });
 
 
-  /** Payments stub until IAP/iyzico — activates +50% / 1h with real expiry timing. */
+  /**
+   * Payments stub — activates +50% / 1h with real expiry timing (no charge).
+   * Gated like other unpaid stubs (`ALLOW_IAP_STUB` / non-production).
+   */
   app.post("/v1/boosts/personal/stub", async (req, reply) => {
+    if (!unpaidBoostStubsEnabled()) {
+      return reply.code(403).send({ error: "boost_stub_disabled" });
+    }
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
     const result = await activatePersonalBoostStub(db, user.id);
@@ -808,12 +828,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       stub: true,
       boost: result.boost,
       user: await publicUserWithBoost(db, refreshed),
-      note: "Personal boost activated without payment — Payments leaf wires real SKU later",
+      note: "Personal boost activated without payment — real SKU purchase not wired for soft launch",
     };
   });
 
   /** Dev/sim team +25% window so personal×team stacking can be exercised before admin match-day. */
   app.post("/v1/boosts/team/sim", async (req, reply) => {
+    if (!unpaidBoostStubsEnabled()) {
+      return reply.code(403).send({ error: "boost_stub_disabled" });
+    }
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
     const result = await activateTeamBoostSim(db, user.id);
@@ -834,10 +857,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
   }));
 
   /**
-   * Fixture stub until Admin MatchDay ops: team +25% + spotlight city (default İstanbul).
-   * Prefer this over team-boost-only sims when verifying locked banner+spotlight chrome.
+   * Fixture stub for local QA: team +25% + spotlight city (default İstanbul).
+   * Prefer admin MatchDay schedule in soft launch; gated like other unpaid stubs.
    */
   app.post("/v1/match-day/fixture-stub", async (req, reply) => {
+    if (!unpaidBoostStubsEnabled()) {
+      return reply.code(403).send({ error: "boost_stub_disabled" });
+    }
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
     const body = z
@@ -859,7 +885,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       event: result.event,
       boost: result.boost,
       user: await publicUserWithBoost(db, refreshed),
-      note: "Fixture stub — Admin MatchDay scheduling leaf replaces this",
+      note: "Fixture stub — prefer Admin MatchDay schedule in soft launch",
     };
   });
 
@@ -1333,7 +1359,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
     return { updated, unread: await unreadCount(db, user.id) };
   });
 
-  /** Register Expo / FCM / APNs device token for push delivery. */
+  /**
+   * Register device token for the notif_queue drain path.
+   * Soft launch: sender is log-only — inbox (`GET /v1/notifications`) is the real channel.
+   */
   app.post("/v1/notifications/push-token", async (req, reply) => {
     const user = await userFromRequest(db, req);
     if (!user) return reply.code(401).send({ error: "unauthorized" });
@@ -1349,7 +1378,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
       token: body.data.token,
       platform: body.data.platform,
     });
-    return { ok: true };
+    return {
+      ok: true,
+      pushDelivery: PUSH_DELIVERY_MODE,
+      note: "Token stored; soft-launch delivery is log-only — read alerts via in-app inbox",
+    };
   });
 
 

@@ -110,7 +110,7 @@ npm run web
 | `EXPO_PUBLIC_RC_IOS_PRODUCT_*` / `EXPO_PUBLIC_RC_ENTITLEMENT_SUB` | defaults in `lib/iapCatalog.ts` | Must match API `RC_IOS_*` |
 | `REVENUECAT_WEBHOOK_AUTHORIZATION` | — | API webhook auth (server-only) |
 | `RC_IOS_PRODUCT_*` / `RC_ENTITLEMENT_SUB` | defaults in `iapCatalog.ts` | App Store / RC product ids |
-| `ALLOW_IAP_STUB` | unset | `true` → `POST /v1/iap/stub` without StoreKit |
+| `ALLOW_IAP_STUB` | unset | `true` → `POST /v1/iap/stub` + force unpaid boost stubs on; `false` forces boost stubs off; unset → boost stubs on only when `NODE_ENV !== production` |
 | `PUBLIC_API_BASE` | `http://127.0.0.1:$PORT` | Absolute base for iyzico CF callback + mock checkout |
 | `IYZICO_MOCK` / `IYZICO_API_KEY` / `IYZICO_SECRET_KEY` | mock when keys absent | Web Checkout Form / 3DS (see `.env.example`) |
 | `IYZICO_PRICING_PLAN_REF` | — | Required for live subscription CF |
@@ -170,14 +170,14 @@ curl -sS https://city-competition-api.fly.dev/health   # expect 200 + ok:true
 | Google / Apple | Supabase OAuth when env set | Stub buttons in mock mode → still need phone |
 | Send SMS Hook | Endpoint + secret + Netgsm OTP (when env live) | Dry-run log without keys / dry-run flag |
 | Spend + confirm + flip | Yes (Postgres `FOR UPDATE`, idempotent ledger, Redis live flip) | — |
-| Personal boost +50%/1h | Timing/expiry + spend stack real | Purchase = stub (`/v1/boosts/personal/stub`) |
-| Team boost +25% | Applies when a window row is active | Admin schedule (`/v1/admin/match-day/team-boosts`) + `/v1/boosts/team/sim` |
-| Derby timed war | Spotlight plate on window row | Admin schedule (`/v1/admin/match-day/derby-wars`) |
-| Daily 100 energy | Claim + grant-sim | No TR-midnight cron yet |
+| Personal boost +50%/1h | Timing/expiry + spend stack real | Purchase stub gated off in production (`unpaidBoostStubsEnabled`) |
+| Team boost +25% | Applies when a window row is active | Admin schedule (`/v1/admin/match-day/team-boosts`); `/v1/boosts/team/sim` gated |
+| Derby timed war | Spotlight plate on window row | Admin schedule (`/v1/admin/match-day/derby-wars`); fixture stub gated |
+| Daily 100 energy | Claim + TR midnight worker | grant-sim gated by `ALLOW_ENERGY_GRANT_TRIGGERS` |
 | Shop / IAP | RevenueCat native packs+sub (iOS+Android); stub via `ALLOW_IAP_STUB` | — |
 | Shop / iyzico (web) | Checkout Form / 3DS + grants | Mock CF when keys absent; live needs sandbox keys + plan ref for sub |
 | Redis pub/sub + rate limits + coalesce hooks | Yes (`REDIS_URL`) | — |
-| Attack alerts (owned + 24h spend, 5-min coalesce) | Yes — inbox + `notif_queue` worker | FCM/APNs provider credentials |
+| Attack / flip alerts | Yes — **in-app inbox** + queue drain | Push = **log-only** (no FCM/APNs for soft launch) |
 | Postgres | Yes (`DATABASE_URL`) | — |
 | Lost-SIM phone rebind | Support API + audit (`SUPPORT_OPS_KEY`) | No self-serve UI |
 

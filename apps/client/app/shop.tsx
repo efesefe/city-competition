@@ -51,6 +51,7 @@ export default function ShopScreen() {
   }>();
   const [shop, setShop] = useState<ShopCatalog | null>(null);
   const [stubEnabled, setStubEnabled] = useState(false);
+  const [boostStubsEnabled, setBoostStubsEnabled] = useState(false);
   const [paymentsMock, setPaymentsMock] = useState(true);
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -64,6 +65,7 @@ export default function ShopScreen() {
     void api.meta().then((m) => {
       setShop(m.shop);
       setStubEnabled(Boolean(m.iap?.stubEnabled));
+      setBoostStubsEnabled(Boolean(m.iap?.unpaidBoostStubsEnabled));
       setPaymentsMock(Boolean(m.payments?.web?.mock ?? true));
     });
   }, []);
@@ -325,8 +327,11 @@ export default function ShopScreen() {
 
   const boost = boostFromUser(user);
   const boosted = boost.personalBoostPct !== 1 || boost.teamBoostPct !== 1;
-  /** Personal-boost + match-day fixture stubs — only in Expo __DEV__ or when API ALLOW_IAP_STUB is on. */
-  const showStubCtas = __DEV__ || stubEnabled;
+  /**
+   * Unpaid boost / fixture / daily-grant sim CTAs — never in release+prod.
+   * Show when Expo __DEV__, or API unpaid-boost stubs / IAP stub flag is on.
+   */
+  const showStubCtas = __DEV__ || boostStubsEnabled || stubEnabled;
 
   return (
     <View style={styles.root}>
@@ -460,7 +465,7 @@ export default function ShopScreen() {
               : " · iyzico live/sandbox"
             : ""}
           {rcReady ? " · RC hazır" : ""}
-          {stubEnabled ? " · stub açık" : ""}
+          {stubEnabled || boostStubsEnabled ? " · stub açık" : ""}
           {platform ? ` · ${platform}` : ""}
         </Text>
       ) : null}

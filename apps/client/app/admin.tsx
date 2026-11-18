@@ -307,9 +307,15 @@ export default function AdminOpsScreen() {
       </Text>
 
       {!isAdmin ? (
-        <Pressable style={styles.cta} onPress={promote} disabled={busy}>
-          <Text style={styles.ctaText}>Admin ol (sim)</Text>
-        </Pressable>
+        __DEV__ ? (
+          <Pressable style={styles.cta} onPress={promote} disabled={busy}>
+            <Text style={styles.ctaText}>Admin ol (sim)</Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.sub}>
+            Admin rolü yok — soft launch’ta sim promote gizli; ops API ile bootstrap.
+          </Text>
+        )
       ) : (
         <Text style={styles.badge}>Rol: admin{otpEnrolled ? " · OTP enrolled" : " · OTP yok"}</Text>
       )}
