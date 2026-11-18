@@ -191,6 +191,25 @@ export function revenuecatConfigured(): boolean {
   return Boolean(process.env.REVENUECAT_WEBHOOK_AUTHORIZATION?.trim());
 }
 
+/**
+ * Free pack/sub grants via `POST /v1/iap/stub`.
+ * Strict: only when `ALLOW_IAP_STUB=true` (never default-on).
+ */
 export function iapStubEnabled(): boolean {
   return process.env.ALLOW_IAP_STUB === "true";
 }
+
+/**
+ * Unpaid personal-boost / team-sim / match-day fixture stubs.
+ * Same env knob as IAP stub for ops, but defaults **off in production**
+ * (`NODE_ENV=production`) and **on** otherwise — mirrors energy grant triggers.
+ * Soft-launch: production must not activate free boosts unless explicitly allowed.
+ */
+export function unpaidBoostStubsEnabled(): boolean {
+  if (process.env.ALLOW_IAP_STUB === "true") return true;
+  if (process.env.ALLOW_IAP_STUB === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
+/** Soft-launch push policy: inbox is real; FCM/APNs delivery is log-only. */
+export const PUSH_DELIVERY_MODE = "log_only" as const;

@@ -20,6 +20,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [confirm-spend-boost-ui.md](confirm-spend-boost-ui.md) | CC-27: always-confirm spend + boosted support UI (personal/team display; purchase stub) |
 | [match-day-map-chrome.md](match-day-map-chrome.md) | CC-28: match-day thin banner + map city spotlight (fixture stub until Admin ops) |
 | [soft-launch-chrome-hygiene.md](soft-launch-chrome-hygiene.md) | W2: hide Admin from guest/player bar; gate shop stub CTAs; dark `userInterfaceStyle`; soften auth stub labels |
+| [soft-launch-stub-honesty.md](soft-launch-stub-honesty.md) | W8: document/gate unpaid boost stubs; push log-only; inbox is soft-launch truth |
 | [map-spotlight-pulse-perf.md](map-spotlight-pulse-perf.md) | W3 partial: spotlight glow via ref/local layer — no 81-path rAF reconcile |
 | [skippable-tutorial-flow.md](skippable-tutorial-flow.md) | CC-61: Skippable claim → mid-seed capture → live fight coach |
 | [tutorial-capture-no-flip.md](tutorial-capture-no-flip.md) | CC-62: Capture beat completes after 3 confirms without flip |

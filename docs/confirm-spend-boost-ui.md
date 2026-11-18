@@ -24,7 +24,7 @@
 
 - `ConfirmSpendModal` — wireframes §7: cost, balance, **Boosted support** when active, Confirm/Cancel; insufficient → Claim / Shop
 - `CitySheet` — Attack/Defend CTA **only opens confirm** (never spends); boosted-support block when multipliers ≠ 1×
-- `shop` — personal boost SKU + **stub activate** (no payment); optional team +25% sim for display demos — stub CTAs gated behind `__DEV__` / API `iap.stubEnabled` (see [soft-launch-chrome-hygiene.md](soft-launch-chrome-hygiene.md))
+- `shop` — personal boost SKU + **stub activate** (no payment); optional team +25% sim for display demos — stub CTAs + API gated for soft launch (see [soft-launch-chrome-hygiene.md](soft-launch-chrome-hygiene.md), [soft-launch-stub-honesty.md](soft-launch-stub-honesty.md))
 - Map screen passes `boostFromUser(user)` into the sheet
 
 ## API (thin)

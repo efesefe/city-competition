@@ -28,7 +28,7 @@
 - `TurkiyeMap` — `spotlightPlates` → amber urgency stroke + pulsing halo path (no badge stickers). Pulse no longer re-renders the 81-path tree — see [map-spotlight-pulse-perf.md](map-spotlight-pulse-perf.md)
 - `matchDayChrome.ts` — tribe-filtered banner selection; city-based spotlight set
 - Map screen polls `GET /v1/match-day/active` every 60s
-- Shop: **Maç günü fixture stub** seeds chrome for QA — UI gated behind `__DEV__` / `iap.stubEnabled` (see [soft-launch-chrome-hygiene.md](soft-launch-chrome-hygiene.md))
+- Shop: **Maç günü fixture stub** seeds chrome for QA — UI + API gated for soft launch (see [soft-launch-stub-honesty.md](soft-launch-stub-honesty.md))
 
 ## API (thin)
 

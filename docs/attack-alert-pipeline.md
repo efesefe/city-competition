@@ -22,7 +22,7 @@ Redis `SET NX EX 300` on `coalesce:attack:{plate}:{userId}` plus buffer hash. Fi
 | Channel | Mechanism |
 |---------|-----------|
 | **In-app** | Postgres `user_notifications` + `GET /v1/notifications` |
-| **Push** | `LPUSH notif_queue` → in-process worker → device tokens in `device_push_tokens` (`LogPushSender` until FCM/APNs keys) |
+| **Push** | `LPUSH notif_queue` → worker/`LogPushSender` — **log-only for soft launch** (see [soft-launch-stub-honesty.md](soft-launch-stub-honesty.md)); inbox is the real channel |
 
 Deep link: `/map?il={plate}` (city sheet / spend CTA).
 

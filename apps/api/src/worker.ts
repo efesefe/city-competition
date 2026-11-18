@@ -77,11 +77,12 @@ async function drainNotifQueueOnce(): Promise<void> {
   const popped = await redis.brPop(KEYS.notifQueue, NOTIF_BRPOP_SEC);
   if (!popped?.element) return;
 
-  // Stub delivery — Expo Push / APNs / FCM leaf lands later. Ack by dequeue.
+  // Soft launch: log-only drain (no FCM/APNs). Inbox dual-write is the real channel.
   console.info(
     JSON.stringify({
       svc: "worker",
       job: "notif_stub",
+      pushDelivery: "log_only",
       payload: safeJson(popped.element),
     }),
   );
