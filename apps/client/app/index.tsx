@@ -1,3 +1,4 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -8,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CitySheetModal } from "../components/CitySheet";
 import { MatchDayBanner } from "../components/MatchDayBanner";
 import { TutorialCoach } from "../components/TutorialCoach";
@@ -21,8 +23,10 @@ import {
   type TutorialState,
 } from "../lib/api";
 import { wsUrl } from "../lib/config";
+import { selectContestedPlates } from "../lib/mapAtlas";
 import { selectBannerEvent, selectSpotlightPlates } from "../lib/matchDayChrome";
 import { useSession } from "../lib/session";
+import { colors, fonts, motion, radii, space, type as typeRoles } from "../lib/theme";
 
 function idemKey() {
   return `spend_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
@@ -32,6 +36,7 @@ type DigestStatus = "loading" | "ready" | "error";
 
 export default function MapScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ openPlate?: string }>();
   const { user, token, updateUser, refresh } = useSession();
   const [digest, setDigest] = useState<DigestCity[]>([]);
@@ -51,8 +56,13 @@ export default function MapScreen() {
   const [shareAvailable, setShareAvailable] = useState(false);
   const [flippedShareAvailable, setFlippedShareAvailable] = useState(false);
   const fade = useRef(new Animated.Value(0)).current;
+  const ctaOpacity = useRef(new Animated.Value(0)).current;
+  const ctaRise = useRef(new Animated.Value(14)).current;
   const selectLock = useRef(false);
   const openedResume = useRef(false);
+
+  const isGuest = !token || !user;
+  const isVerifiedPlayer = !!user?.phoneVerified && !!user?.tribeId;
 
   const loadDigest = useCallback(async () => {
     setDigestStatus("loading");
@@ -105,6 +115,22 @@ export default function MapScreen() {
     return () => clearInterval(id);
   }, [loadMatchDay]);
 
+  // CTA / lower-third enter — fade + short rise (Floodlight Night motion budget).
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(ctaOpacity, {
+        toValue: 1,
+        duration: motion.sheetEnterMs,
+        useNativeDriver: true,
+      }),
+      Animated.timing(ctaRise, {
+        toValue: 0,
+        duration: motion.sheetEnterMs,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [ctaOpacity, ctaRise]);
+
   const bannerEvent = useMemo(
     () => selectBannerEvent(matchDayEvents, user?.tribeId),
     [matchDayEvents, user?.tribeId],
@@ -113,6 +139,7 @@ export default function MapScreen() {
     () => selectSpotlightPlates(matchDayEvents),
     [matchDayEvents],
   );
+  const contestedPlates = useMemo(() => selectContestedPlates(digest, 3), [digest]);
 
   useEffect(() => {
     void loadTutorial();
@@ -388,33 +415,37 @@ export default function MapScreen() {
           ? { ...tutorial, active: false, step: "done" as const }
           : tutorial
       : null;
+
+  const playLabel = !token
+    ? "Play / Katıl"
+    : !user?.phoneVerified
+      ? "Doğrula"
+      : user?.tribeId
+        ? "Hesap"
+        : "Kabile";
+
   return (
     <View style={styles.root}>
-      <View style={styles.heroChrome}>
-        <Text style={styles.brand}>City Competition</Text>
-        <Text style={styles.tagline}>Türkiye paylaşılıyor. Kabileni seç, şehirler için savaş.</Text>
-      </View>
-
-      {bannerEvent ? (
-        <MatchDayBanner
-          event={bannerEvent}
-          onPressSpotlight={() => {
-            if (bannerEvent.spotlightPlate) void openCity(bannerEvent.spotlightPlate);
-          }}
-        />
-      ) : null}
-
-      <View style={styles.mapPane}>
+      {/* Full-bleed map plane — edge-to-edge visual anchor */}
+      <View style={styles.mapPlane} pointerEvents="box-none">
         <TurkiyeMap
           digest={digest}
           selectedPlate={selected}
           pulsePlates={spotlight}
           spotlightPlates={spotlightPlates}
+          contestedPlates={contestedPlates}
           onSelect={openCity}
+        />
+        {/* Cool night vignette — atmosphere, not decorative abstract alone */}
+        <LinearGradient
+          pointerEvents="none"
+          colors={["rgba(7,11,18,0.72)", "transparent", "transparent", "rgba(7,11,18,0.45)"]}
+          locations={[0, 0.22, 0.55, 1]}
+          style={StyleSheet.absoluteFill}
         />
         {digestStatus === "loading" ? (
           <View style={styles.mapOverlay} pointerEvents="none">
-            <ActivityIndicator color="#c8a96b" size="large" />
+            <ActivityIndicator color={colors.accent} size="large" />
             <Text style={styles.overlayText}>Harita yükleniyor…</Text>
           </View>
         ) : null}
@@ -454,43 +485,102 @@ export default function MapScreen() {
         />
       </View>
 
-      <View style={styles.bar}>
-        {user?.phoneVerified ? (
-          <Pressable
-            onPress={() => {
-              if (tutorial?.active && tutorial.step === "claim") void onClaim();
-            }}
-            testID="energy-pill"
-          >
-            <Text
-              style={[
-                styles.energy,
-                tutorial?.active && tutorial.step === "claim" ? styles.energyLit : null,
-              ]}
-            >
-              ⚡ {user.energy.total}
-            </Text>
-          </Pressable>
-        ) : (
-          <Text style={styles.energyMuted}>Misafir</Text>
-        )}
-        <Pressable style={styles.link} onPress={() => router.push("/scoreboard")}>
-          <Text style={styles.linkText}>Skor</Text>
-        </Pressable>
-        <Pressable style={styles.link} onPress={openShop}>
-          <Text style={styles.linkText}>Dükkan</Text>
-        </Pressable>
-        {user?.role === "admin" ? (
-          <Pressable style={styles.link} onPress={() => router.push("/admin")}>
-            <Text style={styles.linkText}>Admin</Text>
-          </Pressable>
-        ) : null}
-        <Pressable style={styles.play} onPress={goPlay}>
-          <Text style={styles.playText}>
-            {!token ? "Katıl" : !user?.phoneVerified ? "Doğrula" : user?.tribeId ? "Hesap" : "Kabile"}
+      {/* Top chrome: brand as hero signal + muted scoreboard */}
+      <View
+        style={[styles.topChrome, { paddingTop: Math.max(insets.top, space.sm) }]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.brandRow}>
+          <Text style={styles.brand} accessibilityRole="header">
+            City Competition
           </Text>
-        </Pressable>
+          <Pressable
+            style={styles.scoreboardBtn}
+            onPress={() => router.push("/scoreboard")}
+            accessibilityLabel="Scoreboard"
+            hitSlop={8}
+          >
+            <Text style={styles.scoreboardIcon}>Skor</Text>
+          </Pressable>
+        </View>
+        {isVerifiedPlayer && user ? (
+          <View style={styles.playerMeta}>
+            <Pressable
+              onPress={() => {
+                if (tutorial?.active && tutorial.step === "claim") void onClaim();
+              }}
+              testID="energy-pill"
+            >
+              <Text
+                style={[
+                  styles.energy,
+                  tutorial?.active && tutorial.step === "claim" ? styles.energyLit : null,
+                ]}
+              >
+                {user.energy.total} ⚡
+              </Text>
+            </Pressable>
+            {user.tribeAlias ? (
+              <Text style={styles.tribeChip} numberOfLines={1}>
+                {user.tribeAlias}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
+        {bannerEvent ? (
+          <MatchDayBanner
+            event={bannerEvent}
+            onPressSpotlight={() => {
+              if (bannerEvent.spotlightPlate) void openCity(bannerEvent.spotlightPlate);
+            }}
+          />
+        ) : null}
       </View>
+
+      {/* Lower-third: wireframe copy + one CTA group (guest first viewport) */}
+      <LinearGradient
+        pointerEvents="box-none"
+        colors={["transparent", colors.overlayScrim, "rgba(7,11,18,0.92)"]}
+        locations={[0, 0.35, 1]}
+        style={[styles.lowerThird, { paddingBottom: Math.max(insets.bottom, space.lg) }]}
+      >
+        <Animated.View
+          style={{
+            opacity: ctaOpacity,
+            transform: [{ translateY: ctaRise }],
+          }}
+        >
+          {(isGuest || !isVerifiedPlayer) && (
+            <View style={styles.copyBlock}>
+              <Text style={styles.headline}>Türkiye is contested.</Text>
+              <Text style={styles.support}>Pick a tribe and fight for cities.</Text>
+              <Text style={styles.supportTr}>Türkiye paylaşılıyor.</Text>
+              <Text style={styles.supportTr}>Kabileni seç, şehirler için savaş.</Text>
+            </View>
+          )}
+
+          <View style={styles.ctaRow}>
+            {/* Logged-in secondary chrome — not in guest first viewport */}
+            {isVerifiedPlayer ? (
+              <Pressable style={styles.link} onPress={openShop}>
+                <Text style={styles.linkText}>Dükkan</Text>
+              </Pressable>
+            ) : null}
+            {user?.role === "admin" ? (
+              <Pressable style={styles.link} onPress={() => router.push("/admin")}>
+                <Text style={styles.linkText}>Admin</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              style={[styles.play, isVerifiedPlayer ? styles.playCompact : null]}
+              onPress={goPlay}
+              testID="guest-play-cta"
+            >
+              <Text style={styles.playText}>{playLabel}</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </LinearGradient>
 
       <CitySheetModal
         sheet={sheet}
@@ -518,91 +608,199 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0b1f17" },
-  heroChrome: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
-  brand: {
-    fontFamily: "Georgia",
-    fontSize: 28,
-    color: "#f4e7c5",
-    fontWeight: "700",
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg,
   },
-  tagline: { color: "#9bb0a3", fontSize: 13, marginTop: 2 },
-  mapPane: { flex: 1, position: "relative" },
+  mapPlane: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: colors.mapBase,
+  },
+  topChrome: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    paddingHorizontal: space.lg,
+    gap: space.sm,
+    zIndex: 2,
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: space.md,
+  },
+  brand: {
+    ...typeRoles.brand,
+    fontFamily: fonts.display,
+    fontSize: 32,
+    fontWeight: "800",
+    color: colors.ink,
+    letterSpacing: -0.5,
+    flexShrink: 1,
+  },
+  scoreboardBtn: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
+    marginTop: 4,
+  },
+  scoreboardIcon: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  playerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+  },
+  energy: {
+    ...typeRoles.tabular,
+    color: colors.inkDim,
+    minWidth: 48,
+  },
+  energyLit: {
+    color: colors.accent,
+  },
+  tribeChip: {
+    ...typeRoles.meta,
+    color: colors.muted,
+    flexShrink: 1,
+  },
+  lowerThird: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: space.lg,
+    paddingTop: space.xxl,
+    zIndex: 2,
+  },
+  copyBlock: {
+    gap: 4,
+    marginBottom: space.lg,
+    maxWidth: 360,
+  },
+  headline: {
+    ...typeRoles.headline,
+    fontFamily: fonts.body,
+    fontSize: 19,
+    fontWeight: "600",
+    color: colors.ink,
+  },
+  support: {
+    ...typeRoles.body,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    marginBottom: space.sm,
+  },
+  supportTr: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    fontSize: 13,
+  },
+  ctaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+  },
+  link: {
+    paddingHorizontal: space.sm,
+    paddingVertical: space.sm,
+  },
+  linkText: {
+    ...typeRoles.meta,
+    color: colors.muted,
+  },
+  play: {
+    marginLeft: "auto",
+    backgroundColor: colors.accent,
+    paddingHorizontal: space.xl,
+    paddingVertical: 14,
+    borderRadius: radii.md,
+    minWidth: 148,
+    alignItems: "center",
+  },
+  playCompact: {
+    minWidth: 112,
+    paddingVertical: 12,
+  },
+  playText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+  },
   mapOverlay: {
     ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(10, 22, 32, 0.72)",
+    backgroundColor: "rgba(7, 11, 18, 0.72)",
     paddingHorizontal: 24,
     gap: 10,
   },
   emptyBanner: {
     position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: 12,
-    backgroundColor: "rgba(10, 22, 32, 0.85)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    left: space.md,
+    right: space.md,
+    bottom: 160,
+    backgroundColor: colors.surface,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radii.sm,
   },
   errorBanner: {
     position: "absolute",
-    left: 12,
-    right: 12,
-    bottom: 12,
-    backgroundColor: "rgba(10, 22, 32, 0.92)",
-    paddingHorizontal: 12,
+    left: space.md,
+    right: space.md,
+    bottom: 160,
+    backgroundColor: colors.surface,
+    paddingHorizontal: space.md,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
   errorCopy: { flex: 1, gap: 2 },
-  overlayTitle: { color: "#f4e7c5", fontSize: 14, fontWeight: "700" },
-  overlayText: { color: "#9bb0a3", fontSize: 13, textAlign: "center" },
+  overlayTitle: {
+    ...typeRoles.meta,
+    color: colors.ink,
+    fontWeight: "700",
+  },
+  overlayText: {
+    ...typeRoles.meta,
+    color: colors.muted,
+    textAlign: "center",
+  },
   retry: {
-    backgroundColor: "#c8a96b",
+    backgroundColor: colors.accent,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: radii.md,
   },
-  retryText: { color: "#0b1f17", fontWeight: "700" },
+  retryText: {
+    ...typeRoles.cta,
+    fontSize: 14,
+    color: colors.ink,
+  },
   flipBanner: {
     position: "absolute",
-    top: 12,
+    top: 96,
     alignSelf: "center",
-    backgroundColor: "#c8a96b",
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.stroke,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: radii.sm,
   },
-  flipText: { color: "#0b1f17", fontWeight: "700" },
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#1e3329",
+  flipText: {
+    ...typeRoles.meta,
+    color: colors.ink,
+    fontWeight: "700",
   },
-  energy: { color: "#c8a96b", fontWeight: "700", minWidth: 56 },
-  energyLit: {
-    color: "#f4e7c5",
-    textShadowColor: "#c8a96b",
-    textShadowRadius: 6,
-  },
-  energyMuted: { color: "#6b7c72", minWidth: 56 },
-  link: { paddingHorizontal: 8, paddingVertical: 6 },
-  linkText: { color: "#9bb0a3" },
-  play: {
-    marginLeft: "auto",
-    backgroundColor: "#c8a96b",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  playText: { color: "#0b1f17", fontWeight: "700" },
 });

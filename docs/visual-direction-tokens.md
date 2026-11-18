@@ -6,11 +6,11 @@
 - Added `apps/client/lib/theme.ts` — `colors`, `fonts`, `type`, `space`, `radii`, `motion`.
 - Wired `apps/client/app/_layout.tsx` stack chrome to `colors.bg` / `colors.ink` / `fonts.display` (drops Georgia + forest green header).
 
-**Not in this PR:** expo-font loading for Unbounded/Figtree, guest-map full-bleed redesign (W5), secondary surface pass (W6), bulk hex replacement across sheets/shop.
+**Not in this PR (at W4 land):** expo-font loading for Unbounded/Figtree, guest-map full-bleed redesign (W5), secondary surface pass (W6), bulk hex replacement across sheets/shop.
 
 **How to test:**
 1. `cd apps/client && npx tsc --noEmit`
 2. Open the app — root stack background/header should read night navy (`#070B12`), not forest green.
 3. Confirm no screen layout/copy changes beyond shell tint.
 
-**Follow-up:** load Unbounded + Figtree via `expo-font`, then replace component hex islands using `theme.colors` / `theme.type`.
+**Follow-up:** ~~load Unbounded + Figtree~~ + guest map composition → see [`guest-map-floodlight-night.md`](guest-map-floodlight-night.md) (W5). W6 still open for sheet/shop/boards.

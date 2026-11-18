@@ -1,4 +1,5 @@
 import raw from "../assets/turkiye-provinces.json";
+import { colors } from "./theme";
 
 export type ProvinceFeature = {
   plate: string;
@@ -61,6 +62,10 @@ export type ProvincePaint = {
   strokeWidth: number;
 };
 
+/**
+ * Floodlight Night ownership paint.
+ * Contested soft pulse is a separate overlay (accent wash) — not badges.
+ */
 export function provinceStyle(
   plate: string,
   colorByPlate: Map<string, string>,
@@ -68,24 +73,25 @@ export function provinceStyle(
   pulsePlates?: Set<string>,
   spotlightPlates?: Set<string>,
 ): ProvincePaint {
-  const fill = colorByPlate.get(plate) || "#2a3f36";
+  const fill = colorByPlate.get(plate) || colors.mapBase;
   const selected = selectedPlate === plate;
   const pulse = pulsePlates?.has(plate) ?? false;
   const spotlight = spotlightPlates?.has(plate) ?? false;
-  // Match-day spotlight: full-intensity fill + amber urgency stroke (wireframes §5).
+
+  // Match-day spotlight: cool floodlight stroke (retinted off gold).
   if (spotlight && !selected) {
     return {
       fill,
-      fillOpacity: pulse ? 1 : 0.96,
-      stroke: "#e8b84a",
-      strokeWidth: 2.4,
+      fillOpacity: pulse ? 0.92 : 0.82,
+      stroke: colors.ink,
+      strokeWidth: 2.2,
     };
   }
   return {
     fill,
-    fillOpacity: selected ? 1 : pulse ? 0.95 : 0.88,
-    stroke: selected ? "#f4e7c5" : "#0a1620",
-    strokeWidth: selected ? 2.2 : 0.6,
+    fillOpacity: selected ? 0.95 : pulse ? 0.9 : 0.82,
+    stroke: selected ? colors.accent : colors.mapStroke,
+    strokeWidth: selected ? 2 : 0.7,
   };
 }
 
@@ -96,4 +102,27 @@ export function paintEquals(a: ProvincePaint, b: ProvincePaint): boolean {
     a.stroke === b.stroke &&
     a.strokeWidth === b.strokeWidth
   );
+}
+
+/** Pick up to `limit` hottest contested plates (tight lead margin + rival pressure). */
+export function selectContestedPlates(
+  digest: { plate: string; leadMargin?: number; rivalSupport?: number; leadSupport?: number }[],
+  limit = 3,
+): Set<string> {
+  const scored = digest
+    .filter((c) => c?.plate && typeof c.rivalSupport === "number" && (c.rivalSupport ?? 0) > 0)
+    .map((c) => {
+      const margin =
+        typeof c.leadMargin === "number"
+          ? Math.abs(c.leadMargin)
+          : Math.max(0, (c.leadSupport ?? 0) - (c.rivalSupport ?? 0));
+      const rival = c.rivalSupport ?? 0;
+      // Lower margin + higher rival = hotter fight.
+      const heat = rival / (1 + margin);
+      return { plate: c.plate, heat, margin };
+    })
+    .filter((c) => c.heat > 0)
+    .sort((a, b) => b.heat - a.heat || a.margin - b.margin);
+
+  return new Set(scored.slice(0, limit).map((c) => c.plate));
 }

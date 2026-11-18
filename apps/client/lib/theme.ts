@@ -1,7 +1,7 @@
 /**
  * Floodlight Night — Season 0 visual tokens (D2 lock).
  * Source of truth for roles/hex: store docs/visual-direction.md
- * W4 start: tokens only — do not redesign screens here.
+ * W4 tokens; W5 guest map loads Unbounded/Figtree via expo-font in `_layout`.
  */
 
 export const colors = {

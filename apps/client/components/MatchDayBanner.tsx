@@ -2,6 +2,7 @@ import React, { memo, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { MatchDayEvent } from "../lib/api";
 import { boostPctLabel, formatCountdown } from "../lib/matchDayChrome";
+import { colors, fonts, radii, space } from "../lib/theme";
 
 type Props = {
   event: MatchDayEvent;
@@ -44,7 +45,7 @@ export const MatchDayBanner = memo(function MatchDayBanner({
   const pct = boostPctLabel(event.boostPct);
   const city = event.cityNameTr;
   const remaining = formatCountdown(event.endsAt, now);
-  const accent = event.teamColor || "#c8a96b";
+  const accent = event.teamColor || colors.accent;
 
   return (
     <Pressable
@@ -79,13 +80,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginHorizontal: 12,
-    marginBottom: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    marginBottom: space.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radii.sm,
     borderWidth: 1,
-    backgroundColor: "rgba(12, 28, 22, 0.92)",
+    backgroundColor: colors.surface,
   },
   pip: {
     width: 8,
@@ -94,16 +94,19 @@ const styles = StyleSheet.create({
   },
   copy: { flex: 1, gap: 1 },
   title: {
-    color: "#f4e7c5",
+    fontFamily: fonts.body,
+    color: colors.ink,
     fontSize: 13,
     fontWeight: "700",
   },
   meta: {
-    color: "#9bb0a3",
+    fontFamily: fonts.body,
+    color: colors.muted,
     fontSize: 12,
   },
   cta: {
-    color: "#c8a96b",
+    fontFamily: fonts.body,
+    color: colors.inkDim,
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",

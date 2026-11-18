@@ -5,8 +5,9 @@ Project context for future sessions. Update this list when adding a new module o
 | Doc | Topic |
 | --- | --- |
 | [apps-boot-path.md](apps-boot-path.md) | W1: `apps/` sole boot path — README/env/compose/Makefile; API `.env` load; legacy pending delete |
+| [guest-map-floodlight-night.md](guest-map-floodlight-night.md) | W5: guest map full-bleed first viewport (Floodlight Night + motion) |
+| [visual-direction-tokens.md](visual-direction-tokens.md) | W4: Floodlight Night `theme.ts` tokens + root stack chrome (D2) |
 | [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
-| [visual-direction-tokens.md](visual-direction-tokens.md) | W4 start: Floodlight Night `lib/theme.ts` tokens + root stack chrome (D2) |
 | [supabase-auth-providers.md](supabase-auth-providers.md) | CC-19: Supabase Auth phone/Google/Apple + Send SMS Hook seam |
 | [netgsm-otp-sms-hook.md](netgsm-otp-sms-hook.md) | CC-20: Netgsm OTP send from `POST /v1/auth/hooks/send-sms` |
 | [phone-verify-before-play.md](phone-verify-before-play.md) | CC-21: Phone verify wall before spend + Kabile pick |
