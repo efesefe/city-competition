@@ -4,7 +4,8 @@ Project context for future sessions. Update this list when adding a new module o
 
 | Doc | Topic |
 | --- | --- |
-| [apps-boot-path.md](apps-boot-path.md) | W1: `apps/` sole boot path — README/env/compose/Makefile; API `.env` load; legacy pending delete |
+| [apps-boot-path.md](apps-boot-path.md) | W1 + D1: `apps/` sole boot path; legacy Go/Next trees deleted |
+| [legacy-tree-delete.md](legacy-tree-delete.md) | D1: deleted `frontend/` / `backend/` / `services/` / root compose + migrations |
 | [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
 | [visual-direction-tokens.md](visual-direction-tokens.md) | W4 start: Floodlight Night `lib/theme.ts` tokens + root stack chrome (D2) |
 | [supabase-auth-providers.md](supabase-auth-providers.md) | CC-19: Supabase Auth phone/Google/Apple + Send SMS Hook seam |
@@ -57,6 +58,5 @@ Project context for future sessions. Update this list when adding a new module o
 | [android-play-billing-revenuecat.md](android-play-billing-revenuecat.md) | CC-45: Google Play Billing via RevenueCat; same entitlement hook as iOS |
 | [tribe-emblems.md](tribe-emblems.md) | Original mascot silhouettes on tribe crests (slug-keyed, no official club marks) |
 | [tribe-stripes.md](tribe-stripes.md) | Vertical kit-color stripes on held Türkiye map provinces |
-| [frontend-docker-build.md](frontend-docker-build.md) | Next `npm run build` in the frontend image; LeaderboardScope typecheck |
 | [client-merge-syntax-fix.md](client-merge-syntax-fix.md) | Expo web bundling: double-comma merge artifact in `lib/api.ts` `adminMetrics` |
 

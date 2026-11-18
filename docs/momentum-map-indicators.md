@@ -1,5 +1,7 @@
 # Momentum badges and contest-tension ring
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Always-on Türkiye map indicators for volatile cities, long holding streaks, and how close a city is to flipping. Both read from `GET /v1/cities` fields (`flips_today`, `current_streak_days`, `contest_tension`) added by the backend momentum store.
 
 ## Why this shape

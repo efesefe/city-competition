@@ -9,7 +9,7 @@
 
 - `docs/auth-verification-flow.md` — guest browse; verify before spend/alias; wall copy EN/TR  
 - `docs/wireframes.md` — §3 phone verify gate; §4 Kabile after verify  
-- Existing slice middleware: Next `frontend/middleware.ts` is locale-only; play gates live in Fastify + Expo client
+- Play gates live in Fastify + Expo client (no Next middleware in the active stack)
 
 ## Behavior
 

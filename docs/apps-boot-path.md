@@ -1,19 +1,29 @@
-# Canonicalize `apps/` as the only boot path (W1)
+# Canonicalize `apps/` as the only boot path (W1) + legacy delete (D1)
 
-**Date:** 2026-11-17  
-**Branch:** `cursor/canonicalize-apps-boot-path-b18e`  
-**Why:** Soft-launch readiness — newcomers must not boot the legacy Go/Next tree. Decision **D1** deletes `frontend/` / `backend/` in a follow-up PR after this quarantine-docs PR lands.
+**Date:** 2026-11-17 (W1) / 2026-11-18 (D1 delete)  
+**Why:** Soft-launch readiness — newcomers must boot Expo + Fastify only. Decision **D1** deletes the Go/Next trees.
 
-## What changed
+## What changed (W1)
 
 | Area | Change |
 |------|--------|
-| Root `README.md` | Sole documented stack = `apps/client` + `apps/api`; quick start; legacy marked pending delete |
+| Root `README.md` | Sole documented stack = `apps/client` + `apps/api` |
 | `apps/README.md` | Clarifies sole boot path; compose = `apps/api/docker-compose.yml`; `.env` auto-load |
-| Root `.env.example` | Retired Go/Next (`:8080`, `citycomp`, `NEXT_PUBLIC_*`) → pointer to `apps/*/.env.example` |
-| Root `Makefile` | Defaults + targets for apps stack; removed Go `import-boundaries` default |
-| `apps/api/src/loadEnv.ts` | Loads `apps/api/.env` on API / worker / migrate boot (export wins; missing file OK) |
-| `apps/api/.env.example` | Notes auto-load + canonical compose path |
+| Root `.env.example` | Pointer to `apps/*/.env.example` |
+| Root `Makefile` | Defaults + targets for apps stack |
+| `apps/api/src/loadEnv.ts` | Loads `apps/api/.env` on API / worker / migrate boot |
+
+## What changed (D1)
+
+Deleted legacy Go/Next product trees and leftovers that only served them:
+
+- `frontend/` (Next.js)
+- `backend/` (Go)
+- `services/payments/` (Go-era payments microservice)
+- Root `migrations/` (Go-era; **`apps/api/migrations/` kept**)
+- Root `docker-compose.yml`, `docker/postgres/`, `docker/observability/`
+- `prompts/` (Go/Next implementation prompts)
+- `docs/frontend-docker-build.md`
 
 ## Required env
 
@@ -26,14 +36,9 @@
 cd apps/api && docker compose up -d   # apps/api/docker-compose.yml only
 ```
 
-Do **not** use root `docker-compose.yml` (PostGIS + Go backend + Next + payments) for Season 0.
-
 ## Test
 
 ```bash
 cd apps/api && npm run typecheck && npm test
+cd apps/client && npx tsc --noEmit
 ```
-
-## Follow-up (not this PR)
-
-Delete legacy `frontend/`, `backend/`, root `docker-compose.yml`, root Go migrations, `services/payments/`, observability compose wiring, and Go-era Makefile/data import paths per **D1**.
