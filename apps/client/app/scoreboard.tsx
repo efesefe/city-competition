@@ -15,6 +15,7 @@ import {
 } from "../lib/api";
 import { shareCardNative } from "../lib/share";
 import { useSession } from "../lib/session";
+import { colors, fonts, space, type as typeRoles } from "../lib/theme";
 
 type TabId = "teams" | "players";
 
@@ -123,7 +124,7 @@ export default function ScoreboardScreen() {
       {shareError ? <Text style={styles.error}>{shareError}</Text> : null}
 
       {loading ? (
-        <ActivityIndicator color="#c8a96b" style={{ marginTop: 24 }} />
+        <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />
       ) : error ? (
         <Text style={styles.error} testID="scoreboard-error">
           {error}
@@ -210,57 +211,108 @@ function formatSpent(n: number): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16, backgroundColor: "#0b1f17" },
+  root: { flex: 1, padding: space.lg, backgroundColor: colors.bg },
   season: {
-    fontFamily: "Georgia",
+    ...typeRoles.title,
+    fontFamily: fonts.display,
     fontSize: 22,
-    color: "#f4e7c5",
     fontWeight: "700",
+    color: colors.ink,
   },
-  metricHint: { color: "#9bb0a3", marginTop: 4, marginBottom: 12, fontSize: 13 },
+  metricHint: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    marginTop: space.xs,
+    marginBottom: space.md,
+  },
   tabs: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 12,
+    gap: space.sm,
+    marginBottom: space.md,
   },
   tab: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: space.sm,
     borderBottomWidth: 2,
     borderBottomColor: "transparent",
   },
-  tabActive: { borderBottomColor: "#c8a96b" },
-  tabText: { color: "#6b7c72", fontWeight: "600" },
-  tabTextActive: { color: "#f4e7c5" },
-  guestNote: { color: "#9bb0a3", marginBottom: 12, fontSize: 12 },
+  tabActive: { borderBottomColor: colors.accent },
+  tabText: {
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    fontWeight: "600",
+  },
+  tabTextActive: { color: colors.ink },
+  guestNote: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    marginBottom: space.md,
+  },
   shareBtn: {
     alignSelf: "flex-start",
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: space.sm,
+    paddingHorizontal: 2,
     marginBottom: 10,
   },
   shareDisabled: { opacity: 0.5 },
-  shareText: { color: "#c8a96b", fontWeight: "700" },
-  error: { color: "#e07a5f", marginTop: 16 },
-  empty: { color: "#6b7c72", marginTop: 24, textAlign: "center" },
+  shareText: {
+    fontFamily: fonts.body,
+    color: colors.accent,
+    fontWeight: "700",
+  },
+  error: { color: colors.danger, marginTop: space.lg, fontFamily: fonts.body },
+  empty: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginTop: space.xl,
+    textAlign: "center",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#1e3329",
+    borderBottomColor: colors.stroke,
   },
-  rowMine: { backgroundColor: "rgba(200,169,107,0.08)" },
-  rank: { width: 28, color: "#6b7c72" },
+  rowMine: { backgroundColor: colors.accentSoft },
+  rank: { width: 28, color: colors.mutedDim, fontFamily: fonts.body },
   dot: { width: 12, height: 12, borderRadius: 2 },
-  alias: { flex: 1, color: "#e8efe9" },
-  tribe: { width: 96, color: "#9bb0a3", fontSize: 12 },
-  val: { color: "#c8a96b", fontWeight: "700", minWidth: 40, textAlign: "right" },
-  youTag: { color: "#c8a96b", fontSize: 12, marginLeft: 4 },
-  ends: { color: "#6b7c72", marginTop: 16, marginBottom: 8, fontSize: 12 },
-  metricFoot: { color: "#6b7c72", marginTop: 12, fontSize: 12 },
+  alias: { flex: 1, color: colors.ink, fontFamily: fonts.body },
+  tribe: {
+    width: 96,
+    color: colors.muted,
+    fontSize: 12,
+    fontFamily: fonts.body,
+  },
+  val: {
+    ...typeRoles.tabular,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    fontWeight: "700",
+    minWidth: 40,
+    textAlign: "right",
+  },
+  youTag: {
+    color: colors.accent,
+    fontSize: 12,
+    marginLeft: space.xs,
+    fontFamily: fonts.body,
+  },
+  ends: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginTop: space.lg,
+    marginBottom: space.sm,
+  },
+  metricFoot: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginTop: space.md,
+  },
 });

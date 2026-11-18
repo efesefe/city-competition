@@ -16,6 +16,7 @@ import {
   type PublicUser,
 } from "../lib/api";
 import { needsPhoneVerify } from "../lib/play-gates";
+import { colors, fonts, radii, space, type as typeRoles } from "../lib/theme";
 import { ConfirmSpendModal } from "./ConfirmSpendModal";
 import { GuestLoginWall } from "./GuestLoginWall";
 import { PhoneVerifyWall } from "./PhoneVerifyWall";
@@ -156,7 +157,7 @@ export function CitySheetModal({
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} accessibilityLabel="sheet handle" />
           {loading ? (
-            <ActivityIndicator color="#c8a96b" />
+            <ActivityIndicator color={colors.accent} />
           ) : loadError || !sheet ? (
             <>
               <View style={styles.header}>
@@ -182,13 +183,13 @@ export function CitySheetModal({
 
               <Text style={styles.owner}>
                 Owner:{" "}
-                <Text style={{ color: sheet.ownerColor || "#f4e7c5" }}>
+                <Text style={{ color: sheet.ownerColor || colors.ink }}>
                   {sheet.ownerAlias || "—"}
                 </Text>
               </Text>
               <Text style={styles.ownerTr}>
                 Sahip:{" "}
-                <Text style={{ color: sheet.ownerColor || "#f4e7c5" }}>
+                <Text style={{ color: sheet.ownerColor || colors.ink }}>
                   {sheet.ownerAlias || "—"}
                 </Text>
               </Text>
@@ -365,88 +366,149 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    backgroundColor: colors.overlayScrim,
   },
   sheet: {
-    backgroundColor: "#13261d",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-    gap: 8,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.stroke,
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
+    paddingBottom: space.xl,
+    gap: space.sm,
     maxHeight: "78%",
   },
   sheetHandle: {
     alignSelf: "center",
-    width: 42,
+    width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#3d5a4c",
-    marginBottom: 8,
+    backgroundColor: colors.stroke,
+    marginBottom: space.sm,
   },
   scroll: { flexGrow: 0 },
-  scrollContent: { gap: 6, paddingBottom: 8 },
+  scrollContent: { gap: space.sm, paddingBottom: space.sm },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: {
-    fontFamily: "Georgia",
-    fontSize: 24,
-    color: "#f4e7c5",
+    ...typeRoles.title,
+    fontFamily: fonts.display,
+    fontSize: 22,
     fontWeight: "700",
+    color: colors.ink,
     flexShrink: 1,
   },
-  close: { color: "#9bb0a3", fontSize: 15 },
-  owner: { color: "#d8c9a3", fontSize: 16, marginTop: 4 },
-  ownerTr: { color: "#9bb0a3", fontSize: 13 },
-  meta: { color: "#9bb0a3", fontSize: 13 },
+  close: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    fontSize: 15,
+  },
+  owner: {
+    ...typeRoles.headline,
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.inkDim,
+    marginTop: space.xs,
+  },
+  ownerTr: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+  },
+  meta: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+  },
   section: {
-    marginTop: 12,
-    color: "#c8a96b",
+    marginTop: space.md,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
     fontSize: 13,
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
     fontWeight: "600",
   },
-  sectionTr: { color: "#6b7c72", fontSize: 12, marginTop: -2 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 3 },
+  sectionTr: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginTop: -2,
+  },
+  row: { flexDirection: "row", alignItems: "center", gap: space.sm, paddingVertical: 3 },
   dot: { width: 10, height: 10, borderRadius: 2 },
-  rank: { color: "#6b7c72", width: 22, fontSize: 13 },
-  handleText: { color: "#e8efe9", fontWeight: "600", minWidth: 88 },
-  tribeChip: { flex: 1, color: "#9bb0a3", fontSize: 13 },
-  rowText: { flex: 1, color: "#e8efe9" },
-  youText: { color: "#f4e7c5", fontWeight: "700" },
-  rowVal: { color: "#c8a96b", fontVariant: ["tabular-nums"] },
-  boostBox: { marginTop: 4, gap: 2 },
-  boostLine: { color: "#e8efe9", fontSize: 15 },
-  spendBox: { marginTop: 10, gap: 8 },
-  energyLine: { color: "#c8a96b", fontWeight: "600" },
-  insuffRow: { gap: 6 },
-  insuffActions: { flexDirection: "row", gap: 8 },
+  rank: { color: colors.mutedDim, width: 22, fontSize: 13, fontFamily: fonts.body },
+  handleText: {
+    fontFamily: fonts.body,
+    color: colors.ink,
+    fontWeight: "600",
+    minWidth: 88,
+  },
+  tribeChip: { flex: 1, color: colors.muted, fontSize: 13, fontFamily: fonts.body },
+  rowText: { flex: 1, color: colors.ink, fontFamily: fonts.body },
+  youText: { color: colors.accent, fontWeight: "700" },
+  rowVal: {
+    ...typeRoles.tabular,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+  },
+  boostBox: { marginTop: space.xs, gap: 2 },
+  boostLine: {
+    fontFamily: fonts.body,
+    color: colors.ink,
+    fontSize: 15,
+  },
+  spendBox: { marginTop: space.md, gap: space.sm },
+  energyLine: {
+    ...typeRoles.tabular,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+  },
+  insuffRow: { gap: space.sm },
+  insuffActions: { flexDirection: "row", gap: space.sm },
   chip: {
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    borderRadius: 8,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radii.sm,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  chipText: { color: "#c8a96b", fontSize: 13, fontWeight: "600" },
+  chipText: {
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    fontSize: 13,
+    fontWeight: "600",
+  },
   cta: {
-    backgroundColor: "#c8a96b",
+    backgroundColor: colors.accent,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: "center",
-    marginTop: 6,
+    marginTop: space.sm,
   },
   ctaDisabled: { opacity: 0.4 },
-  ctaText: { color: "#0b1f17", fontWeight: "700", fontSize: 16 },
-  ctaSub: { color: "#3d2e12", fontSize: 12, marginTop: 2 },
+  ctaText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+  },
+  ctaSub: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+    opacity: 0.85,
+    marginTop: 2,
+  },
   shareBtn: {
-    borderWidth: 1,
-    borderColor: "#c8a96b",
-    borderRadius: 10,
     paddingVertical: 10,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: space.sm,
   },
-  shareText: { color: "#c8a96b", fontWeight: "700", fontSize: 14 },
-  error: { color: "#e07070", marginTop: 6 },
+  shareText: {
+    fontFamily: fonts.body,
+    color: colors.accent,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  error: { color: colors.danger, marginTop: space.sm, fontFamily: fonts.body },
 });

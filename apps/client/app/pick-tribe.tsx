@@ -14,6 +14,7 @@ import { PhoneVerifyWall } from "../components/PhoneVerifyWall";
 import { api, type Team } from "../lib/api";
 import { isPhoneUnverifiedError, phoneGateMessage } from "../lib/play-gates";
 import { useSession } from "../lib/session";
+import { colors, fonts, radii, space, type as typeRoles } from "../lib/theme";
 
 type Section = { key: "big4" | "rest"; title: string; data: Team[] };
 
@@ -174,7 +175,7 @@ export default function PickTribeScreen() {
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
 
       {loading ? (
-        <ActivityIndicator color="#c8a96b" style={{ marginTop: 24 }} />
+        <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />
       ) : (
         <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
           {sections.map((section) => (
@@ -227,7 +228,7 @@ export default function PickTribeScreen() {
               value={ticketClub}
               onChangeText={setTicketClub}
               placeholder="İstediğin kulüp (ops notu)"
-              placeholderTextColor="#5a7266"
+              placeholderTextColor={colors.mutedDim}
             />
             <Pressable style={styles.ticketCta} onPress={submitTicket}>
               <Text style={styles.ticketCtaText}>Ticket gönder</Text>
@@ -265,97 +266,183 @@ export default function PickTribeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: 16, paddingTop: 12, backgroundColor: "#0b1f17" },
-  brand: {
-    fontFamily: "Georgia",
-    fontSize: 14,
-    color: "#c8a96b",
-    fontWeight: "600",
-    letterSpacing: 0.4,
-    marginBottom: 4,
+  root: {
+    flex: 1,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    backgroundColor: colors.bg,
   },
-  title: { fontFamily: "Georgia", fontSize: 26, color: "#f4e7c5", fontWeight: "700" },
-  sub: { color: "#9bb0a3", marginBottom: 10, marginTop: 4, lineHeight: 20 },
-  list: { gap: 8, paddingBottom: 24 },
-  sectionBlock: { gap: 8, marginBottom: 10 },
+  brand: {
+    ...typeRoles.meta,
+    fontFamily: fonts.display,
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    marginBottom: space.xs,
+  },
+  title: {
+    ...typeRoles.title,
+    fontFamily: fonts.display,
+    fontSize: 26,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  sub: {
+    ...typeRoles.body,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    marginBottom: 10,
+    marginTop: space.xs,
+    lineHeight: 20,
+  },
+  list: { gap: space.sm, paddingBottom: space.xl },
+  sectionBlock: { gap: space.sm, marginBottom: 10 },
   sectionTitle: {
-    color: "#c8a96b",
+    fontFamily: fonts.body,
+    color: colors.inkDim,
     fontSize: 13,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: 4,
+    marginTop: space.xs,
   },
-  sectionRule: { color: "#6b7c72", fontSize: 12, marginBottom: 2 },
+  sectionRule: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginBottom: 2,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: "#13261d",
+    gap: space.md,
+    backgroundColor: colors.surface,
     padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#1e3329",
+    borderRadius: radii.md,
   },
   rowSelected: {
-    borderColor: "#c8a96b",
-    backgroundColor: "#1a3226",
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.accent,
   },
-  swatchPair: { flexDirection: "row", width: 28, height: 28, borderRadius: 6, overflow: "hidden" },
+  swatchPair: {
+    flexDirection: "row",
+    width: 28,
+    height: 28,
+    borderRadius: radii.sm,
+    overflow: "hidden",
+  },
   swatch: { flex: 1, height: "100%" },
   swatchSecondary: { borderLeftWidth: 1, borderLeftColor: "rgba(0,0,0,0.25)" },
-  alias: { color: "#f4e7c5", fontSize: 16, fontWeight: "600" },
-  badge: { color: "#c8a96b", fontSize: 11, marginTop: 2 },
-  current: { color: "#8fd4a0", fontSize: 11, marginTop: 2 },
-  check: { color: "#c8a96b", fontSize: 18, fontWeight: "700" },
-  secondary: { paddingVertical: 14, alignItems: "center" },
-  secondaryText: { color: "#9bb0a3", fontSize: 13, textDecorationLine: "underline" },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: "#1e3329",
-    paddingTop: 12,
-    paddingBottom: 16,
-    gap: 8,
+  alias: {
+    fontFamily: fonts.body,
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: "600",
   },
-  preview: { color: "#f4e7c5", fontWeight: "600" },
-  previewMuted: { color: "#6b7c72" },
+  badge: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.accent,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  current: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.success,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  check: {
+    color: colors.accent,
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: fonts.body,
+  },
+  secondary: { paddingVertical: 14, alignItems: "center" },
+  secondaryText: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    textDecorationLine: "underline",
+  },
+  footer: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.stroke,
+    paddingTop: space.md,
+    paddingBottom: space.lg,
+    gap: space.sm,
+  },
+  preview: {
+    fontFamily: fonts.body,
+    color: colors.ink,
+    fontWeight: "600",
+  },
+  previewMuted: {
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+  },
   cta: {
-    backgroundColor: "#c8a96b",
+    backgroundColor: colors.accent,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: "center",
   },
-  ctaText: { color: "#0b1f17", fontWeight: "700", fontSize: 16 },
-  disabled: { opacity: 0.5 },
-  error: { color: "#e07070", marginBottom: 8 },
-  hint: { color: "#8fd4a0", marginBottom: 8, fontSize: 13, lineHeight: 18 },
-  ticketBox: {
-    marginTop: 12,
-    gap: 8,
-    backgroundColor: "#13261d",
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#1e3329",
+  ctaText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
   },
-  ticketTitle: { color: "#c8a96b", fontWeight: "700", fontSize: 14 },
+  disabled: { opacity: 0.5 },
+  error: { color: colors.danger, marginBottom: space.sm, fontFamily: fonts.body },
+  hint: {
+    color: colors.success,
+    marginBottom: space.sm,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: fonts.body,
+  },
+  ticketBox: {
+    marginTop: space.md,
+    gap: space.sm,
+    paddingVertical: space.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.stroke,
+  },
+  ticketTitle: {
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    fontWeight: "700",
+    fontSize: 14,
+  },
   input: {
-    backgroundColor: "#0b1f17",
-    borderWidth: 1,
-    borderColor: "#1e3329",
-    borderRadius: 8,
-    color: "#f4e7c5",
-    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.stroke,
+    borderRadius: radii.sm,
+    color: colors.ink,
+    paddingHorizontal: space.md,
     paddingVertical: 10,
+    fontFamily: fonts.body,
   },
   ticketCta: {
-    backgroundColor: "#1a3226",
-    borderWidth: 1,
-    borderColor: "#c8a96b",
-    borderRadius: 8,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radii.sm,
     paddingVertical: 10,
     alignItems: "center",
   },
-  ticketCtaText: { color: "#c8a96b", fontWeight: "700", fontSize: 14 },
-  ticketNote: { color: "#8fd4a0", fontSize: 13, lineHeight: 18 },
+  ticketCtaText: {
+    fontFamily: fonts.body,
+    color: colors.accent,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  ticketNote: {
+    color: colors.success,
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: fonts.body,
+  },
 });

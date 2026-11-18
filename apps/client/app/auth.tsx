@@ -8,6 +8,7 @@ import { api, type AuthMeta } from "../lib/api";
 import { PHONE_VERIFY_WALL } from "../lib/play-gates";
 import { useSession } from "../lib/session";
 import { getSupabase, isSupabaseClientConfigured, normalizeTrPhoneClient } from "../lib/supabase";
+import { colors, fonts, radii, space, type as typeRoles } from "../lib/theme";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -235,7 +236,7 @@ export default function AuthScreen() {
         onChangeText={setPhone}
         keyboardType="phone-pad"
         placeholder="5xx xxx xx xx"
-        placeholderTextColor="#6b7c72"
+        placeholderTextColor={colors.mutedDim}
       />
       {!sent ? (
         <Pressable style={[styles.cta, busy && styles.disabled]} onPress={start} disabled={busy}>
@@ -250,7 +251,7 @@ export default function AuthScreen() {
             onChangeText={setCode}
             keyboardType="number-pad"
             placeholder="6 haneli"
-            placeholderTextColor="#6b7c72"
+            placeholderTextColor={colors.mutedDim}
           />
           <Pressable style={[styles.cta, busy && styles.disabled]} onPress={verify} disabled={busy}>
             <Text style={styles.ctaText}>Doğrula</Text>
@@ -292,38 +293,72 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 20, gap: 10, backgroundColor: "#0b1f17" },
-  title: { fontFamily: "Georgia", fontSize: 26, color: "#f4e7c5", fontWeight: "700" },
-  sub: { color: "#9bb0a3", marginBottom: 8 },
-  label: { color: "#c8a96b", marginTop: 6 },
+  root: { flex: 1, padding: 20, gap: 10, backgroundColor: colors.bg },
+  title: {
+    ...typeRoles.title,
+    fontFamily: fonts.display,
+    fontSize: 26,
+    fontWeight: "700",
+    color: colors.ink,
+  },
+  sub: {
+    ...typeRoles.body,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    marginBottom: space.sm,
+  },
+  label: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    marginTop: space.sm,
+  },
   input: {
-    borderWidth: 1,
-    borderColor: "#2f4a3c",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    color: "#f4e7c5",
-    backgroundColor: "#0f1c16",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.stroke,
+    borderRadius: radii.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
+    color: colors.ink,
+    backgroundColor: colors.surface,
+    fontFamily: fonts.body,
   },
   cta: {
-    backgroundColor: "#c8a96b",
+    backgroundColor: colors.accent,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: "center",
-    marginTop: 4,
+    marginTop: space.xs,
   },
-  ctaText: { color: "#0b1f17", fontWeight: "700" },
+  ctaText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+  },
   oauth: {
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    borderRadius: 10,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radii.md,
     paddingVertical: 12,
     alignItems: "center",
   },
-  oauthText: { color: "#d8c9a3" },
-  or: { textAlign: "center", color: "#6b7c72", marginVertical: 8 },
-  hint: { color: "#8fd4a0" },
-  error: { color: "#e07070" },
-  foot: { color: "#6b7c72", fontSize: 12, marginTop: 12 },
+  oauthText: {
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    fontWeight: "600",
+  },
+  or: {
+    textAlign: "center",
+    color: colors.mutedDim,
+    marginVertical: space.sm,
+    fontFamily: fonts.body,
+  },
+  hint: { color: colors.success, fontFamily: fonts.body },
+  error: { color: colors.danger, fontFamily: fonts.body },
+  foot: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginTop: space.md,
+  },
   disabled: { opacity: 0.55 },
 });

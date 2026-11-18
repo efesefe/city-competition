@@ -13,4 +13,4 @@
 2. Open the app — root stack background/header should read night navy (`#070B12`), not forest green.
 3. Confirm no screen layout/copy changes beyond shell tint.
 
-**Follow-up:** ~~load Unbounded + Figtree~~ + guest map composition → see [`guest-map-floodlight-night.md`](guest-map-floodlight-night.md) (W5). W6 still open for sheet/shop/boards.
+**Follow-up:** ~~load Unbounded + Figtree~~ + guest map → [`guest-map-floodlight-night.md`](guest-map-floodlight-night.md) (W5). ~~W6 secondary surfaces~~ → [`secondary-surfaces-floodlight-night.md`](secondary-surfaces-floodlight-night.md).

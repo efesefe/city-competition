@@ -22,6 +22,7 @@ import {
   restoreNativePurchases,
 } from "../lib/revenuecat";
 import { useSession } from "../lib/session";
+import { colors, fonts, radii, space, type as typeRoles } from "../lib/theme";
 
 function productIdForSurface(
   pack: {
@@ -343,7 +344,7 @@ export default function ShopScreen() {
         <Text style={styles.warn}>Web önizleme — gerçek Play Billing Android derlemesinde; web product ids below.</Text>
       ) : null}
       {!shop ? (
-        <ActivityIndicator color="#c8a96b" />
+        <ActivityIndicator color={colors.accent} />
       ) : (
         <>
           {shop.packs.map((p) => {
@@ -469,36 +470,77 @@ export default function ShopScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: 16, gap: 10, backgroundColor: "#0b1f17" },
-  title: { fontFamily: "Georgia", fontSize: 24, color: "#f4e7c5", fontWeight: "700" },
-  sub: { color: "#9bb0a3" },
-  warn: { color: "#c8a96b", fontSize: 13 },
-  card: {
-    backgroundColor: "#13261d",
-    padding: 14,
-    borderRadius: 10,
-    gap: 4,
+  root: { flex: 1, padding: space.lg, gap: 10, backgroundColor: colors.bg },
+  title: {
+    ...typeRoles.title,
+    fontFamily: fonts.display,
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.ink,
   },
-  pack: { color: "#f4e7c5", fontWeight: "600" },
-  price: { color: "#c8a96b" },
-  sku: { color: "#6d8578", fontSize: 11 },
+  sub: {
+    ...typeRoles.body,
+    fontFamily: fonts.body,
+    color: colors.muted,
+  },
+  warn: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+  },
+  card: {
+    paddingVertical: space.md,
+    gap: space.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.stroke,
+  },
+  pack: {
+    fontFamily: fonts.body,
+    color: colors.ink,
+    fontWeight: "600",
+  },
+  price: {
+    ...typeRoles.tabular,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+  },
+  sku: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    fontSize: 11,
+  },
   cta: {
-    marginTop: 6,
-    backgroundColor: "#c8a96b",
-    borderRadius: 8,
+    marginTop: space.sm,
+    backgroundColor: colors.accent,
+    borderRadius: radii.md,
     padding: 10,
     alignItems: "center",
   },
   ctaDisabled: { opacity: 0.6 },
-  ctaText: { color: "#0b1f17", fontWeight: "700" },
+  ctaText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+  },
   secondary: {
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: colors.surfaceRaised,
+    borderRadius: radii.md,
+    padding: space.md,
     alignItems: "center",
   },
-  secondaryText: { color: "#f4e7c5", fontWeight: "600" },
-  meta: { color: "#9bb0a3" },
-  note: { color: "#8fd4a0" },
+  secondaryText: {
+    fontFamily: fonts.body,
+    color: colors.ink,
+    fontWeight: "600",
+  },
+  meta: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+  },
+  note: {
+    fontFamily: fonts.body,
+    color: colors.success,
+  },
 });

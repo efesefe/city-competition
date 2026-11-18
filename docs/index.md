@@ -7,6 +7,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [apps-boot-path.md](apps-boot-path.md) | W1 + D1: `apps/` sole boot path; legacy Go/Next trees deleted |
 | [legacy-tree-delete.md](legacy-tree-delete.md) | D1: deleted `frontend/` / `backend/` / `services/` / root compose + migrations |
 | [guest-map-floodlight-night.md](guest-map-floodlight-night.md) | W5: guest map full-bleed first viewport (Floodlight Night + motion) |
+| [secondary-surfaces-floodlight-night.md](secondary-surfaces-floodlight-night.md) | W6: sheet / confirm / tutorial / boards / shop / auth visual pass |
 | [visual-direction-tokens.md](visual-direction-tokens.md) | W4: Floodlight Night `theme.ts` tokens + root stack chrome (D2) |
 | [expo-fastify-slice.md](expo-fastify-slice.md) | First Expo + Fastify vertical slice (map, auth stub, kabile, spend, flip) |
 | [supabase-auth-providers.md](supabase-auth-providers.md) | CC-19: Supabase Auth phone/Google/Apple + Send SMS Hook seam |

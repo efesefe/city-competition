@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { GUEST_LOGIN_WALL, GUEST_SUPPORT_CTA } from "../lib/play-gates";
+import { colors, fonts, radii, space, type as typeRoles } from "../lib/theme";
 
 type Props = {
   /** City-sheet support CTA vs generic action wall. */
@@ -27,23 +28,39 @@ export function GuestLoginWall({ variant = "action", onLogin }: Props) {
 
 const styles = StyleSheet.create({
   box: {
-    marginTop: 10,
-    gap: 6,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#3d5a4c",
-    backgroundColor: "#0f1c16",
+    marginTop: space.md,
+    gap: space.sm,
+    paddingVertical: space.md,
   },
-  tr: { color: "#f4e7c5", fontSize: 15, fontWeight: "600", lineHeight: 22 },
-  en: { color: "#9bb0a3", fontSize: 13, lineHeight: 18 },
-  note: { color: "#6b7c72", fontSize: 12, marginTop: 2 },
+  tr: {
+    ...typeRoles.headline,
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.ink,
+    lineHeight: 22,
+  },
+  en: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    lineHeight: 18,
+  },
+  note: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.mutedDim,
+    marginTop: 2,
+  },
   cta: {
-    marginTop: 8,
-    backgroundColor: "#c8a96b",
+    marginTop: space.sm,
+    backgroundColor: colors.accent,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: "center",
   },
-  ctaText: { color: "#0b1f17", fontWeight: "700", fontSize: 16 },
+  ctaText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+  },
 });
