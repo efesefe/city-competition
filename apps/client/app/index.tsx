@@ -45,7 +45,7 @@ export default function MapScreen() {
   const [pulse, setPulse] = useState<Set<string>>(new Set());
   const [flipBanner, setFlipBanner] = useState<string | null>(null);
   const [matchDayEvents, setMatchDayEvents] = useState<MatchDayEvent[]>([]);
-const [tutorial, setTutorial] = useState<TutorialState | null>(null);
+  const [tutorial, setTutorial] = useState<TutorialState | null>(null);
   const [tutorialBusy, setTutorialBusy] = useState(false);
   const [showDoneCard, setShowDoneCard] = useState(false);
   const [shareAvailable, setShareAvailable] = useState(false);
@@ -283,7 +283,7 @@ const [tutorial, setTutorial] = useState<TutorialState | null>(null);
     setDigest(res.digest);
     setDigestStatus("ready");
     updateUser(res.user);
-if (res.user.tutorial) {
+    if (res.user.tutorial) {
       setTutorial((prev) => ({
         ...(prev ?? res.user.tutorial!),
         ...res.user.tutorial!,
@@ -467,9 +467,11 @@ if (res.user.tutorial) {
         <Pressable style={styles.link} onPress={openShop}>
           <Text style={styles.linkText}>Dükkan</Text>
         </Pressable>
-        <Pressable style={styles.link} onPress={() => router.push("/admin")}>
-          <Text style={styles.linkText}>Admin</Text>
-        </Pressable>
+        {user?.role === "admin" ? (
+          <Pressable style={styles.link} onPress={() => router.push("/admin")}>
+            <Text style={styles.linkText}>Admin</Text>
+          </Pressable>
+        ) : null}
         <Pressable style={styles.play} onPress={goPlay}>
           <Text style={styles.playText}>
             {!token ? "Katıl" : !user?.phoneVerified ? "Doğrula" : user?.tribeId ? "Hesap" : "Kabile"}
