@@ -34,3 +34,12 @@ Local defaults from compose: `postgres://city:city@127.0.0.1:5432/city_competiti
 
 Env templates: [`apps/api/.env.example`](apps/api/.env.example), [`apps/client/.env.example`](apps/client/.env.example).  
 Root [`.env.example`](.env.example) only points at those.
+
+### CI
+
+GitHub Actions (`.github/workflows/ci.yml`) on every PR and push to `main`:
+
+- `apps/api` — `npm ci` → `npm run typecheck` → `npm test` (unit only; no DB/Redis)
+- `apps/client` — `npm ci` → `npm run typecheck` (`tsc --noEmit`)
+
+Node **22** (same as `apps/api/Dockerfile`). See [`docs/ci.md`](docs/ci.md).
