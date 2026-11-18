@@ -1827,7 +1827,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<FastifyInstance> 
    *   → { type: "subscribe", channel: "digest" }
    *   ← { type: "subscribed", channel: "digest" }
    *   ← { type: "digest", cities: [...81] }   // snapshot (Redis cache when warm)
-   *   ← { type: "support" | "flip" | "digest" | "ping" }  // live
+   *   ← { type: "support" }                  // every spend (delta — one city)
+   *   ← { type: "flip" | "digest" }          // ownership change (+ full digest resync)
+   *   ← { type: "ping" }
    *   → { type: "unsubscribe", channel: "digest" }
    *   → { type: "ping" } → ← { type: "pong" }
    *

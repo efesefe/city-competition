@@ -35,6 +35,7 @@ Project context for future sessions. Update this list when adding a new module o
 | [admin-ops-mvp.md](admin-ops-mvp.md) | CC-52…55: OTP-gated admin writes, team-add triage, seed load, ops metrics |
 | [idempotent-spend.md](idempotent-spend.md) | CC-37: concurrent idempotent spend load/smoke tests + HTTP retry/single-flight harden |
 | [websocket-city-digest.md](websocket-city-digest.md) | CC-36: guest/player WS subscribe, 81-city ownership+support digest, spend/flip live |
+| [ws-delta-support-fanout.md](ws-delta-support-fanout.md) | W3: delta-only `support` fan-out; full digest on subscribe/flip |
 | [turkiye-map-web-svg.md](turkiye-map-web-svg.md) | Expo web fix: Path `onPress` → WebShape unknown event handlers |
 | [turkiye-map-harden.md](turkiye-map-harden.md) | Season 0 Wave 1: 81-path memo, taps, atlas guard, digest/sheet loading-error-empty |
 | [presence.md](presence.md) | Redis TTL presence: online count (`SCARD`), per-tribe online members, map chip + chat dots |
