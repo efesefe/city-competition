@@ -5,6 +5,7 @@ Project context for future sessions. Update this list when adding a new module o
 | Doc | Topic |
 | --- | --- |
 | [apps-boot-path.md](apps-boot-path.md) | W1 + D1: `apps/` sole boot path; legacy Go/Next trees deleted |
+| [ci.md](ci.md) | W7: GitHub Actions — API typecheck+test, client `tsc --noEmit` on PR/main |
 | [legacy-tree-delete.md](legacy-tree-delete.md) | D1: deleted `frontend/` / `backend/` / `services/` / root compose + migrations |
 | [guest-map-floodlight-night.md](guest-map-floodlight-night.md) | W5: guest map full-bleed first viewport (Floodlight Night + motion) |
 | [secondary-surfaces-floodlight-night.md](secondary-surfaces-floodlight-night.md) | W6: sheet / confirm / tutorial / boards / shop / auth visual pass |

@@ -57,6 +57,17 @@ cd apps/api && npm run migrate
 
 Makefile shortcuts from repo root: `make api-up`, `make api-dev`, `make client-web`.
 
+### CI (GitHub Actions)
+
+On PR / push to `main` (`.github/workflows/ci.yml`), Node 22:
+
+```bash
+cd apps/api && npm ci && npm run typecheck && npm test
+cd apps/client && npm ci && npm run typecheck   # tsc --noEmit
+```
+
+Unit tests only — no `DATABASE_URL` / `REDIS_URL`. Spend load test (`npm run test:spend-load`) stays local. Details: [`docs/ci.md`](../docs/ci.md).
+
 ### 2. Expo web (terminal B)
 
 ```bash
