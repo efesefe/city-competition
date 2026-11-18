@@ -14,20 +14,13 @@ bin/
 *.swo
 coverage/
 vendor/
-frontend/.turbo/
-frontend/tsconfig.tsbuildinfo
-frontend/test-results/
-frontend/playwright-report/
-frontend/blob-report/
-backend/api
 
-# Local uploaded avatars (GET /v1/users/{id}/avatar falls back to generated SVG).
+# Local uploaded avatars (legacy path; unused by apps/)
 data/avatars/
 
-# Full province polygons — import via `make import-boundaries` (see data/README-boundaries.md)
+# Optional GeoJSON dumps (not used by Season 0 SVG atlas)
 data/turkiye-il.geojson
 data/geoBoundaries-TUR-ADM1*.geojson
-
 
 # Slice vertical (Expo + Fastify)
 apps/api/data/

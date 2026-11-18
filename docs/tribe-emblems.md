@@ -1,5 +1,7 @@
 # Tribe mascot emblems
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Seeded parody tribes show an original silhouette on every crest disc (header, picker, profile, derby, leaderboard, conquest toasts, map city markers) instead of a letter monogram.
 
 ## Why this shape

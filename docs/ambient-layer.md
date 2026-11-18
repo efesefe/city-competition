@@ -1,5 +1,7 @@
 # Ambient sea creatures and day/night tint
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Purely decorative overlay on the Türkiye map: rare sea-creature drifts over water, plus a static wash driven by Europe/Istanbul local time. Zero gameplay weight. Never a MapLibre layer.
 
 ## Why this shape
@@ -12,7 +14,7 @@ Purely decorative overlay on the Türkiye map: rare sea-creature drifts over wat
 
 1. `map/page.tsx` passes `sheetOpen={!scoreboardOpen && Boolean(selectedIl)}` and the existing `perfModeEnabled` into `TurkiyeMap`.
 2. `TurkiyeMap` mounts `AmbientLayer` once the map is ready, with the selected city’s centroid from `CityDataContext`.
-3. Scheduling, sea paths, SVG silhouettes, and tint math live in [`frontend/lib/map/ambientAssets.ts`](../frontend/lib/map/ambientAssets.ts) so they can be unit-tested without MapLibre.
+3. Scheduling, sea paths, SVG silhouettes, and tint math live in `frontend/lib/map/ambientAssets.ts` so they can be unit-tested without MapLibre.
 
 ## Day/night tint
 
@@ -28,7 +30,7 @@ Refresh about once a minute. Stays on under reduce-motion (it is static per rend
 
 ## Reduce motion
 
-`shouldReduceMotion()` in [`frontend/lib/reduceMotion.ts`](../frontend/lib/reduceMotion.ts) is true when the OS `prefers-reduced-motion: reduce` media query matches **or** the user enables the Profile → Settings toggle (`localStorage cc_reduce_motion`).
+`shouldReduceMotion()` in `frontend/lib/reduceMotion.ts` is true when the OS `prefers-reduced-motion: reduce` media query matches **or** the user enables the Profile → Settings toggle (`localStorage cc_reduce_motion`).
 
 Sprites are also skipped when performance mode is on (same policy as derby glow). Tint still renders.
 

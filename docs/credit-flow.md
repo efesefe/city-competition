@@ -1,5 +1,7 @@
 # Credit-flow animation on support
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Tactile polish on a successful city support: a small burst of coin sprites flies from the CreditHeader balance toward the supported city on the map. Purely visual. The existing optimistic wallet decrement and city-bar patch are unchanged.
 
 The support sheet is always open during a spend. Coins arc over that modal (`z-index: 55` vs sheet `35`) toward the city’s map point. Sheet coverage is the normal case, not a skip.
@@ -15,7 +17,7 @@ The support sheet is always open during a spend. Coins arc over that modal (`z-i
 
 1. `CitySupportSheet` confirms a spend. Optimistic update + POST run as before.
 2. On `outcome.ok` it calls `playCreditFlow({ ilCode, projectCity })` with no `await`.
-3. `playCreditFlow` reads the balance node and map canvas, then `decideCreditFlow` in [`frontend/lib/creditFlow.ts`](../frontend/lib/creditFlow.ts).
+3. `playCreditFlow` reads the balance node and map canvas, then `decideCreditFlow` in `frontend/lib/creditFlow.ts`.
 4. Flight: `CreditFlowAnimation` (shell, `z-index: 55`, `pointer-events: none`) renders the coins over the open sheet. Reduce motion: WAAPI color tick on `[data-testid="credit-balance"]`. Off-canvas / missing target: no visual.
 
 ```

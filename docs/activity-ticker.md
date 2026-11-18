@@ -1,11 +1,13 @@
 # Nationwide activity ticker
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Horizontal auto-scrolling strip on the map screen that shows conquests and large/derby supports from across the country, including cities outside the current viewport.
 
 ## Why this shape
 
 - `GET /v1/activity-feed` and Redis `activity:feed` already exist. The hub fans `type: "activity_feed"` to every connected `/v1/ws/map` client (not viewport-filtered). The frontend previously dropped those frames.
-- Snippets use case-correct Turkish suffixes via [`frontend/lib/i18n/turkishSuffix.ts`](../frontend/lib/i18n/turkishSuffix.ts): **accusative** for conquest (`İstanbul'u fethetti`) and **locative** for support (`İzmir'de destek verdi`). Action templates live in next-intl ICU (`activityTicker.*`), not ad-hoc concatenated strings. English keeps the bare city name.
+- Snippets use case-correct Turkish suffixes via `frontend/lib/i18n/turkishSuffix.ts`: **accusative** for conquest (`İstanbul'u fethetti`) and **locative** for support (`İzmir'de destek verdi`). Action templates live in next-intl ICU (`activityTicker.*`), not ad-hoc concatenated strings. English keeps the bare city name.
 - The ticker is map-local (unlike capture toasts). It mounts in `map/page.tsx` below `DerbiBanner` and the fixed `CreditHeader`.
 
 ## Data flow

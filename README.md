@@ -16,7 +16,7 @@ Season 0 product lives under **`apps/`**:
 ### Quick start
 
 ```bash
-# 1. Postgres + Redis (canonical compose — not the root Go/Next docker-compose.yml)
+# 1. Postgres + Redis
 cd apps/api
 cp .env.example .env          # DATABASE_URL + REDIS_URL required
 docker compose up -d          # → apps/api/docker-compose.yml
@@ -33,8 +33,4 @@ Required API env: **`DATABASE_URL`**, **`REDIS_URL`**.
 Local defaults from compose: `postgres://city:city@127.0.0.1:5432/city_competition` and `redis://127.0.0.1:6379`.
 
 Env templates: [`apps/api/.env.example`](apps/api/.env.example), [`apps/client/.env.example`](apps/client/.env.example).  
-Root [`.env.example`](.env.example) only points at those — do not use it for Go/Next.
-
-## Legacy tree (pending delete)
-
-`frontend/` (Next.js), `backend/` (Go), root `docker-compose.yml`, and related leftovers are **not** the product stack. They remain in-tree until a follow-up delete PR (decision **D1**). Do not boot them for Season 0 work.
+Root [`.env.example`](.env.example) only points at those.

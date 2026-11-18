@@ -1,5 +1,7 @@
 # Presence tracking
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Approximate online-user presence for the ambient "X people online" counter and tribe-chat presence dots. Low precision is intentional: TTL expiry is the cleanup mechanism, and the API is framed as `approximate_count`.
 
 ## Why SCARD (not HyperLogLog)
@@ -51,8 +53,8 @@ Presence is HTTP-polled. `/v1/ws/map` heartbeats only refresh the *viewer's* TTL
 
 | Surface | Source | Cadence |
 | --- | --- | --- |
-| Map chip [`OnlineCounter`](../frontend/components/shell/OnlineCounter.tsx) | `GET /v1/presence/online-count` | 30s (`PRESENCE_POLL_MS`), paused while the tab is hidden, refetch on visible |
-| Chat dots in [`ChatThread`](../frontend/components/chat/ChatThread.tsx) | `GET /v1/tribes/{tribe_id}/online-members` | same 30s cadence |
+| Map chip `OnlineCounter` | `GET /v1/presence/online-count` | 30s (`PRESENCE_POLL_MS`), paused while the tab is hidden, refetch on visible |
+| Chat dots in `ChatThread` | `GET /v1/tribes/{tribe_id}/online-members` | same 30s cadence |
 
 - The chip sits top-left on the map canvas (opposite search/locale/perf). It stays hidden until the first successful fetch and keeps the last good count on later errors (never flashes a fake `0`).
 - Label copy lives in next-intl (`map.onlineCount`): `"~{count} kişi haritada"` / `"~{count} people on the map"`. `{count}` is a grouped integer from `formatApproximateCount` (`tr-TR` → `1.240`, `en-US` → `1,240`). The `~` stays in the message so the chip never reads as an exact census.
