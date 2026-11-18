@@ -11,6 +11,7 @@ import {
   type ProvinceFeature,
   type ProvincePaint,
 } from "../lib/mapAtlas";
+import { colors, fonts, motion, type as typeRoles } from "../lib/theme";
 
 export type TurkiyeMapProps = {
   digest: DigestCity[];
@@ -18,6 +19,8 @@ export type TurkiyeMapProps = {
   pulsePlates?: Set<string>;
   /** Match-day timed-war / derby city plates (locked with banner). */
   spotlightPlates?: Set<string>;
+  /** Guest-visible contested heat — soft accent pulse wash (2–3 plates). */
+  contestedPlates?: Set<string>;
   onSelect: (plate: string) => void;
 };
 
@@ -25,10 +28,88 @@ function useColorByPlate(digest: DigestCity[]) {
   return useMemo(() => {
     const m = new Map<string, string>();
     for (const c of digest) {
-      if (c?.plate) m.set(c.plate, c.ownerColor || "#3d5a4c");
+      if (c?.plate) m.set(c.plate, c.ownerColor || colors.mapBase);
     }
     return m;
   }, [digest]);
+}
+
+/** Interpolate ownership fills when digest colors change (flip tween). */
+function useTweenedColors(target: Map<string, string>): Map<string, string> {
+  const [display, setDisplay] = useState(() => new Map(target));
+  const fromRef = useRef(new Map(target));
+  const toRef = useRef(new Map(target));
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    const prev = fromRef.current;
+    const changed: string[] = [];
+    for (const [plate, color] of target) {
+      if (prev.get(plate) !== color) changed.push(plate);
+    }
+    for (const plate of prev.keys()) {
+      if (!target.has(plate)) changed.push(plate);
+    }
+    if (changed.length === 0) {
+      fromRef.current = new Map(target);
+      toRef.current = new Map(target);
+      setDisplay(new Map(target));
+      return;
+    }
+
+    const from = new Map(prev);
+    for (const [plate, color] of target) {
+      if (!from.has(plate)) from.set(plate, colors.mapBase);
+    }
+    fromRef.current = from;
+    toRef.current = new Map(target);
+
+    const start = performance.now();
+    const duration = motion.flipTweenMs;
+    cancelAnimationFrame(rafRef.current);
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // Ease out — no bounce.
+      const e = 1 - (1 - t) * (1 - t);
+      const next = new Map<string, string>();
+      for (const [plate, toColor] of toRef.current) {
+        const fromColor = from.get(plate) ?? colors.mapBase;
+        next.set(plate, t >= 1 ? toColor : mixHex(fromColor, toColor, e));
+      }
+      setDisplay(next);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = new Map(toRef.current);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target]);
+
+  return display;
+}
+
+function mixHex(a: string, b: string, t: number): string {
+  const pa = parseHex(a);
+  const pb = parseHex(b);
+  if (!pa || !pb) return t < 0.5 ? a : b;
+  const r = Math.round(pa.r + (pb.r - pa.r) * t);
+  const g = Math.round(pa.g + (pb.g - pa.g) * t);
+  const bl = Math.round(pa.b + (pb.b - pa.b) * t);
+  return `#${toHex(r)}${toHex(g)}${toHex(bl)}`;
+}
+
+function parseHex(hex: string): { r: number; g: number; b: number } | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1]!, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function toHex(n: number): string {
+  return n.toString(16).padStart(2, "0");
 }
 
 function MapEmpty() {
@@ -118,21 +199,27 @@ const ProvincePathNative = memo(
 const SPOTLIGHT_PULSE_MS = 1600;
 
 function spotlightGlowOpacity(phase: number): number {
-  return 0.35 + 0.35 * Math.sin(phase * Math.PI * 2);
+  // Cool floodlight: ink at low alpha (visual-direction §2).
+  return 0.18 + 0.22 * Math.sin(phase * Math.PI * 2);
 }
 
-function spotlightFeatures(spotlightPlates?: Set<string>): ProvinceFeature[] {
-  if (!spotlightPlates?.size) return [];
-  return atlas.features.filter((f) => spotlightPlates.has(f.plate));
+function contestedWashOpacity(phase: number): number {
+  // Soft accent pulse 0 → ~0.22 → 0 (visual-direction §5).
+  return 0.22 * (0.5 + 0.5 * Math.sin(phase * Math.PI * 2));
+}
+
+function platesFeatures(plates?: Set<string>): ProvinceFeature[] {
+  if (!plates?.size) return [];
+  return atlas.features.filter((f) => plates.has(f.plate));
 }
 
 /**
- * Match-day amber halo pulse without re-rendering the 81-path province tree.
+ * Match-day cool halo pulse without re-rendering the 81-path province tree.
  * Web: rAF writes stroke-opacity on DOM path refs (no React state).
  * Native: local phase state — only this layer reconciles, not province fills.
  */
 function SpotlightHaloWeb({ plates }: { plates?: Set<string> }) {
-  const features = useMemo(() => spotlightFeatures(plates), [plates]);
+  const features = useMemo(() => platesFeatures(plates), [plates]);
   const pathRefs = useRef<(SVGPathElement | null)[]>([]);
 
   useEffect(() => {
@@ -168,9 +255,9 @@ function SpotlightHaloWeb({ plates }: { plates?: Set<string> }) {
           }}
           d={f.path}
           fill="none"
-          stroke="#e8b84a"
+          stroke={colors.ink}
           strokeWidth={4.5}
-          strokeOpacity={0.35}
+          strokeOpacity={0.2}
           pointerEvents="none"
           vectorEffect="non-scaling-stroke"
           data-testid={`match-day-spotlight-${f.plate}`}
@@ -181,7 +268,7 @@ function SpotlightHaloWeb({ plates }: { plates?: Set<string> }) {
 }
 
 function SpotlightHaloNative({ plates }: { plates?: Set<string> }) {
-  const features = useMemo(() => spotlightFeatures(plates), [plates]);
+  const features = useMemo(() => platesFeatures(plates), [plates]);
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -210,9 +297,98 @@ function SpotlightHaloNative({ plates }: { plates?: Set<string> }) {
           key={`glow-${f.plate}`}
           d={f.path}
           fill="none"
-          stroke="#e8b84a"
+          stroke={colors.ink}
           strokeWidth={4.5}
           strokeOpacity={glowOpacity}
+          pointerEvents="none"
+        />
+      ))}
+    </>
+  );
+}
+
+/** Contested soft pulse — accent wash on 2–3 hot provinces (guest-visible). */
+function ContestedPulseWeb({ plates }: { plates?: Set<string> }) {
+  const features = useMemo(() => platesFeatures(plates), [plates]);
+  const pathRefs = useRef<(SVGPathElement | null)[]>([]);
+
+  useEffect(() => {
+    pathRefs.current = pathRefs.current.slice(0, features.length);
+  }, [features.length]);
+
+  useEffect(() => {
+    if (features.length === 0) return;
+    let raf = 0;
+    let start = 0;
+    const period = motion.contestedPulseMs;
+    const tick = (t: number) => {
+      if (!start) start = t;
+      const phase = ((t - start) % period) / period;
+      const opacity = String(contestedWashOpacity(phase));
+      for (const el of pathRefs.current) {
+        if (el) el.setAttribute("fill-opacity", opacity);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [features]);
+
+  if (features.length === 0) return null;
+
+  return (
+    <>
+      {features.map((f, i) => (
+        <path
+          key={`heat-${f.plate}`}
+          ref={(el) => {
+            pathRefs.current[i] = el;
+          }}
+          d={f.path}
+          fill={colors.accent}
+          fillOpacity={0.12}
+          stroke="none"
+          pointerEvents="none"
+          data-testid={`contested-pulse-${f.plate}`}
+        />
+      ))}
+    </>
+  );
+}
+
+function ContestedPulseNative({ plates }: { plates?: Set<string> }) {
+  const features = useMemo(() => platesFeatures(plates), [plates]);
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    if (features.length === 0) {
+      setPhase(0);
+      return;
+    }
+    let raf = 0;
+    let start = 0;
+    const period = motion.contestedPulseMs;
+    const tick = (t: number) => {
+      if (!start) start = t;
+      setPhase(((t - start) % period) / period);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [features]);
+
+  if (features.length === 0) return null;
+
+  const wash = contestedWashOpacity(phase);
+  return (
+    <>
+      {features.map((f) => (
+        <Path
+          key={`heat-${f.plate}`}
+          d={f.path}
+          fill={colors.accent}
+          fillOpacity={wash}
+          stroke="none"
           pointerEvents="none"
         />
       ))}
@@ -229,9 +405,10 @@ function TurkiyeMapWeb({
   selectedPlate,
   pulsePlates,
   spotlightPlates,
+  contestedPlates,
   onSelect,
 }: TurkiyeMapProps) {
-  const colorByPlate = useColorByPlate(digest);
+  const colorByPlate = useTweenedColors(useColorByPlate(digest));
   const vb = parseViewBox(atlas.viewBox);
 
   return (
@@ -246,7 +423,7 @@ function TurkiyeMapWeb({
         aria-label="Türkiye illeri haritası"
         style={{ display: "block", width: "100%", height: "100%" }}
       >
-        <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="#0a1620" />
+        <rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill={colors.mapBase} />
         {atlas.features.map((f) => (
           <ProvincePathWeb
             key={f.plate}
@@ -261,7 +438,7 @@ function TurkiyeMapWeb({
             onSelect={onSelect}
           />
         ))}
-        {/* Soft amber halo — pulse via DOM attrs; province tree stays memo-stable. */}
+        <ContestedPulseWeb plates={contestedPlates} />
         <SpotlightHaloWeb plates={spotlightPlates} />
       </svg>
     </View>
@@ -273,9 +450,10 @@ function TurkiyeMapNative({
   selectedPlate,
   pulsePlates,
   spotlightPlates,
+  contestedPlates,
   onSelect,
 }: TurkiyeMapProps) {
-  const colorByPlate = useColorByPlate(digest);
+  const colorByPlate = useTweenedColors(useColorByPlate(digest));
   const vb = parseViewBox(atlas.viewBox);
 
   return (
@@ -287,7 +465,7 @@ function TurkiyeMapNative({
         preserveAspectRatio="xMidYMid meet"
         accessibilityLabel="Türkiye illeri haritası"
       >
-        <Rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill="#0a1620" />
+        <Rect x={vb.x} y={vb.y} width={vb.w} height={vb.h} fill={colors.mapBase} />
         {atlas.features.map((f) => (
           <ProvincePathNative
             key={f.plate}
@@ -302,6 +480,7 @@ function TurkiyeMapNative({
             onSelect={onSelect}
           />
         ))}
+        <ContestedPulseNative plates={contestedPlates} />
         <SpotlightHaloNative plates={spotlightPlates} />
       </Svg>
     </View>
@@ -322,7 +501,7 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     minHeight: 280,
-    backgroundColor: "#0a1620",
+    backgroundColor: colors.mapBase,
   },
   empty: {
     alignItems: "center",
@@ -330,14 +509,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   emptyTitle: {
-    color: "#f4e7c5",
+    ...typeRoles.title,
+    fontFamily: fonts.display,
     fontSize: 16,
-    fontWeight: "700",
     marginBottom: 6,
   },
   emptyBody: {
-    color: "#9bb0a3",
-    fontSize: 13,
+    ...typeRoles.meta,
     textAlign: "center",
+    color: colors.muted,
   },
 });
