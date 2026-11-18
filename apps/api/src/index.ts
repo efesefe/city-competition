@@ -1,3 +1,4 @@
+import "./loadEnv.js";
 import { buildApp } from "./app.js";
 import { startBus } from "./lib/bus.js";
 import { initDb } from "./lib/db.js";

@@ -21,13 +21,12 @@
 
 ```bash
 cd apps/api
-docker compose up -d          # postgres + redis
-export DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition
-export REDIS_URL=redis://127.0.0.1:6379
+cp .env.example .env          # DATABASE_URL + REDIS_URL; loaded on boot
+docker compose up -d          # apps/api/docker-compose.yml — postgres + redis
 npm install && npm run dev
 ```
 
-Upstash / managed: set `REDIS_URL` to the TLS URL (`rediss://…`).
+Upstash / managed: set `REDIS_URL` to the TLS URL (`rediss://…`). See [apps-boot-path.md](apps-boot-path.md).
 
 ## Keys / channels
 

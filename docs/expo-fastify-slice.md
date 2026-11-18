@@ -10,7 +10,8 @@
 |------|------|
 | `apps/api` | Fastify API, **Postgres** (`DATABASE_URL`) + **Redis** (`REDIS_URL`) WS bus |
 | `apps/client` | Expo Router web/mobile client |
-| `apps/README.md` | Local runbook |
+| `apps/README.md` | Local runbook (**sole** Season 0 boot path) |
+| [apps-boot-path.md](apps-boot-path.md) | W1: README/env/compose canonicalize; API loads `.env` |
 | [postgres-migration.md](postgres-migration.md) | SQLite → Postgres migration + Realtime ledger handoff |
 | [redis-realtime-ops.md](redis-realtime-ops.md) | Redis pub/sub, rate limits, coalesce hooks |
 | [idempotent-spend.md](idempotent-spend.md) | CC-37 concurrent idempotent spend load/smoke tests |
@@ -41,14 +42,12 @@
 
 Live Supabase project credentials (optional — code path is wired), Netgsm live send needs OTP package + başlık (`docs/netgsm-otp-sms-hook.md`; dry-run without keys), iyzico web checkout, Android Play Billing (iOS IAP is in — see [ios-iap-revenuecat.md](ios-iap-revenuecat.md)), TR midnight cron worker, push delivery worker. Admin MatchDay + OTP ops are in; personal boost display + activate stub remain available. `ALLOW_IAP_STUB` for local iOS grants.
 
-Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `docker compose` in `apps/api`, or Neon/Fly MPG + Upstash). See [postgres-migration.md](postgres-migration.md) and [redis-realtime-ops.md](redis-realtime-ops.md).
+Postgres + Redis are in: set `DATABASE_URL` and `REDIS_URL` (local `apps/api/docker-compose.yml`, or Neon/Fly MPG + Upstash). Copy `apps/api/.env.example` → `.env`; boot loads it automatically. See [apps-boot-path.md](apps-boot-path.md), [postgres-migration.md](postgres-migration.md), and [redis-realtime-ops.md](redis-realtime-ops.md).
 
 ## Test
 
 ```bash
-cd apps/api && docker compose up -d \
-  && DATABASE_URL=postgres://city:city@127.0.0.1:5432/city_competition \
-     REDIS_URL=redis://127.0.0.1:6379 npm run dev
+cd apps/api && cp .env.example .env && docker compose up -d && npm run dev
 cd apps/client && EXPO_PUBLIC_API_URL=http://localhost:8787 npm run web
 ```
 
