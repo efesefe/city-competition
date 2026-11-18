@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import type { TutorialState } from "../lib/api";
+import { colors, fonts, radii, space, type as typeRoles } from "../lib/theme";
 
 type Props = {
   tutorial: TutorialState | null;
@@ -46,7 +47,7 @@ export function TutorialCoach({
           testID="tutorial-primary"
         >
           {busy ? (
-            <ActivityIndicator color="#0b1f17" />
+            <ActivityIndicator color={colors.ink} />
           ) : (
             <Text style={styles.ctaText}>{copy.cta}</Text>
           )}
@@ -146,43 +147,64 @@ function copyFor(tutorial: TutorialState) {
 const styles = StyleSheet.create({
   wrap: {
     position: "absolute",
-    left: 12,
-    right: 12,
+    left: space.md,
+    right: space.md,
     bottom: 72,
     zIndex: 20,
   },
   card: {
-    backgroundColor: "#13261d",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#c8a96b",
-    padding: 16,
-    gap: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.stroke,
+    padding: space.lg,
+    gap: space.sm,
   },
   kicker: {
-    color: "#c8a96b",
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.accent,
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.6,
     textTransform: "uppercase",
   },
   title: {
-    fontFamily: "Georgia",
+    ...typeRoles.headline,
+    fontFamily: fonts.display,
     fontSize: 20,
-    color: "#f4e7c5",
     fontWeight: "700",
+    color: colors.ink,
   },
-  body: { color: "#d8c9a3", fontSize: 14, lineHeight: 20 },
-  detail: { color: "#9bb0a3", fontSize: 12 },
+  body: {
+    ...typeRoles.body,
+    fontFamily: fonts.body,
+    color: colors.inkDim,
+    lineHeight: 20,
+  },
+  detail: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+  },
   cta: {
-    marginTop: 6,
-    backgroundColor: "#c8a96b",
-    borderRadius: 10,
+    marginTop: space.sm,
+    backgroundColor: colors.accent,
+    borderRadius: radii.md,
     paddingVertical: 12,
     alignItems: "center",
   },
-  ctaText: { color: "#0b1f17", fontWeight: "700", fontSize: 16 },
-  skip: { alignItems: "center", paddingVertical: 8 },
-  skipText: { color: "#9bb0a3", fontSize: 13, textDecorationLine: "underline" },
+  ctaText: {
+    ...typeRoles.cta,
+    fontFamily: fonts.body,
+    color: colors.ink,
+  },
+  skip: { alignItems: "center", paddingVertical: space.sm },
+  skipText: {
+    ...typeRoles.meta,
+    fontFamily: fonts.body,
+    color: colors.muted,
+    textDecorationLine: "underline",
+  },
   disabled: { opacity: 0.55 },
 });
