@@ -27,7 +27,7 @@ Boot path: `initDb()` applies pending `migrations/*.sql`, then seeds teams + 81-
 ```bash
 cd apps/api
 cp .env.example .env   # DATABASE_URL + REDIS_URL; loaded on boot
-docker compose up -d   # apps/api/docker-compose.yml (not root Go/Next compose)
+docker compose up -d   # apps/api/docker-compose.yml
 npm install && npm run dev
 ```
 

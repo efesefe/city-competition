@@ -1,5 +1,7 @@
 # Conquest UI — capture toast, log, supporter badge, and own-flip celebration
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Frontend reaction layer for every city ownership flip. Backend durability (`conquest_log`, unread cursor, `region_supported` Pub/Sub, capture attribution) already exists; this document covers how the app consumes it.
 
 Rival-threat (lead-under-pressure) alerts are a separate surface: see [threat-alert-ui.md](threat-alert-ui.md).

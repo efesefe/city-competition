@@ -1,5 +1,7 @@
 # Derby urgency map styling
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Visual treatment on the Türkiye map for an active or imminent derby city — fill intensity, pulsing outline, crest badge, and countdown chip. Complements `DerbiBanner` (which stays tribe-filtered at the top of the map screen).
 
 ## Why this shape

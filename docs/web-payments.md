@@ -14,4 +14,4 @@ Authoritative path for soft launch is documented in **[web-checkout-iyzico.md](w
 
 ## Legacy Next.js / Go stack
 
-Older `frontend/` + `backend/` + `services/payments` still enforce iyzico-only web (no Papara/BKM in the provider picker / registry). Historical `web_purchases` may reference papara or bkm_express; those packs stay `active = false`. Prefer the Season 0 `apps/` path for new work.
+Season 0 web checkout is iyzico-only in `apps/` (no Papara/BKM). Historical `web_purchases` rows may still reference papara or bkm_express; those packs stay `active = false`. The retired Next/Go payments trees were deleted in D1.

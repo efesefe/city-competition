@@ -1,7 +1,6 @@
 # City Competition — Expo + Fastify (sole boot path)
 
-This is the **only** supported local/prod stack for Season 0.  
-Legacy `frontend/` (Next.js) and `backend/` (Go) remain in-tree until a delete PR — do **not** boot them.
+This is the **only** supported local/prod stack for Season 0.
 
 ## What this stack demos
 
@@ -23,7 +22,7 @@ Legacy `frontend/` (Next.js) and `backend/` (Go) remain in-tree until a delete P
 
 `DATABASE_URL` and `REDIS_URL` are **required**. Canonical local services:
 
-**`apps/api/docker-compose.yml`** (not the root Go/Next `docker-compose.yml`).
+**`apps/api/docker-compose.yml`**.
 
 ```bash
 cd apps/api

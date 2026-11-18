@@ -2,7 +2,7 @@
 
 Season 0 **web** monetization for energy packs (200 / 600 / 1500) and the monthly subscription (+50/day at 00:00 TR). Hosted **iyzico Checkout Form** with **3DS**; server is authoritative for grants. Native binaries stay on App Store IAP / Google Play Billing (CC-44 / CC-45). Product lock: web = iyzico only.
 
-Legacy Next.js `frontend/` + Go `services/payments` remain in-repo but are **not** this slice. This doc covers `apps/api` + `apps/client`.
+This doc covers the Season 0 `apps/api` + `apps/client` iyzico path (the retired Next/Go payments trees were deleted in D1).
 
 ## Why this shape
 

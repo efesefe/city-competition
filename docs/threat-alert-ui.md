@@ -1,5 +1,7 @@
 # Rival-threat alert UI
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Frontend consumption of targeted `rival_threat` push notifications, plus an in-map banner when the user is already looking at the threatened city. Backend durability (tension thresholds, Redis cooldown, `notif_queue`, inbox dual-write) already exists; this document covers how the app routes the payload and echoes it on the map.
 
 ## Why this shape
@@ -21,7 +23,7 @@ Queued / FCM data / inbox `payload`:
 | `tension_percent`, `level` | `70` or `90` |
 | `deep_link` | `/map?il={il_code}` |
 
-Client routing lives in [`frontend/lib/notifications/pushHandler.ts`](../frontend/lib/notifications/pushHandler.ts). Off-site `deep_link` values are ignored; the handler falls back to `/map?il=`. Client-handled taps append `focus=credits`.
+Client routing lives in `frontend/lib/notifications/pushHandler.ts`. Off-site `deep_link` values are ignored; the handler falls back to `/map?il=`. Client-handled taps append `focus=credits`.
 
 ## Event flow
 

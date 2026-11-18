@@ -2,7 +2,7 @@
 #
 # Canonical Postgres/Redis: apps/api/docker-compose.yml
 #   cd apps/api && docker compose up -d
-# Defaults match that compose file (not the legacy root Go/Next compose).
+# Defaults match that compose file.
 
 DATABASE_URL ?= postgres://city:city@127.0.0.1:5432/city_competition
 REDIS_URL ?= redis://127.0.0.1:6379

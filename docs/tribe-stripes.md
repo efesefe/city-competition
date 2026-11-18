@@ -1,5 +1,7 @@
 # Tribe kit stripes on held provinces
 
+> **Historical (retired Next/Go stack).** Source paths under `frontend/` / `backend/` were deleted in D1. Season 0 product lives in `apps/`. Keep this note for design archaeology only.
+
 Held cities on the Türkiye map fill with **vertical kit stripes** in the controlling tribe’s two colors (black/white for Siyah Gelgit), not a solid primary wash.
 
 ## Why this shape
@@ -18,7 +20,7 @@ Held cities on the Türkiye map fill with **vertical kit stripes** in the contro
 | Raster | 2× (`pixelRatio: 2`) |
 | Orientation | Vertical (kit-style) |
 
-Source: [`frontend/lib/map/stripePatterns.ts`](../frontend/lib/map/stripePatterns.ts).
+Source: `frontend/lib/map/stripePatterns.ts`.
 
 ## Data flow
 
