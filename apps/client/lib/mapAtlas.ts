@@ -90,8 +90,10 @@ export function provinceStyle(
   return {
     fill,
     fillOpacity: selected ? 0.95 : pulse ? 0.9 : 0.82,
+    // Selected rim is vermillion path stroke (Floodlight accent) — never a bbox rect.
+    // A top SelectionBorder overlay also redraws this rim so neighbors don't cover it.
     stroke: selected ? colors.accent : colors.mapStroke,
-    strokeWidth: selected ? 2 : 0.7,
+    strokeWidth: selected ? 2.4 : 0.7,
   };
 }
 
