@@ -138,16 +138,28 @@ const ProvincePathWeb = memo(
         fillOpacity={paint.fillOpacity}
         stroke={paint.stroke}
         strokeWidth={paint.strokeWidth}
+        strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"
         role="button"
         aria-label={feature.nameTr}
         tabIndex={0}
-        style={{ cursor: "pointer", touchAction: "manipulation" }}
+        // Kill browser focus bbox (rectangular outline around path bounds).
+        // Selected state uses path stroke + SelectionBorder overlay instead.
+        style={
+          {
+            cursor: "pointer",
+            touchAction: "manipulation",
+            outline: "none",
+            WebkitTapHighlightColor: "transparent",
+          } as React.CSSProperties
+        }
         onClick={(e) => {
           e.stopPropagation();
           // Skip the synthetic click that follows a touch pointerup.
           if (Date.now() - touchHandledAt.current < 500) return;
           select();
+          // Drop focus so some engines don't keep a focus chrome after click.
+          (e.currentTarget as SVGPathElement).blur();
         }}
         onPointerUp={(e) => {
           if (e.pointerType !== "touch") return;
@@ -155,6 +167,7 @@ const ProvincePathWeb = memo(
           e.stopPropagation();
           touchHandledAt.current = Date.now();
           select();
+          (e.currentTarget as SVGPathElement).blur();
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -396,6 +409,46 @@ function ContestedPulseNative({ plates }: { plates?: Set<string> }) {
   );
 }
 
+/** Top-layer selected province rim — path stroke only (no rect / bbox chrome). */
+function SelectionBorderWeb({ plate }: { plate?: string | null }) {
+  const feature = useMemo(
+    () => (plate ? atlas.features.find((f) => f.plate === plate) : undefined),
+    [plate],
+  );
+  if (!feature) return null;
+  return (
+    <path
+      d={feature.path}
+      fill="none"
+      stroke={colors.accent}
+      strokeWidth={2.6}
+      strokeLinejoin="round"
+      vectorEffect="non-scaling-stroke"
+      pointerEvents="none"
+      data-testid="selected-province-border"
+    />
+  );
+}
+
+function SelectionBorderNative({ plate }: { plate?: string | null }) {
+  const feature = useMemo(
+    () => (plate ? atlas.features.find((f) => f.plate === plate) : undefined),
+    [plate],
+  );
+  if (!feature) return null;
+  return (
+    <Path
+      d={feature.path}
+      fill="none"
+      stroke={colors.accent}
+      strokeWidth={2.6}
+      strokeLinejoin="round"
+      pointerEvents="none"
+      testID="selected-province-border"
+    />
+  );
+}
+
 /**
  * Expo web: never mount react-native-svg Path with onPress — WebShape forwards
  * RN responder props into createElement and blank the map. DOM <svg>/<path> only.
@@ -440,6 +493,7 @@ function TurkiyeMapWeb({
         ))}
         <ContestedPulseWeb plates={contestedPlates} />
         <SpotlightHaloWeb plates={spotlightPlates} />
+        <SelectionBorderWeb plate={selectedPlate} />
       </svg>
     </View>
   );
@@ -482,6 +536,7 @@ function TurkiyeMapNative({
         ))}
         <ContestedPulseNative plates={contestedPlates} />
         <SpotlightHaloNative plates={spotlightPlates} />
+        <SelectionBorderNative plate={selectedPlate} />
       </Svg>
     </View>
   );
